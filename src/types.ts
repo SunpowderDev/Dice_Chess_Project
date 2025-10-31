@@ -68,7 +68,7 @@ export type MoveRecord = {
 export type TerrainCell = "none" | "forest" | "water";
 export type Terrain = TerrainCell[][];
 
-export type ObstacleType = "rock" | "none";
+export type ObstacleType = "rock" | "courtier" | "column" | "none";
 export type Obstacle = ObstacleType[][];
 
 export type MarketAction =
@@ -105,6 +105,8 @@ export type StoryEvent =
   | { type: "give_free_unit"; pieceType: PieceType; equip?: Equip }
   | { type: "give_free_item"; item: Exclude<Equip, undefined> }
   | { type: "attach_item_to_units"; item: Exclude<Equip, undefined>; target: "player" | "enemy"; count: number }
+  | { type: "spawn_enemy_pawns"; count: number }
+  | { type: "assign_item_to_enemy"; item: Exclude<Equip, undefined>; count: number }
   | { type: "start_battle" };
 
 // Outcome display data with visual information

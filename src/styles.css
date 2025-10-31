@@ -181,6 +181,13 @@
   user-select: none;
   -webkit-user-select: none;
   text-rendering: geometricPrecision;
+  /* force symbol fonts to avoid colored emoji glyphs and enable color styling */
+  font-family: "Noto Sans Symbols 2", "Segoe UI Symbol", "DejaVu Sans", system-ui, sans-serif;
+  font-feature-settings: "liga" 0;
+}
+
+.obstacle-chip.courtier {
+  color: #6b4423; /* Brown color for courtier glyph (black pawn symbol) */
 }
 
 .ind {
@@ -268,7 +275,7 @@
       rgba(0, 0, 0, 0.06) 6px 12px
     );
   box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.65);
-  z-index: 10;
+  z-index: 100;
   pointer-events: none;
 }
 .forest {
@@ -343,6 +350,8 @@
 .piece-container.hover-scale {
   transform: scale(1.1);
   transition: transform 0.2s ease;
+  z-index: 150;
+  position: relative;
 }
 
 /* Sell button styles */

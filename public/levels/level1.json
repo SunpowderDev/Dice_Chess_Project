@@ -1,37 +1,23 @@
 {
   "level": 1,
-  "name": "First Steps",
-  "boardSize": 5,
+  "name": "Night of the Nameless",
+  "boardSize": 7,
   "startingGold": 100,
-  "enemyArmyGold": 200,
-  "playerArmyGold": 170,
+  "enemyArmyGold": 80,
+  "playerArmyGold": 80,
   "botBehavior": "aggressive",
-  "whiteKingName": "Arthur",
+  "whiteKingName": "Eohmer",
   "namedWhitePieces": [
     {
       "type": "N",
-      "name": "Sir Galahad",
+      "name": "Sir Rowan",
       "equip": "sword",
       "speechLines": [
-        "For **honor** and **glory**!",
-        "My blade is **true**!",
-        "Stand fast, companions!"
+        "Protect the king!", "Betrayer!", "Your word is my **command**!"
       ]
     }
   ],
-  "namedBlackPieces": [
-    {
-      "type": "R",
-      "name": "Count Weasel",
-      "equip": "bow",
-      "speechLines": [
-        "You'll **never** catch me!",
-        "**Hehehehe**!",
-        "Too slow, fool!",
-        "My arrows **never** miss!"
-      ]
-    }
-  ],
+  "namedBlackPieces": [],
   "storyCards": [
     {
       "id": "level1-narrator",
@@ -40,39 +26,41 @@
         "color": "w",
         "name": "Narrator"
       },
-      "bodyText": "Your kingdom prospers, but dark clouds gather on the horizon. A messenger arrives with troubling news from the northern border...",
-      "image": "/test.png",
+      "bodyText": "Your castle burns from within. On Coronation Night, Prelate Morcant's coup has turned prayer into password; men once loyal to you die to keys he forged from their trust.",
+      "image": "/DC__0000_level1_ChapelBurning.png",
       "leftChoice": {
-        "text": "Investigate personally",
+        "text": "You look at the courtiers screaming.. dazed..",
         "events": [
-          { "type": "next_card", "cardId": "level1-intro" }
+          { "type": "next_card", "cardId": "level1-rowan" }
         ]
       },
       "rightChoice": {
-        "text": "Send scouts ahead",
+        "text": "Sir Rowan, to me!",
         "events": [
-          { "type": "next_card", "cardId": "level1-intro" }
+          { "type": "next_card", "cardId": "level1-rowan" }
         ]
       }
     },
     {
-      "id": "level1-intro",
+      "id": "level1-rowan",
       "character": {
-        "type": "R",
-        "color": "b",
-        "equip": "bow",
-        "name": "Count Weasel"
+        "type": "N",
+        "color": "w",
+        "equip": "sword",
+        "name": "Sir Rowan"
       },
-      "bodyText": "You're governing like a loser.",
+      "bodyText": "My Liege, you shan't fall here, lest the crown become rumor by dawn. Your word is my **command**!",
+      "image": "/DC__0001_level1_SirRowan.png",
       "leftChoice": {
-        "text": "Pardon me?",
+        "text": "Save the royal regalia!",
         "events": [
-          { "type": "give_gold", "amount": 20 },
+          { "type": "assign_item_to_enemy", "item": "purse", "count": 3 },
+          { "type": "spawn_enemy_pawns", "count": 2 },
           { "type": "start_battle" }
         ]
       },
       "rightChoice": {
-        "text": "Challenge accepted!",
+        "text": "Flight to the postern gate! God alone will be our judge!",
         "events": [
           { "type": "give_prayer_die" },
           { "type": "start_battle" }
@@ -85,6 +73,14 @@
     "whiteRandomization": ["sword", "shield"],
     "whitePurchase": ["sword", "shield"]
   },
-  "victoryConditions": ["king_escaped"]
+  "victoryConditions": ["king_escaped"],
+  "terrainMatrix": [
+    ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"],
+    ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"],
+    ["_(Column)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Column)"],
+    ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"],
+    ["_(Column)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Column)"],
+    ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"],
+    ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"]
+  ]
 }
-

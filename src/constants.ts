@@ -65,6 +65,8 @@ export const GL = {
   N: { w: "\u2658", b: "\u265E" }, // ♘♞
   P: { w: "\u2659", b: "\u265F" }, // ♙♟ (black pawn glyph)
   ROCK: { n: "🪨" },
+  COURTIER: { n: "\u265F" }, // Courtier NPC (uses black pawn glyph, colored brown)
+  COLUMN: { n: "🏛️" }, // Indestructible column
 } as const;
 
 export const PHRASES = {

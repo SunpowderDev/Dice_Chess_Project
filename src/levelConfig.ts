@@ -81,13 +81,13 @@ const configCache = new Map<number, LevelConfig>();
  * @returns Promise resolving to the level configuration
  */
 export async function loadLevelConfig(level: number): Promise<LevelConfig> {
-  // Check cache first
-  if (configCache.has(level)) {
-    return configCache.get(level)!;
-  }
+  // ALWAYS reload during development - skip cache
+  // if (configCache.has(level)) {
+  //   return configCache.get(level)!;
+  // }
 
   try {
-    const response = await fetch(`/levels/level${level}.json`, {
+    const response = await fetch(`/levels/level${level}.json?t=${Date.now()}`, {
       cache: "no-cache" // Ensure fresh data during development
     });
 
@@ -102,8 +102,8 @@ export async function loadLevelConfig(level: number): Promise<LevelConfig> {
       throw new Error(`Invalid level config for level ${level}`);
     }
 
-    // Cache the loaded config
-    configCache.set(level, config);
+    // Don't cache during development to allow hot reloading
+    // configCache.set(level, config);
     
     return config;
   } catch (error) {

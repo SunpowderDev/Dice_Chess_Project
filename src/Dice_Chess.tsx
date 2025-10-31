@@ -597,7 +597,8 @@ function build(
   board?: Board, // Optional board to check available slots
   backRankRow?: number, // Which row is the back rank
   frontRankRow?: number, // Which row is the front rank
-  skipKing?: boolean // Optional flag to skip creating the King (for king_escaped only mode)
+  skipKing?: boolean, // Optional flag to skip creating the King (for king_escaped only mode)
+  guaranteedItems?: Exclude<Equip, undefined>[] // Items that MUST be equipped (from story events)
 ) {
   const EQ: Exclude<Equip, undefined>[] = availableItems ?? [
     "sword",
@@ -769,6 +770,21 @@ function build(
     }
     p.equip = equip;
   });
+
+  // Step 6: Equip guaranteed items (from story events) to unequipped pieces
+  if (guaranteedItems && guaranteedItems.length > 0) {
+    // Collect all unequipped pieces (front and back rank)
+    const allPieces: Piece[] = [];
+    br.forEach(p => { if (p && !p.equip) allPieces.push(p); });
+    fr.forEach(p => { if (p && !p.equip) allPieces.push(p); });
+    
+    // Shuffle and assign guaranteed items
+    allPieces.sort(() => r() - 0.5);
+    
+    for (let i = 0; i < Math.min(guaranteedItems.length, allPieces.length); i++) {
+      allPieces[i].equip = guaranteedItems[i];
+    }
+  }
 
   return { back: br, front: fr };
 }
@@ -1345,7 +1361,7 @@ function resolve(
     defAdv: isVeteranDefender, // Track defender advantage
   };
 }
-function resolveRock(
+function resolveObstacle(
   r: () => number,
   a: Piece,
   b: Board,
@@ -1356,6 +1372,32 @@ function resolveRock(
   adv: boolean,
   boardSize: number = S
 ) {
+  const obstacleType = O[to.y]?.[to.x];
+  
+  // Column cannot be destroyed
+  if (obstacleType === "column") {
+    const useAdv = a.type === "K" || adv;
+    const rolls = [d6(r)];
+    if (useAdv) rolls.push(d6(r));
+    const A = useAdv ? Math.max(...rolls) : rolls[0];
+    const am: Mod[] = [];
+    if (a.equip === "sword") am.push({ value: 1, kind: "sword" });
+    const sup = supportCount(b, T, O, a, from, to, boardSize);
+    if (sup > 0) am.push({ value: sup, kind: "support" });
+    const at = A + am.reduce((s, m) => s + m.value, 0);
+    return {
+      a: { base: A, total: at, mods: am, rolls },
+      ok: false, // Column is indestructible
+      adv: useAdv,
+    };
+  }
+  
+  // Determine threshold based on obstacle type
+  let threshold = 5; // Rock default
+  if (obstacleType === "courtier") {
+    threshold = 1; // Courtier is easier to destroy
+  }
+  
   const useAdv = a.type === "K" || adv;
   const rolls = [d6(r)];
   if (useAdv) rolls.push(d6(r));
@@ -1368,7 +1410,7 @@ function resolveRock(
   const at = A + am.reduce((s, m) => s + m.value, 0);
   return {
     a: { base: A, total: at, mods: am, rolls },
-    ok: at >= 5,
+    ok: at >= threshold,
     adv: useAdv,
   };
 }
@@ -1491,8 +1533,12 @@ function bot(
           }
         } else if (targetObstacle !== "none") {
           // --- OBSTACLE ATTACK SCORING ---
+          // Column cannot be destroyed, so skip attacking it
+          if (targetObstacle === "column") {
+            continue; // Skip column attacks
+          }
           const winProb =
-            rockWinPercent(b, T, O, p, { x, y }, t, boardSize) / 100;
+            obstacleWinPercent(b, T, O, p, { x, y }, t, boardSize) / 100;
           sc = winProb * 1 - (1 - winProb) * 0.1; // Small penalty for failure
         } else {
           // --- QUIET MOVE SCORING (AI LOGIC UPGRADE) ---
@@ -1710,7 +1756,7 @@ function winPercent(
     }
   return Math.round(p * 100);
 }
-function rockWinPercent(
+function obstacleWinPercent(
   BD: Board,
   TD: Terrain,
   OD: Obstacle,
@@ -1719,13 +1765,26 @@ function rockWinPercent(
   to: { x: number; y: number },
   boardSize: number = S
 ) {
+  const obstacleType = OD[to.y]?.[to.x];
+  
+  // Column cannot be destroyed - return 0% win chance
+  if (obstacleType === "column") {
+    return 0;
+  }
+  
+  // Determine threshold based on obstacle type
+  let threshold = 5; // Rock default
+  if (obstacleType === "courtier") {
+    threshold = 1; // Courtier is easier to destroy
+  }
+  
   const aSup = supportCount(BD, TD, OD, att, from, to, boardSize);
   const aMod = (att.equip === "sword" ? 1 : 0) + aSup;
   const dir = att.color === W ? 1 : -1;
   const lanceLungeUsed =
     att.equip === "lance" && to.y === from.y + 2 * dir && to.x === from.x;
   const useAdv = att.type === "K" || lanceLungeUsed;
-  const target = 5 - aMod;
+  const target = threshold - aMod;
   if (target <= 1) return 100;
   if (target > 6) return 0;
   let p = 0;
@@ -2326,7 +2385,7 @@ function BoardComponent({
               const targetObstacle = obstacles[y]?.[x]; // Safe navigation for target obstacle
               const willCap =
                 isMove && !!targetPiece;
-              const isObstacleAttack = isMove && targetObstacle !== "none" && !targetPiece; // Attacking an obstacle
+              const isObstacleAttack = isMove && targetObstacle !== "none" && targetObstacle !== "column" && !targetPiece; // Attacking an obstacle (columns can't be attacked)
               const currentTerrain = T[y]?.[x]; // Safe navigation
               const forest = currentTerrain === "forest";
               const water = currentTerrain === "water"; // Check for water
@@ -2336,7 +2395,7 @@ function BoardComponent({
               let obstaclePct: number | undefined;
               if (isObstacleAttack && sel && attacker) {
                 const a = attacker as Piece;
-                obstaclePct = rockWinPercent(board, T, obstacles, a, sel, { x, y }, boardSize);
+                obstaclePct = obstacleWinPercent(board, T, obstacles, a, sel, { x, y }, boardSize);
               }
 
               const atk = fx && fx.from.x === x && fx.from.y === y;
@@ -2351,6 +2410,8 @@ function BoardComponent({
               // Get obstacle glyph
               const getObstacleGlyph = (obstacleType: ObstacleType): string | null => {
                 if (obstacleType === "rock") return GL.ROCK.n;
+                if (obstacleType === "courtier") return GL.COURTIER.n;
+                if (obstacleType === "column") return GL.COLUMN.n;
                 return null;
               };
 
@@ -3014,6 +3075,7 @@ export default function App() {
   const [muted, setMuted] = useState(false);
   const [fastMode, setFastMode] = useState(false);
   const [showBoardTooltips, setShowBoardTooltips] = useState(true);
+  const [needsReinit, setNeedsReinit] = useState(false); // Track when board needs re-initialization
   
   // Clear saved game data on initial app load (when intro popup is shown)
   useEffect(() => {
@@ -3869,15 +3931,11 @@ export default function App() {
 
   // Handle intro popup completion
   function handleIntroComplete() {
-    console.log("handleIntroComplete called, storyCardQueue:", storyCardQueue);
     setShowIntro(false);
 
     // Check if there are story cards to show
     if (storyCardQueue.length > 0) {
-      console.log("Setting first story card:", storyCardQueue[0]);
       setCurrentStoryCard(storyCardQueue[0]);
-    } else {
-      console.log("No story cards found");
     }
     // If no story cards, game proceeds to market normally
   }
@@ -4067,10 +4125,44 @@ export default function App() {
             });
             break;
 
+          case "spawn_enemy_pawns":
+            // Store the count to spawn when battle starts
+            // We'll need to modify the init function to check for this
+            setCampaign((prev) => ({
+              ...prev,
+              // Store in a temporary field we can check during init
+              pendingEnemyPawns: ((prev as any).pendingEnemyPawns || 0) + event.count,
+            }));
+            outcomes.push({
+              message: "Extra enemies added",
+              glyph: "⚔️",
+              color: "text-red-100",
+              bgColor: "bg-red-900",
+              borderColor: "border-red-500",
+            });
+            break;
+
+          case "assign_item_to_enemy":
+            // Store to process after board is initialized (deferred like give_item/give_unit)
+            setCampaign((prev) => ({
+              ...prev,
+              pendingEnemyItemAssignments: [
+                ...((prev as any).pendingEnemyItemAssignments || []),
+                { item: event.item, count: event.count }
+              ],
+            }));
+            outcomes.push({
+              message: `Add ${event.count} 💰`,
+              glyph: "💰",
+              color: "text-orange-100",
+              bgColor: "bg-orange-900",
+              borderColor: "border-orange-500",
+            });
+            break;
+
           case "give_item":
           case "give_unit":
             // These will be handled when the battle starts (adds to initial boards)
-            console.log(`Deferred event: ${event.type}`, event);
             outcomes.push({
               message: event.type === "give_item" 
                 ? `Item granted to ${event.target}` 
@@ -4110,9 +4202,23 @@ export default function App() {
           setPhase("market");
         }
       }
+      
+      // If battle should start, trigger re-init to process pending events
+      if (shouldStartBattle) {
+        setNeedsReinit(true);
+      }
     },
     [campaign.level, currentStoryCard, currentLevelConfig, Bstate, currentBoardSize]
   );
+  
+  // Re-initialize board when pending events need to be processed
+  useEffect(() => {
+    if (needsReinit && currentLevelConfig) {
+      // Need to access the latest campaign state
+      init(seed, campaign.level, unspentGold, currentLevelConfig);
+      setNeedsReinit(false);
+    }
+  }, [needsReinit, campaign]);
 
   function init(
     s: string,
@@ -4157,7 +4263,9 @@ export default function App() {
         levelConfig.whiteKingName,
         B0, // Pass board to count available slots
         0, // White back rank
-        1 // White front rank
+        1, // White front rank
+        false, // Don't skip King for white
+        [] // No guaranteed items for white
       );
       // Place white pieces, avoiding obstacles
       placePiecesAvoidingObstacles(B0, O0, w.back, 0, boardSize);
@@ -4183,24 +4291,60 @@ export default function App() {
     // Check if king_escaped is the ONLY victory condition
     const kingEscapedOnly = victoryConditions.length === 1 && victoryConditions[0] === "king_escaped";
     
+    // Check for pending items to add to black item pool (from story events)
+    const pendingAssignments = (campaign as any).pendingEnemyItemAssignments || [];
+    let blackItemPool = [...(levelConfig.availableItems.blackRandomization || [])];
+    
+    // Extract guaranteed items that MUST be equipped
+    const guaranteedItems: Exclude<Equip, undefined>[] = [];
+    for (const assignment of pendingAssignments) {
+      for (let i = 0; i < assignment.count; i++) {
+        guaranteedItems.push(assignment.item);
+      }
+    }
+    
+    // Check for pending pawns (from story events)
+    const pendingPawns = (campaign as any).pendingEnemyPawns || 0;
+    
     const bl = build(
       B,
       r,
       enemyGold,
       false,
-      levelConfig.availableItems.blackRandomization,
+      blackItemPool, // Regular randomization pool
       boardSize,
       levelConfig.namedBlackPieces,
       undefined, // No custom king name for black (optional for future)
       B0, // Pass board to count available slots
       boardSize - 1, // Black back rank
       boardSize - 2, // Black front rank
-      kingEscapedOnly // Pass flag to skip black King
+      kingEscapedOnly, // Pass flag to skip black King
+      guaranteedItems // Guaranteed items that MUST be equipped
     );
+    
+    // Add extra pawns to front rank before placing
+    if (pendingPawns > 0) {
+      for (let i = 0; i < pendingPawns; i++) {
+        bl.front.push({
+          id: `extra-pawn-${i}-${Date.now()}`,
+          type: "P",
+          color: B,
+        });
+      }
+    }
+    
     // Place black pieces, avoiding obstacles
     placePiecesAvoidingObstacles(B0, O0, bl.back, boardSize - 1, boardSize);
     placePiecesAvoidingObstacles(B0, O0, bl.front, boardSize - 2, boardSize);
 
+    // Clear pending events after processing
+    setCampaign((prev) => {
+      const newCampaign = { ...prev };
+      delete (newCampaign as any).pendingEnemyPawns;
+      delete (newCampaign as any).pendingEnemyItemAssignments;
+      return newCampaign;
+    });
+    
     setB(B0);
     setT(T0);
     setObstacles(O0);
@@ -4419,7 +4563,7 @@ export default function App() {
         p.equip === "lance" && to.y === from.y + 2 * dir && to.x === from.x;
       if (lanceLungeUsed) sfx.spear();
 
-      const out = resolveRock(
+      const out = resolveObstacle(
         rngRef.current,
         p,
         Bstate,
@@ -4440,7 +4584,7 @@ export default function App() {
       });
 
       const notation = getChessNotation(from, to, p, true);
-      const winPct = rockWinPercent(
+      const winPct = obstacleWinPercent(
         Bstate,
         Tstate,
         obstacles,
@@ -5547,7 +5691,6 @@ export default function App() {
           <h1 className="text-5xl font-bold text-white">DiceChess Project</h1>
           <button
             onClick={() => {
-              console.log("ENTER button clicked!");
               playButtonSound();
               onEnter();
             }}
@@ -5623,7 +5766,7 @@ export default function App() {
           p.equip === "lance" &&
           to.y === from.y + (p.color === W ? 1 : -1) * 2 &&
           to.x === from.x;
-        const out = resolveRock(
+        const out = resolveObstacle(
           rngRef.current,
           p,
           Bstate,
