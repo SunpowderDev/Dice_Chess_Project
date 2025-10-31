@@ -1,0 +1,90 @@
+{
+  "level": 1,
+  "name": "First Steps",
+  "boardSize": 5,
+  "startingGold": 100,
+  "enemyArmyGold": 200,
+  "playerArmyGold": 170,
+  "botBehavior": "aggressive",
+  "whiteKingName": "Arthur",
+  "namedWhitePieces": [
+    {
+      "type": "N",
+      "name": "Sir Galahad",
+      "equip": "sword",
+      "speechLines": [
+        "For **honor** and **glory**!",
+        "My blade is **true**!",
+        "Stand fast, companions!"
+      ]
+    }
+  ],
+  "namedBlackPieces": [
+    {
+      "type": "R",
+      "name": "Count Weasel",
+      "equip": "bow",
+      "speechLines": [
+        "You'll **never** catch me!",
+        "**Hehehehe**!",
+        "Too slow, fool!",
+        "My arrows **never** miss!"
+      ]
+    }
+  ],
+  "storyCards": [
+    {
+      "id": "level1-narrator",
+      "character": {
+        "type": "K",
+        "color": "w",
+        "name": "Narrator"
+      },
+      "bodyText": "Your kingdom prospers, but dark clouds gather on the horizon. A messenger arrives with troubling news from the northern border...",
+      "image": "/test.png",
+      "leftChoice": {
+        "text": "Investigate personally",
+        "events": [
+          { "type": "next_card", "cardId": "level1-intro" }
+        ]
+      },
+      "rightChoice": {
+        "text": "Send scouts ahead",
+        "events": [
+          { "type": "next_card", "cardId": "level1-intro" }
+        ]
+      }
+    },
+    {
+      "id": "level1-intro",
+      "character": {
+        "type": "R",
+        "color": "b",
+        "equip": "bow",
+        "name": "Count Weasel"
+      },
+      "bodyText": "You're governing like a loser.",
+      "leftChoice": {
+        "text": "Pardon me?",
+        "events": [
+          { "type": "give_gold", "amount": 20 },
+          { "type": "start_battle" }
+        ]
+      },
+      "rightChoice": {
+        "text": "Challenge accepted!",
+        "events": [
+          { "type": "give_prayer_die" },
+          { "type": "start_battle" }
+        ]
+      }
+    }
+  ],
+  "availableItems": {
+    "blackRandomization": ["sword", "shield", "lance"],
+    "whiteRandomization": ["sword", "shield"],
+    "whitePurchase": ["sword", "shield"]
+  },
+  "victoryConditions": ["king_escaped"]
+}
+

@@ -1,0 +1,24 @@
+{
+  "level": 2,
+  "name": "Rising Threat",
+  "boardSize": 6,
+  "startingGold": 0,
+  "enemyArmyGold": 270,
+  "playerArmyGold": 0,
+  "botBehavior": "defensive",
+  "terrainMatrix": [
+    ["R", "R", "W", "_", "n", "n"],
+    ["R", "n", "W", "_", "W", "n"],
+    ["n", "W", "_", "_", "W", "n"],
+    ["n", "W", "_", "W", "n", "n"],
+    ["n", "W", "_", "W", "n", "n"],
+    ["n", "n", "_", "n", "n", "n"]
+  ],
+  "availableItems": {
+    "blackRandomization": ["bow", "torch", "purse"],
+    "whiteRandomization": ["sword", "shield"],
+    "whitePurchase": ["sword", "shield"]
+  },
+  "victoryConditions": ["king_beheaded", "king_captured", "king_dishonored"]
+}
+

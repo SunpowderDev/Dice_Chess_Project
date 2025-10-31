@@ -1,0 +1,15 @@
+{
+  "level": 4,
+  "name": "Dark Forces",
+  "boardSize": 8,
+  "startingGold": 0,
+  "enemyArmyGold": 410,
+  "playerArmyGold": 0,
+  "availableItems": {
+    "blackRandomization": ["sword", "shield", "lance", "torch", "bow", "scythe", "curse", "purse"],
+    "whiteRandomization": ["sword", "shield", "torch", "bow", "lance", "staff", "crystal_ball", "banner"],
+    "whitePurchase": ["sword", "shield", "torch", "bow", "lance", "staff", "crystal_ball", "banner", "disguise"]
+  },
+  "victoryConditions": ["king_beheaded", "king_captured", "king_dishonored"]
+}
+

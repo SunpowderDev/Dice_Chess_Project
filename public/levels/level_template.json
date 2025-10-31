@@ -1,0 +1,97 @@
+{
+  "level": 0,
+  "name": "Template Level",
+  "boardSize": 8,
+  "startingGold": 0,
+  "enemyArmyGold": 300,
+  "playerArmyGold": 0,
+  "botBehavior": "balanced",
+  "whiteKingName": "Your King Name",
+  "namedWhitePieces": [
+    {
+      "type": "N",
+      "name": "Example Knight",
+      "equip": "sword",
+      "speechLines": [
+        "Example **speech** line with emphasis!",
+        "Another line for variety."
+      ]
+    }
+  ],
+  "namedBlackPieces": [
+    {
+      "type": "Q",
+      "name": "Enemy Commander",
+      "equip": "bow",
+      "speechLines": [
+        "You shall not **pass**!",
+        "Prepare for **defeat**!"
+      ]
+    }
+  ],
+  "terrainMatrix": [
+    ["_", "_", "_", "_", "_", "_", "_", "_"],
+    ["_", "F", "F", "_", "_", "W", "W", "_"],
+    ["_", "_", "_", "R", "R", "_", "_", "_"],
+    ["_", "_", "_", "_", "_", "_", "_", "_"],
+    ["_", "_", "_", "_", "_", "_", "_", "_"],
+    ["_", "_", "_", "R", "R", "_", "_", "_"],
+    ["_", "W", "W", "_", "_", "F", "F", "_"],
+    ["_", "_", "_", "_", "_", "_", "_", "_"]
+  ],
+  "storyCards": [
+    {
+      "id": "template-narrator",
+      "character": {
+        "type": "K",
+        "color": "w",
+        "name": "Narrator"
+      },
+      "bodyText": "This is a narrator card. It has no chess piece frame, just simple text. Use it to set the scene.",
+      "image": "/placeholder.png",
+      "leftChoice": {
+        "text": "Continue",
+        "events": [
+          { "type": "next_card", "cardId": "template-character" }
+        ]
+      },
+      "rightChoice": {
+        "text": "Skip",
+        "events": [
+          { "type": "give_gold", "amount": 10 },
+          { "type": "start_battle" }
+        ]
+      }
+    },
+    {
+      "id": "template-character",
+      "character": {
+        "type": "Q",
+        "color": "b",
+        "equip": "bow",
+        "name": "Enemy Commander"
+      },
+      "bodyText": "This is a character card with a chess piece portrait. Perfect for **dialogue**!",
+      "leftChoice": {
+        "text": "Be diplomatic",
+        "events": [
+          { "type": "give_gold", "amount": 25 },
+          { "type": "start_battle" }
+        ]
+      },
+      "rightChoice": {
+        "text": "Be aggressive",
+        "events": [
+          { "type": "give_prayer_die" },
+          { "type": "start_battle" }
+        ]
+      }
+    }
+  ],
+  "availableItems": {
+    "blackRandomization": ["sword", "shield", "bow", "torch", "purse"],
+    "whiteRandomization": ["sword", "shield", "bow", "torch"],
+    "whitePurchase": ["sword", "shield", "bow", "torch", "lance", "staff"]
+  }
+}
+

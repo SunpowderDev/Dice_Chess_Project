@@ -1,0 +1,16 @@
+{
+  "level": 3,
+  "name": "Tactical Mastery",
+  "boardSize": 7,
+  "startingGold": 0,
+  "enemyArmyGold": 340,
+  "playerArmyGold": 0,
+  "botBehavior": "balanced",
+  "availableItems": {
+    "blackRandomization": ["sword", "shield", "torch", "staff", "crystal_ball", "purse"],
+    "whiteRandomization": ["sword", "shield", "torch", "crystal_ball"],
+    "whitePurchase": ["sword", "shield"]
+  },
+  "victoryConditions": ["king_beheaded", "king_captured", "king_dishonored"]
+}
+
