@@ -12,6 +12,7 @@ export const PIECE_COSTS = {
   B: 30,
   N: 35,
   P: 10,
+  K: 0, // King cannot be purchased
 } as const;
 
 export const ITEM_COSTS = {

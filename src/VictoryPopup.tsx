@@ -181,11 +181,10 @@ export function VictoryPopup({
                             className="chip pb"
                             style={{ width: '48px', height: '48px', fontSize: '40px' }}
                           >
-                            {
-                              GL[killedPiece.piece.type as keyof typeof GL]?.[
-                                "b"
-                              ]
-                            }
+                            {(() => {
+                              const glyphSet = GL[killedPiece.piece.type as keyof typeof GL];
+                              return glyphSet && "b" in glyphSet ? glyphSet["b" as keyof typeof glyphSet] : "?";
+                            })()}
                           </span>
                           {killedPiece.piece.equip && (
                             <span className="text-xl absolute bottom-0 right-0">

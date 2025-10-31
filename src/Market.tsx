@@ -139,7 +139,10 @@ export function Market({
                     style={{ textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}
                   >
                     {/* Safe access to GL */}
-                    {GL[name as keyof typeof GL]?.["w"] ?? "?"}
+                    {(() => {
+                      const glyphSet = GL[name as keyof typeof GL];
+                      return glyphSet && "w" in glyphSet ? glyphSet["w" as keyof typeof glyphSet] : "?";
+                    })()}
                   </span>
                   <span>
                     {name}{" "}

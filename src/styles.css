@@ -166,6 +166,23 @@
   }
 }
 
+/* Obstacle chip styling - similar to pieces but with neutral brown base */
+.obstacle-chip {
+  width: 66px;
+  height: 66px;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, #a67c52, #8b6f47);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 60px;
+  color: #2a2015;
+  user-select: none;
+  -webkit-user-select: none;
+  text-rendering: geometricPrecision;
+}
+
 .ind {
   position: absolute;
   inset: 0;

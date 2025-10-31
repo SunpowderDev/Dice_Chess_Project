@@ -27,6 +27,8 @@ import type {
   Phase,
   TerrainCell,
   Terrain,
+  ObstacleType,
+  Obstacle,
   MarketAction,
   CampaignState,
   MoveRecord,
@@ -339,7 +341,7 @@ function deserializePiece(s: {
   };
 }
 
-function placeRoster(B: Board, roster: Piece[], boardSize: number) {
+function placeRoster(B: Board, O: Obstacle, roster: Piece[], boardSize: number) {
   const slots: Array<{ x: number; y: number }> = [];
   // rows 0..1 first, then row 2
   for (let y of [0, 1, 2]) {
@@ -353,12 +355,12 @@ function placeRoster(B: Board, roster: Piece[], boardSize: number) {
     return 0; // Keep other pieces in original order
   });
 
-  // Place pieces in available slots, avoiding rocks
+  // Place pieces in available slots, avoiding obstacles
   let pieceIndex = 0;
   for (let i = 0; i < slots.length && pieceIndex < sortedRoster.length; i++) {
     const { x, y } = slots[i];
-    // Check if position is empty (not occupied by rock or other piece)
-    if (!B[y][x]) {
+    // Check if position is empty (not occupied by obstacle or other piece)
+    if (!B[y]?.[x] && O[y]?.[x] === "none") {
       B[y][x] = { ...sortedRoster[pieceIndex] }; // clone to avoid accidental mutation
       pieceIndex++;
     }
@@ -397,7 +399,7 @@ function applyStunAround(
         ny = pos.y + dy;
       if (!inb(nx, ny)) continue;
       const adj = b[ny]?.[nx]; // Safe navigation
-      if (adj && adj.type !== "ROCK") {
+      if (adj) {
         const cur = adj.stunnedForTurns ?? 0;
         // If stunning a piece of the same color, its stun will decrement at the end of the current turn.
         // To make it miss its *next* turn, we set its stun to 2.
@@ -778,33 +780,56 @@ const emptyT = (): Terrain =>
 const emptyTerrain = (size: number): Terrain =>
   Array.from({ length: size }, () => Array(size).fill("none")) as Terrain;
 
-// Updated placeFeatures function for clustered water and configurable terrain
+const emptyObstacles = (size: number): Obstacle =>
+  Array.from({ length: size }, () => Array(size).fill("none")) as Obstacle;
+
+// Parse terrain notation like "W(Rock)" into terrain and obstacle parts
+function parseTerrainCell(cell: string): { terrain: string; obstacle: ObstacleType } {
+  const match = cell.match(/^([FW_n]+)\((.*)\)$/);
+  if (match) {
+    return { terrain: match[1], obstacle: match[2].toLowerCase() as ObstacleType };
+  }
+  return { terrain: cell, obstacle: "none" };
+}
+
+// Updated placeFeatures function for clustered water and configurable terrain with obstacles
 function placeFeatures(
   B: Board,
   T: Terrain,
+  O: Obstacle, // Obstacles grid
   r: () => number,
   boardSize: number,
   terrainMatrix?: TerrainConfigCell[][],
   skipTerrainRow?: number // Row index where water/forest should not be placed (for escape row)
 ) {
-  const occupied = new Set<string>(); // Keep track of rocks, forests, and water tiles
+  const occupied = new Set<string>(); // Keep track of obstacles, forests, and water tiles
   const waterCoords: { x: number; y: number }[] = []; // Store coordinates of placed water tiles
 
-  // Helper to place a feature and update occupied set
-  const placeFeature = (type: TerrainCell | "rock", x: number, y: number) => {
-    // Skip water and forest on the escape row (but allow rocks)
-    if ((type === "water" || type === "forest") && skipTerrainRow !== undefined && y === skipTerrainRow) {
+  // Helper to place terrain, obstacles, and update occupied set
+  const placeFeature = (
+    terrainType: TerrainCell, 
+    obstacleType: ObstacleType, 
+    x: number, 
+    y: number
+  ) => {
+    // Skip water and forest on the escape row (but allow obstacles)
+    if ((terrainType === "water" || terrainType === "forest") && skipTerrainRow !== undefined && y === skipTerrainRow) {
       return; // Don't place water/forest on escape row
     }
-    if (type === "rock") {
-      B[y][x] = { id: `rock-${x}-${y}`, type: "ROCK", color: "n" };
-    } else {
-      T[y][x] = type;
-      if (type === "water") {
-        waterCoords.push({ x, y });
-      }
+    
+    // Place terrain
+    T[y][x] = terrainType;
+    if (terrainType === "water") {
+      waterCoords.push({ x, y });
     }
-    occupied.add(`${x},${y}`);
+    
+    // Place obstacle
+    O[y][x] = obstacleType;
+    
+    // Mark as occupied if there's an obstacle
+    if (obstacleType !== "none") {
+      occupied.add(`${x},${y}`);
+    }
   };
 
   // Helper to get valid empty neighbor coordinates
@@ -838,19 +863,27 @@ function placeFeatures(
       if (row && row.length === boardSize) {
         for (let x = 0; x < boardSize; x++) {
           const cell = row[x];
-          // Skip water/forest on escape row
-          if (cell === "R") {
-            placeFeature("rock", x, y);
-          } else if (cell === "F" && !(skipTerrainRow !== undefined && y === skipTerrainRow)) {
-            placeFeature("forest", x, y);
-          } else if (cell === "W" && !(skipTerrainRow !== undefined && y === skipTerrainRow)) {
-            placeFeature("water", x, y);
-          } else if (cell === "_") {
-            // Explicitly empty - mark as occupied so random generation skips it
-            occupied.add(`${x},${y}`);
-          } else if (cell === "n") {
+          const { terrain, obstacle } = parseTerrainCell(cell);
+          
+          // Handle terrain placement
+          if (terrain === "F" && !(skipTerrainRow !== undefined && y === skipTerrainRow)) {
+            placeFeature("forest", obstacle, x, y);
+          } else if (terrain === "W" && !(skipTerrainRow !== undefined && y === skipTerrainRow)) {
+            placeFeature("water", obstacle, x, y);
+          } else if (terrain === "_") {
+            // Explicitly empty terrain
+            placeFeature("none", obstacle, x, y);
+          } else if (terrain === "n") {
             // Random cell - save for random generation
             randomCells.push({ x, y });
+            // If there's an obstacle specified with random terrain, place it now
+            if (obstacle !== "none") {
+              O[y][x] = obstacle;
+              occupied.add(`${x},${y}`);
+            }
+          } else {
+            // Default to none if unrecognized
+            placeFeature("none", obstacle, x, y);
           }
         }
       }
@@ -858,28 +891,28 @@ function placeFeatures(
 
     // Now apply random generation to cells marked as "n"
     if (randomCells.length > 0) {
-      // Randomly select cells for rocks, forests, and water
+      // Randomly select cells for obstacles, forests, and water
       const shuffled = randomCells.sort(() => r() - 0.5);
 
-      // Place 1 rock in a random cell
+      // Place 1 rock obstacle in a random cell
       if (
         shuffled.length > 0 &&
         !occupied.has(`${shuffled[0].x},${shuffled[0].y}`)
       ) {
-        placeFeature("rock", shuffled[0].x, shuffled[0].y);
+        placeFeature("none", "rock", shuffled[0].x, shuffled[0].y);
       }
 
       // Place 2 forests in random cells
       for (let i = 1; i < Math.min(3, shuffled.length); i++) {
         if (!occupied.has(`${shuffled[i].x},${shuffled[i].y}`)) {
-          placeFeature("forest", shuffled[i].x, shuffled[i].y);
+          placeFeature("forest", "none", shuffled[i].x, shuffled[i].y);
         }
       }
 
       // Place 3 water tiles in random cells
       for (let i = 3; i < Math.min(6, shuffled.length); i++) {
         if (!occupied.has(`${shuffled[i].x},${shuffled[i].y}`)) {
-          placeFeature("water", shuffled[i].x, shuffled[i].y);
+          placeFeature("water", "none", shuffled[i].x, shuffled[i].y);
         }
       }
     }
@@ -890,14 +923,14 @@ function placeFeatures(
 
   // --- Default Random Generation (if no terrain matrix provided) ---
 
-  // Place 1 rock randomly
+  // Place 1 rock obstacle randomly
   let rockPlaced = false;
   let rockTries = 0;
   while (!rockPlaced && rockTries < 50) {
     const rx = Math.floor(r() * boardSize);
     const ry = Math.floor(r() * boardSize);
     if (!occupied.has(`${rx},${ry}`)) {
-      placeFeature("rock", rx, ry);
+      placeFeature("none", "rock", rx, ry);
       rockPlaced = true;
     }
     rockTries++;
@@ -911,7 +944,7 @@ function placeFeatures(
       const fx = Math.floor(r() * boardSize);
       const fy = Math.floor(r() * boardSize);
       if (!occupied.has(`${fx},${fy}`)) {
-        placeFeature("forest", fx, fy);
+        placeFeature("forest", "none", fx, fy);
         forestPlaced = true;
       }
       forestTries++;
@@ -933,7 +966,7 @@ function placeFeatures(
 
       if (allNeighbors.length > 0) {
         const neighbor = rand(r, allNeighbors);
-        placeFeature("water", neighbor.x, neighbor.y);
+        placeFeature("water", "none", neighbor.x, neighbor.y);
         waterPlaced = true;
       }
     }
@@ -944,7 +977,7 @@ function placeFeatures(
       const wy = Math.floor(r() * boardSize);
       if (inBounds(wx, wy, boardSize) && !occupied.has(`${wx},${wy}`)) {
         // Ensure in bounds before placing
-        placeFeature("water", wx, wy);
+        placeFeature("water", "none", wx, wy);
         waterPlaced = true;
       }
       placementTries++;
@@ -960,6 +993,7 @@ function placeFeatures(
 function moves(
   b: Board,
   T: Terrain,
+  O: Obstacle,
   x: number,
   y: number,
   boardSize: number = S
@@ -974,6 +1008,12 @@ function moves(
       ny = y + dy;
     while (inBounds(nx, ny, boardSize)) {
       const t = b[ny]?.[nx]; // Safe navigation
+      const obstacle = O[ny]?.[nx]; // Check for obstacles
+      if (obstacle !== "none") {
+        // Obstacle blocks movement, can attack it
+        out.push({ x: nx, y: ny });
+        break;
+      }
       if (t) {
         if (t.color !== col) out.push({ x: nx, y: ny });
         break;
@@ -991,7 +1031,9 @@ function moves(
               ny = y + dy;
             if (!inBounds(nx, ny, boardSize)) continue;
             const t = b[ny]?.[nx]; // Safe navigation
-            if (!t || t.color !== col) out.push({ x: nx, y: ny });
+            const obstacle = O[ny]?.[nx]; // Check for obstacles
+            // Can move to empty squares or attack enemies/obstacles
+            if (obstacle !== "none" || !t || t.color !== col) out.push({ x: nx, y: ny });
           }
       break;
     case "Q":
@@ -1031,19 +1073,25 @@ function moves(
           ny = y + dy;
         if (!inBounds(nx, ny, boardSize)) return;
         const t = b[ny]?.[nx]; // Safe navigation
-        if (!t || t.color !== col) out.push({ x: nx, y: ny });
+        const obstacle = O[ny]?.[nx]; // Check for obstacles
+        // Can move to empty squares or attack enemies/obstacles
+        if (obstacle !== "none" || !t || t.color !== col) out.push({ x: nx, y: ny });
       });
       break;
     case "P":
       {
         const ny = y + dir;
-        if (inBounds(x, ny, boardSize) && !b[ny]?.[x]) out.push({ x, y: ny }); // Safe navigation
+        const obstacle = O[ny]?.[x]; // Check for obstacle in front
+        // Pawns can only move forward if no piece AND no obstacle
+        if (inBounds(x, ny, boardSize) && !b[ny]?.[x] && obstacle === "none") out.push({ x, y: ny });
         for (const dx of [-1, 1]) {
           const cx = x + dx,
             cy = y + dir;
           if (!inBounds(cx, cy, boardSize)) continue;
           const t = b[cy]?.[cx]; // Safe navigation
-          if (t && t.color !== col) out.push({ x: cx, y: cy });
+          const diagObstacle = O[cy]?.[cx]; // Check for diagonal obstacle
+          // Pawns can attack diagonally to capture pieces OR obstacles
+          if ((t && t.color !== col) || diagObstacle !== "none") out.push({ x: cx, y: cy });
         }
       }
       break;
@@ -1052,13 +1100,16 @@ function moves(
   if (p.equip === "lance") {
     const midY = y + dir;
     const targetY = y + 2 * dir;
-    // Check if path is clear
-    if (inBounds(x, midY, boardSize) && !b[midY]?.[x]) {
+    const midObstacle = O[midY]?.[x]; // Check for obstacle in path
+    // Check if path is clear (no pieces AND no obstacles)
+    if (inBounds(x, midY, boardSize) && !b[midY]?.[x] && midObstacle === "none") {
       // Safe navigation
       // Check if target is in bounds
       if (inBounds(x, targetY, boardSize)) {
         const targetPiece = b[targetY]?.[x]; // Safe navigation
-        if (targetPiece && targetPiece.color !== col) {
+        const targetObstacle = O[targetY]?.[x]; // Check for obstacle at target
+        // Can attack enemy pieces OR obstacles
+        if ((targetPiece && targetPiece.color !== col) || targetObstacle !== "none") {
           out.push({ x, y: targetY });
         }
       }
@@ -1075,8 +1126,7 @@ function moves(
           const targetPiece = b[ny]?.[nx]; // Safe navigation
           if (
             targetPiece &&
-            targetPiece.color === p.color &&
-            targetPiece.type !== "ROCK"
+            targetPiece.color === p.color
           ) {
             out.push({ x: nx, y: ny });
           }
@@ -1091,6 +1141,7 @@ function moves(
 const attacks = (
   b: Board,
   T: Terrain,
+  O: Obstacle,
   sx: number,
   sy: number,
   tx: number,
@@ -1099,12 +1150,13 @@ const attacks = (
 ) => {
   const p = b[sy]?.[sx]; // Safe navigation
   if (!p || (p.stunnedForTurns && p.stunnedForTurns > 0)) return false;
-  return moves(b, T, sx, sy, boardSize).some((s) => s.x === tx && s.y === ty);
+  return moves(b, T, O, sx, sy, boardSize).some((s) => s.x === tx && s.y === ty);
 };
 
 function supportCount(
   b: Board,
   T: Terrain,
+  O: Obstacle,
   a: Piece | null, // <- widen type
   from: { x: number; y: number },
   to: { x: number; y: number },
@@ -1117,7 +1169,7 @@ function supportCount(
       if (x === from.x && y === from.y) continue;
       const p = b[y]?.[x]; // Safe navigation
       if (!p || p.color !== a.color) continue;
-      if (attacks(b, T, x, y, to.x, to.y, boardSize)) c++;
+      if (attacks(b, T, O, x, y, to.x, to.y, boardSize)) c++;
     }
   return c;
 }
@@ -1141,6 +1193,7 @@ const findPieceById = (b: Board, id: string, boardSize: number = S) => {
 const threatened = (
   b: Board,
   T: Terrain,
+  O: Obstacle,
   sq: { x: number; y: number },
   by: Color,
   boardSize: number = S
@@ -1149,7 +1202,7 @@ const threatened = (
     for (let x = 0; x < boardSize; x++) {
       const p = b[y]?.[x]; // Safe navigation
       if (!p || p.color !== by) continue;
-      if (attacks(b, T, x, y, sq.x, sq.y, boardSize)) return true;
+      if (attacks(b, T, O, x, y, sq.x, sq.y, boardSize)) return true;
     }
   return false;
 };
@@ -1213,6 +1266,7 @@ function resolve(
   d: Piece, // Defender
   b: Board,
   T: Terrain,
+  O: Obstacle,
   from: { x: number; y: number },
   to: { x: number; y: number },
   boardSize: number = S,
@@ -1265,7 +1319,7 @@ function resolve(
 
   // Attacker mods
   if (a.equip === "sword") am.push({ value: 1, kind: "sword" });
-  const sup = supportCount(b, T, a, from, to, boardSize);
+  const sup = supportCount(b, T, O, a, from, to, boardSize);
   if (sup > 0) am.push({ value: sup, kind: "support" });
 
   // Defender mods
@@ -1296,9 +1350,11 @@ function resolveRock(
   a: Piece,
   b: Board,
   T: Terrain,
+  O: Obstacle,
   from: { x: number; y: number },
   to: { x: number; y: number },
-  adv: boolean
+  adv: boolean,
+  boardSize: number = S
 ) {
   const useAdv = a.type === "K" || adv;
   const rolls = [d6(r)];
@@ -1307,7 +1363,7 @@ function resolveRock(
 
   const am: Mod[] = [];
   if (a.equip === "sword") am.push({ value: 1, kind: "sword" });
-  const sup = supportCount(b, T, a, from, to);
+  const sup = supportCount(b, T, O, a, from, to, boardSize);
   if (sup > 0) am.push({ value: sup, kind: "support" });
   const at = A + am.reduce((s, m) => s + m.value, 0);
   return {
@@ -1332,7 +1388,7 @@ const tryMove = (
   from: { x: number; y: number },
   to: { x: number; y: number }
 ) => {
-  if (b[to.y]?.[to.x]?.type === "ROCK") return null; // Safe navigation
+  // No longer need ROCK check since they're obstacles now, not pieces
   const nb = cloneB(b);
   const mv = nb[from.y]?.[from.x]; // Safe navigation
   if (!mv) return null;
@@ -1343,6 +1399,7 @@ const tryMove = (
 function bot(
   b: Board,
   T: Terrain,
+  O: Obstacle,
   c: Color,
   r: () => number,
   boardSize: number = S,
@@ -1364,21 +1421,18 @@ function bot(
     for (let x = 0; x < boardSize; x++) {
       const p = b[y]?.[x]; // Safe navigation
       if (!p || p.color !== c) continue;
-      for (const t of moves(b, T, x, y, boardSize)) {
+      for (const t of moves(b, T, O, x, y, boardSize)) {
         const cap = b[t.y]?.[t.x]; // Safe navigation
+        const targetObstacle = O[t.y]?.[t.x]; // Check for obstacle at target
         let sc = 0;
         if (cap) {
           // --- CAPTURE MOVE SCORING ---
           if (p.equip === "crystal_ball" && cap.color === p.color) {
             // Crystal Ball swap
             sc = 0.1; // Small positive score to encourage using item
-          } else if (cap.type === "ROCK") {
-            const winProb =
-              rockWinPercent(b, T, p, { x, y }, t, boardSize) / 100;
-            sc = winProb * 1 - (1 - winProb) * 0.1; // Small penalty for failure
           } else {
             const winProb =
-              winPercent(b, T, p, cap, { x, y }, t, boardSize) / 100;
+              winPercent(b, T, O, p, cap, { x, y }, t, boardSize) / 100;
             const riskProb = 1 - winProb;
 
             let valueGain = val(cap);
@@ -1435,6 +1489,11 @@ function bot(
               sc += 5; // Bonus for using this powerful one-time item
             }
           }
+        } else if (targetObstacle !== "none") {
+          // --- OBSTACLE ATTACK SCORING ---
+          const winProb =
+            rockWinPercent(b, T, O, p, { x, y }, t, boardSize) / 100;
+          sc = winProb * 1 - (1 - winProb) * 0.1; // Small penalty for failure
         } else {
           // --- QUIET MOVE SCORING (AI LOGIC UPGRADE) ---
           const nb = tryMove(b, T, { x, y }, t);
@@ -1453,10 +1512,11 @@ function bot(
           }
 
           // 2. Piece Safety
-          const isSafeNow = !threatened(nb, T, t, opp, boardSize);
+          const isSafeNow = !threatened(nb, T, O, t, opp, boardSize);
           const wasThreatenedBefore = threatened(
             b,
             T,
+            O,
             { x, y },
             opp,
             boardSize
@@ -1539,7 +1599,7 @@ function bot(
   // Check logic
   const k = findK(b, c, boardSize);
   const inChk = k
-    ? threatened(b, T, { x: k.x, y: k.y }, opp, boardSize)
+    ? threatened(b, T, O, { x: k.x, y: k.y }, opp, boardSize)
     : false;
   if (inChk) {
     const ev = ms.filter((m) => {
@@ -1547,7 +1607,7 @@ function bot(
       if (!nb) return false;
       const k2 = findK(nb, c, boardSize);
       if (!k2) return false; // This move gets king captured, not an evasion
-      return !threatened(nb, T, { x: k2.x, y: k2.y }, opp, boardSize);
+      return !threatened(nb, T, O, { x: k2.x, y: k2.y }, opp, boardSize);
     });
     if (ev.length) {
       const best = Math.max(...ev.map((m) => m.score));
@@ -1600,13 +1660,14 @@ const advPMF = (k: number) => (2 * k - 1) / 36;
 function winPercent(
   BD: Board,
   TD: Terrain,
+  OD: Obstacle,
   att: Piece,
   def: Piece,
   from: { x: number; y: number },
   to: { x: number; y: number },
   boardSize: number = S
 ) {
-  const aSup = supportCount(BD, TD, att, from, to, boardSize);
+  const aSup = supportCount(BD, TD, OD, att, from, to, boardSize);
   const aMod = (att.equip === "sword" ? 1 : 0) + aSup;
   // Adjusted defense modifier calculation for water
   const terrainMod =
@@ -1652,12 +1713,13 @@ function winPercent(
 function rockWinPercent(
   BD: Board,
   TD: Terrain,
+  OD: Obstacle,
   att: Piece,
   from: { x: number; y: number },
   to: { x: number; y: number },
   boardSize: number = S
 ) {
-  const aSup = supportCount(BD, TD, att, from, to, boardSize);
+  const aSup = supportCount(BD, TD, OD, att, from, to, boardSize);
   const aMod = (att.equip === "sword" ? 1 : 0) + aSup;
   const dir = att.color === W ? 1 : -1;
   const lanceLungeUsed =
@@ -2017,6 +2079,7 @@ function easeOutBack(x: number) {
 function BoardComponent({
   board,
   T,
+  obstacles,
   V,
   sel,
   legal,
@@ -2054,6 +2117,7 @@ function BoardComponent({
 }: {
   board: Board;
   T: Terrain;
+  obstacles: Obstacle;
   V: boolean[][];
   sel: { x: number; y: number } | null;
   legal: { x: number; y: number }[];
@@ -2250,26 +2314,29 @@ function BoardComponent({
               const x = i % boardSize,
                 y = boardSize - 1 - Math.floor(i / boardSize);
               const p = board[y]?.[x]; // Safe navigation
+              const currentObstacle = obstacles[y]?.[x]; // Get obstacle at this position
+              const hasObstacle = currentObstacle !== "none";
               const light = (x + y) % 2 === 0;
               const isSel = !!sel && sel.x === x && sel.y === y;
               const isMove = isL(x, y);
               const inFog = !V[y]?.[x]; // Safe navigation
               const show =
-                !!p && (p.color === W || !inFog || p.type === "ROCK");
+                !!p && (p.color === W || !inFog);
               const targetPiece = board[y]?.[x]; // Safe navigation for target piece
+              const targetObstacle = obstacles[y]?.[x]; // Safe navigation for target obstacle
               const willCap =
-                isMove && !!targetPiece && targetPiece?.type !== "ROCK";
-              const isRockAttack = isMove && targetPiece?.type === "ROCK"; // Check targetPiece type
+                isMove && !!targetPiece;
+              const isObstacleAttack = isMove && targetObstacle !== "none" && !targetPiece; // Attacking an obstacle
               const currentTerrain = T[y]?.[x]; // Safe navigation
               const forest = currentTerrain === "forest";
               const water = currentTerrain === "water"; // Check for water
 
               const attacker = sel ? board[sel.y]?.[sel.x] : null; // Safe navigation
 
-              let rockPct: number | undefined;
-              if (isRockAttack && sel && attacker) {
+              let obstaclePct: number | undefined;
+              if (isObstacleAttack && sel && attacker) {
                 const a = attacker as Piece;
-                rockPct = rockWinPercent(board, T, a, sel, { x, y }, boardSize);
+                obstaclePct = rockWinPercent(board, T, obstacles, a, sel, { x, y }, boardSize);
               }
 
               const atk = fx && fx.from.x === x && fx.from.y === y;
@@ -2280,6 +2347,12 @@ function BoardComponent({
                 p &&
                 p.type === "K" &&
                 ((p.color === W && wChk) || (p.color === B && bChk));
+
+              // Get obstacle glyph
+              const getObstacleGlyph = (obstacleType: ObstacleType): string | null => {
+                if (obstacleType === "rock") return GL.ROCK.n;
+                return null;
+              };
 
               const isCrystalBallSwap =
                 isMove &&
@@ -2292,7 +2365,6 @@ function BoardComponent({
                 !!attacker && // <- guard
                 isMove &&
                 !!targetPiece && // Check if there's a target piece
-                targetPiece?.type !== "ROCK" &&
                 !isCrystalBallSwap;
 
               let pct: number | undefined;
@@ -2300,7 +2372,7 @@ function BoardComponent({
                 // Ensure attacker and targetPiece exist
                 const a = attacker as Piece;
                 const d = targetPiece as Piece;
-                pct = winPercent(board, T, a, d, sel!, { x, y }, boardSize);
+                pct = winPercent(board, T, obstacles, a, d, sel!, { x, y }, boardSize);
               }
 
               let sup = 0;
@@ -2310,6 +2382,7 @@ function BoardComponent({
                   sup = supportCount(
                     board,
                     T,
+                    obstacles,
                     attacker,
                     sel!,
                     { x, y },
@@ -2318,8 +2391,8 @@ function BoardComponent({
                 }
               }
 
-              const isAttack = willCap || isRockAttack;
-              const currentPct = isRockAttack ? rockPct : pct;
+              const isAttack = willCap || isObstacleAttack;
+              const currentPct = isObstacleAttack ? obstaclePct : pct;
               const ringClass =
                 currentPct != null && currentPct < 50
                   ? "warn"
@@ -2331,8 +2404,7 @@ function BoardComponent({
                 hover &&
                 sel &&
                 isL(hover.x, hover.y) &&
-                (board[hover.y]?.[hover.x] || // Safe navigation
-                  board[hover.y]?.[hover.x]?.type === "ROCK"); // Safe navigation
+                (board[hover.y]?.[hover.x] || obstacles[hover.y]?.[hover.x] !== "none"); // Check piece or obstacle
               const isSupporting =
                 p &&
                 sel &&
@@ -2341,7 +2413,7 @@ function BoardComponent({
                 p.color === board[sel.y][sel.x]?.color &&
                 hoveredAttackTarget &&
                 hover && // Ensure hover exists before accessing hover.x/y
-                attacks(board, T, x, y, hover.x, hover.y, boardSize);
+                attacks(board, T, obstacles, x, y, hover.x, hover.y, boardSize);
 
               const showSpeechBubble =
                 speechBubbleTarget &&
@@ -2395,16 +2467,12 @@ function BoardComponent({
                   typeToShow = piece.originalType;
                 }
 
-                if (typeToShow === "ROCK") {
-                  return GL.ROCK.n;
-                }
-
                 const colorKey = piece.color as "w" | "b";
                 // Check if GL has the type and color before accessing
                 // Also ensure typeToShow is a valid key for GL
                 const pieceGlyphSet = GL[typeToShow as keyof typeof GL];
-                if (pieceGlyphSet && pieceGlyphSet[colorKey]) {
-                  return pieceGlyphSet[colorKey];
+                if (pieceGlyphSet && colorKey in pieceGlyphSet) {
+                  return pieceGlyphSet[colorKey as keyof typeof pieceGlyphSet];
                 }
                 return "?"; // Fallback symbol
               };
@@ -2472,7 +2540,26 @@ function BoardComponent({
                   )}
                   {/* Render water tile */}
                   {water && !isEscapeRow && <span className="water" />}
-                  {/* Rock is now a piece, not terrain */}
+
+                  {/* 1.5. Obstacle Layer */}
+                  {hasObstacle && (
+                    <span
+                      className="obstacle-container"
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        zIndex: 5,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        pointerEvents: "none",
+                      }}
+                    >
+                      <span className={`obstacle-chip ${currentObstacle}`}>
+                        {getObstacleGlyph(currentObstacle)}
+                      </span>
+                    </span>
+                  )}
 
                   {/* 2. Move Indicator Layer */}
                   {isMove && !isAttack && (
@@ -2491,11 +2578,11 @@ function BoardComponent({
                     {isAttack && sup > 0 && (
                       <span className="supB-odds">+{sup}</span>
                     )}
-                    {(showPct || isRockAttack) && ( // Combined condition for odds display
+                    {(showPct || isObstacleAttack) && ( // Combined condition for odds display
                       <span
                         className={`pct ${
-                          isRockAttack
-                            ? "pct-rock" // Specific style for rock attack
+                          isObstacleAttack
+                            ? "pct-rock" // Specific style for obstacle attack
                             : currentPct != null && currentPct < 50
                             ? "text-orange-400" // Warning for low odds
                             : sup > 0
@@ -2503,7 +2590,7 @@ function BoardComponent({
                             : "pctG" // Good odds style
                         }`}
                       >
-                        {currentPct}% {/* Display either rock or piece odds */}
+                        {currentPct}% {/* Display either obstacle or piece odds */}
                       </span>
                     )}
                   </div>
@@ -2628,7 +2715,8 @@ function BoardComponent({
                       </span>
                     )}
                   {showSpeechBubble &&
-                    speechBubbleTarget && ( // Ensure target exists
+                    speechBubbleTarget &&
+                    speechBubble && ( // Ensure target and speechBubble exist
                       <div
                         key={speechBubble.id}
                         className={`speech-bubble ${
@@ -2642,7 +2730,7 @@ function BoardComponent({
                     )}
 
                   {/* 5. Stun Layer (under fog) */}
-                  {p && p.stunnedForTurns > 0 && (
+                  {p && p.stunnedForTurns !== undefined && p.stunnedForTurns > 0 && (
                     <>
                       {p.isExhausted ? (
                         <span
@@ -2738,7 +2826,7 @@ function BoardComponent({
                             {fx.d.rolls && fx.d.rolls.length > 1 ? (
                               // Display all rolls if defender has advantage
                               <span className="flex items-center gap-0.5">
-                                {fx.d.rolls.map((roll, idx) => (
+                                {fx.d.rolls.map((roll: number, idx: number) => (
                                   <DiceD6
                                     key={idx}
                                     rolling={
@@ -2926,6 +3014,13 @@ export default function App() {
   const [muted, setMuted] = useState(false);
   const [fastMode, setFastMode] = useState(false);
   const [showBoardTooltips, setShowBoardTooltips] = useState(true);
+  
+  // Clear saved game data on initial app load (when intro popup is shown)
+  useEffect(() => {
+    if (showIntro) {
+      localStorage.removeItem("dicechess_campaign_v1");
+    }
+  }, []); // Run only once on mount
   const [lastMove, setLastMove] = useState<{
     from: { x: number; y: number };
     to: { x: number; y: number };
@@ -2956,6 +3051,7 @@ export default function App() {
     () => Array.from({ length: 5 }, () => Array(5).fill(null)) as Board // Start with 5x5 for level 1
   );
   const [Tstate, setT] = useState<Terrain>(() => emptyTerrain(5)); // Start with 5x5 for level 1
+  const [obstacles, setObstacles] = useState<Obstacle>(() => emptyObstacles(5)); // Obstacles grid
   const [turn, setTurn] = useState<Color>(W);
   const [sel, setSel] = useState<{ x: number; y: number } | null>(null);
   const [legal, setLegal] = useState<{ x: number; y: number }[]>([]);
@@ -3258,16 +3354,16 @@ export default function App() {
   const wChk = useMemo(
     () =>
       kW
-        ? threatened(Bstate, Tstate, { x: kW.x, y: kW.y }, B, currentBoardSize)
+        ? threatened(Bstate, Tstate, obstacles, { x: kW.x, y: kW.y }, B, currentBoardSize)
         : false,
-    [Bstate, Tstate, kW]
+    [Bstate, Tstate, obstacles, kW]
   );
   const bChk = useMemo(
     () =>
       kB
-        ? threatened(Bstate, Tstate, { x: kB.x, y: kB.y }, W, currentBoardSize)
+        ? threatened(Bstate, Tstate, obstacles, { x: kB.x, y: kB.y }, W, currentBoardSize)
         : false,
-    [Bstate, Tstate, kB]
+    [Bstate, Tstate, obstacles, kB]
   );
 
   useEffect(() => {
@@ -3300,13 +3396,17 @@ export default function App() {
       setDrag(null); // Clear drag on illegal move or drop outside
     };
 
+    const onBlur = () => {
+      setDrag(null); // Clear drag if window loses focus
+    };
+
     window.addEventListener("mousemove", onMouseMove, { passive: true });
     window.addEventListener("mouseup", onMouseUp);
-    window.addEventListener("blur", onMouseUp); // Also clear drag if window loses focus
+    window.addEventListener("blur", onBlur); // Also clear drag if window loses focus
     return () => {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
-      window.removeEventListener("blur", onMouseUp);
+      window.removeEventListener("blur", onBlur);
     };
   }, [drag, legal, Bstate, Tstate]); // Added Bstate, Tstate as dependencies for perform closure
 
@@ -3341,6 +3441,7 @@ export default function App() {
           ? threatened(
               Bstate,
               Tstate,
+              obstacles,
               { x: kB.x, y: kB.y },
               W,
               currentBoardSize
@@ -3352,6 +3453,7 @@ export default function App() {
         const m = bot(
           Bstate,
           Tstate,
+          obstacles,
           B,
           rngRef.current,
           currentBoardSize,
@@ -3466,7 +3568,7 @@ export default function App() {
     // Check if GL has the type before accessing colorKey
     const pieceGlyphSet = GL[p.type as keyof typeof GL];
     const glyph =
-      pieceGlyphSet && pieceGlyphSet[colorKey] ? pieceGlyphSet[colorKey] : "?";
+      pieceGlyphSet && colorKey in pieceGlyphSet ? pieceGlyphSet[colorKey as keyof typeof pieceGlyphSet] : "?";
 
     setDrag({
       id: p.id,
@@ -3717,16 +3819,17 @@ export default function App() {
   }
 
   // init now accepts currentLevel and currentUnspentGold
-  // Helper function to place pieces on a row, avoiding rocks
-  function placePiecesAvoidingRocks(
+  // Helper function to place pieces on a row, avoiding obstacles
+  function placePiecesAvoidingObstacles(
     board: Board,
+    obstacles: Obstacle,
     pieces: (Piece | null)[],
     row: number,
     boardSize: number
   ) {
-    // First pass: place pieces in their intended positions if not blocked by rocks
+    // First pass: place pieces in their intended positions if not blocked by obstacles or other pieces
     for (let x = 0; x < boardSize; x++) {
-      if (pieces[x] && board[row]?.[x] === null) {
+      if (pieces[x] && board[row]?.[x] === null && obstacles[row]?.[x] === "none") {
         board[row][x] = pieces[x];
         pieces[x] = null; // Mark as placed
       }
@@ -3744,10 +3847,10 @@ export default function App() {
       return 0; // Keep other pieces in original order
     });
 
-    // Count available slots on the row
+    // Count available slots on the row (no pieces AND no obstacles)
     let availableSlots = 0;
     for (let x = 0; x < boardSize; x++) {
-      if (board[row]?.[x] === null) availableSlots++;
+      if (board[row]?.[x] === null && obstacles[row]?.[x] === "none") availableSlots++;
     }
 
     // If we have more unplaced pieces than slots, we need to sacrifice lower-priority pieces
@@ -3756,7 +3859,7 @@ export default function App() {
     // Place pieces in available slots (King and preconfigured pieces will be placed first due to sorting)
     for (const piece of piecesToPlace) {
       for (let x = 0; x < boardSize; x++) {
-        if (board[row]?.[x] === null) {
+        if (board[row]?.[x] === null && obstacles[row]?.[x] === "none") {
           board[row][x] = piece;
           break; // Move to next piece
         }
@@ -3933,7 +4036,7 @@ export default function App() {
             for (let y = 0; y < currentBoardSize; y++) {
               for (let x = 0; x < currentBoardSize; x++) {
                 const piece = Bstate[y]?.[x];
-                if (piece && piece.color === targetColor && piece.type !== "ROCK") {
+                if (piece && piece.color === targetColor) {
                   targetPieces.push({ x, y, piece });
                 }
               }
@@ -4027,13 +4130,14 @@ export default function App() {
       Array(boardSize).fill(null)
     ) as Board;
     const T0 = emptyTerrain(boardSize);
+    const O0 = emptyObstacles(boardSize);
 
     // Check if king_escaped is enabled - if so, skip terrain on escape row (top row)
     const victoryConditions = levelConfig.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"];
     const kingEscapedEnabled = victoryConditions.includes("king_escaped");
     const escapeRow = kingEscapedEnabled ? boardSize - 1 : undefined;
 
-    placeFeatures(B0, T0, r, boardSize, levelConfig.terrainMatrix, escapeRow);
+    placeFeatures(B0, T0, O0, r, boardSize, levelConfig.terrainMatrix, escapeRow);
 
     // Use level configuration
     const enemyGold = levelConfig.enemyArmyGold;
@@ -4055,9 +4159,9 @@ export default function App() {
         0, // White back rank
         1 // White front rank
       );
-      // Place white pieces, avoiding rocks
-      placePiecesAvoidingRocks(B0, w.back, 0, boardSize);
-      placePiecesAvoidingRocks(B0, w.front, 1, boardSize);
+      // Place white pieces, avoiding obstacles
+      placePiecesAvoidingObstacles(B0, O0, w.back, 0, boardSize);
+      placePiecesAvoidingObstacles(B0, O0, w.front, 1, boardSize);
       // After placing, update campaign.whiteRoster with all current white pieces
       const allWhitePieces: Piece[] = [];
       for (let y = 0; y < boardSize; y++) {
@@ -4072,7 +4176,7 @@ export default function App() {
     } else {
       // Level 2+: place carried over survivors
       const deserializedRoster = campaign.whiteRoster.map(deserializePiece);
-      placeRoster(B0, deserializedRoster, boardSize);
+      placeRoster(B0, O0, deserializedRoster, boardSize);
     }
 
     // Black army: always generate fresh each level
@@ -4093,12 +4197,13 @@ export default function App() {
       boardSize - 2, // Black front rank
       kingEscapedOnly // Pass flag to skip black King
     );
-    // Place black pieces, avoiding rocks
-    placePiecesAvoidingRocks(B0, bl.back, boardSize - 1, boardSize);
-    placePiecesAvoidingRocks(B0, bl.front, boardSize - 2, boardSize);
+    // Place black pieces, avoiding obstacles
+    placePiecesAvoidingObstacles(B0, O0, bl.back, boardSize - 1, boardSize);
+    placePiecesAvoidingObstacles(B0, O0, bl.front, boardSize - 2, boardSize);
 
     setB(B0);
     setT(T0);
+    setObstacles(O0);
     setTurn(W);
     setSel(null);
     setLegal([]);
@@ -4233,7 +4338,7 @@ export default function App() {
     }
 
     setSel({ x, y });
-    setLegal(moves(Bstate, Tstate, x, y, currentBoardSize));
+    setLegal(moves(Bstate, Tstate, obstacles, x, y, currentBoardSize));
   }
 
   const handleNameConfirm = (name: string) => {
@@ -4306,7 +4411,9 @@ export default function App() {
       return;
     }
 
-    if (t && t.type === "ROCK") {
+    // Check for obstacle attack
+    const targetObstacle = obstacles[to.y]?.[to.x];
+    if (targetObstacle !== "none" && !t) {
       const dir = p.color === W ? 1 : -1;
       const lanceLungeUsed =
         p.equip === "lance" && to.y === from.y + 2 * dir && to.x === from.x;
@@ -4317,9 +4424,11 @@ export default function App() {
         p,
         Bstate,
         Tstate,
+        obstacles,
         from,
         to,
-        lanceLungeUsed
+        lanceLungeUsed,
+        currentBoardSize
       );
       setFx({
         kind: "rock",
@@ -4334,12 +4443,13 @@ export default function App() {
       const winPct = rockWinPercent(
         Bstate,
         Tstate,
+        obstacles,
         p,
         from,
         to,
         currentBoardSize
       );
-      const sup = supportCount(Bstate, Tstate, p, from, to, currentBoardSize);
+      const sup = supportCount(Bstate, Tstate, obstacles, p, from, to, currentBoardSize);
       const moveRec: MoveRecord = {
         turnNumber,
         color: p.color as Color,
@@ -4393,6 +4503,7 @@ export default function App() {
         t,
         Bstate,
         Tstate,
+        obstacles,
         from,
         to,
         currentBoardSize,
@@ -4412,13 +4523,14 @@ export default function App() {
       const winPct = winPercent(
         Bstate,
         Tstate,
+        obstacles,
         p,
         t,
         from,
         to,
         currentBoardSize
       );
-      const sup = supportCount(Bstate, Tstate, p, from, to, currentBoardSize);
+      const sup = supportCount(Bstate, Tstate, obstacles, p, from, to, currentBoardSize);
       const moveRec: MoveRecord = {
         turnNumber,
         color: p.color as Color,
@@ -4491,8 +4603,8 @@ export default function App() {
             // Check if GL has the type before accessing colorKey
             const pieceGlyphSet = GL[p.type as keyof typeof GL];
             const glyph =
-              pieceGlyphSet && pieceGlyphSet[colorKey]
-                ? pieceGlyphSet[colorKey]
+              pieceGlyphSet && colorKey in pieceGlyphSet
+                ? pieceGlyphSet[colorKey as keyof typeof pieceGlyphSet]
                 : "?";
 
             setMoveAnim({
@@ -4581,8 +4693,8 @@ export default function App() {
       // Check if GL has the type before accessing colorKey
       const pieceGlyphSet = GL[p.type as keyof typeof GL];
       const glyph =
-        pieceGlyphSet && pieceGlyphSet[colorKey]
-          ? pieceGlyphSet[colorKey]
+        pieceGlyphSet && colorKey in pieceGlyphSet
+          ? pieceGlyphSet[colorKey as keyof typeof pieceGlyphSet]
           : "?";
 
       setMoveAnim({
@@ -4609,6 +4721,7 @@ export default function App() {
   ) {
     if (isSuccess) sfx.rockDestroy();
     const B1 = cloneB(Bstate);
+    const O1 = obstacles.map(row => [...row]); // Clone obstacles
     const mv = B1[from.y]?.[from.x]; // Safe navigation
     if (!mv) {
       setFx(null);
@@ -4623,6 +4736,8 @@ export default function App() {
     if (isSuccess) {
       B1[to.y][to.x] = attackerState;
       B1[from.y][from.x] = null;
+      O1[to.y][to.x] = "none"; // Remove the obstacle
+      setObstacles(O1); // Update obstacles state
       setLastMove({ from, to }); // Set last move only on success
 
       // Check for exhaustion
@@ -4710,7 +4825,7 @@ export default function App() {
             sfx.loseCheckmate();
           }
           setB(B1);
-          setWin(mv.color);
+          setWin(mv.color as Color);
           handleLevelCompletion(mv.color as Color, B1);
           const endPhrase = "King beheaded!";
           setPhrase(endPhrase);
@@ -4757,7 +4872,7 @@ export default function App() {
             if (tg.color === B) sfx.loseCheckmate();
             else sfx.winCheckmate();
             setB(B1);
-            setWin(tg.color);
+            setWin(tg.color as Color);
             handleLevelCompletion(tg.color as Color, B1);
             const endPhrase = "King's soul is forfeit!";
             setPhrase(endPhrase);
@@ -4776,7 +4891,7 @@ export default function App() {
             if (mv.color === W) sfx.winCheckmate();
             else sfx.loseCheckmate();
             setB(B1);
-            setWin(mv.color);
+            setWin(mv.color as Color);
             handleLevelCompletion(mv.color as Color, B1);
             const endPhrase = "King beheaded!";
             setPhrase(endPhrase);
@@ -4827,7 +4942,7 @@ export default function App() {
               sfx.loseCheckmate();
             }
             setB(B1);
-            setWin(moved.color);
+            setWin(moved.color as Color);
             handleLevelCompletion(moved.color as Color, B1);
             const endPhrase = "King beheaded!";
             setPhrase(endPhrase);
@@ -4920,7 +5035,7 @@ export default function App() {
             sfx.loseCheckmate();
           }
           setB(B1);
-          setWin(mv.color); // Attacker's color wins
+          setWin(mv.color as Color); // Attacker's color wins
           handleLevelCompletion(mv.color as Color, B1);
           setPhrase("King's soul is forfeit!");
           setFx(null);
@@ -5283,7 +5398,7 @@ export default function App() {
     const pieceType = move.piece?.type;
     const pieceColor = move.piece?.color as "w" | "b";
     const glyphSet = GL[pieceType as keyof typeof GL];
-    const glyph = glyphSet && glyphSet[pieceColor] ? glyphSet[pieceColor] : "?";
+    const glyph = glyphSet && pieceColor in glyphSet ? glyphSet[pieceColor as keyof typeof glyphSet] : "?";
 
     const showGlyph = move.piece.type !== "P";
 
@@ -5513,9 +5628,11 @@ export default function App() {
           p,
           Bstate,
           Tstate,
+          obstacles,
           from,
           to,
-          lanceLungeUsed
+          lanceLungeUsed,
+          currentBoardSize
         );
 
         // Update history AFTER getting new rolls
@@ -5547,7 +5664,7 @@ export default function App() {
           to.y === from.y + (p.color === W ? 1 : -1) * 2 &&
           to.x === from.x;
 
-        let newA, newD, newRollsA, newRollsD;
+        let newA: number, newD: number, newRollsA: number[], newRollsD: number[] | null;
         if (isPlayerAttacking) {
           const useAdv = p.type === "K" || lanceLungeUsed;
           newRollsA = [d6(rngRef.current)];
@@ -5693,10 +5810,10 @@ export default function App() {
       setB(B1);
       setSel({ x, y });
       // We need to calculate moves based on the *newly revealed* piece on the new board state
-      setLegal(moves(B1, Tstate, x, y, currentBoardSize));
+      setLegal(moves(B1, Tstate, obstacles, x, y, currentBoardSize));
     } else {
       setSel({ x, y });
-      setLegal(moves(B1, Tstate, x, y, currentBoardSize));
+      setLegal(moves(B1, Tstate, obstacles, x, y, currentBoardSize));
     }
 
     setDisguisePopupState(null);
@@ -5711,6 +5828,9 @@ export default function App() {
   // --- Roguelike handlers ---
   const handleTryAgain = () => {
     // Fully reset run and return to Intro popup
+    // Clear localStorage to remove all saved data
+    localStorage.removeItem("dicechess_campaign_v1");
+    
     setShowTransition(false);
     setShowIntro(true);
     setCurrentStoryCard(null);
@@ -5721,6 +5841,7 @@ export default function App() {
     setMarketPoints(0);
     setUnspentGold(0);
     setKilledEnemyPieces([]);
+    setThisLevelUnlockedItems([]);
     setCampaign({
       level: 1,
       whiteRoster: [],
@@ -5970,6 +6091,7 @@ export default function App() {
               <BoardComponent
                 board={Bstate}
                 T={Tstate}
+                obstacles={obstacles}
                 V={vis}
                 sel={sel}
                 legal={legal}
@@ -6119,14 +6241,17 @@ export default function App() {
                   >
                     Move as Pawn
                   </button>
-                  {originalPieceType && PIECE_NAMES[originalPieceType] && (
+                  {originalPieceType && PIECE_NAMES[originalPieceType as keyof typeof PIECE_NAMES] && (
                     <button
                       onClick={() => handleDisguiseChoice(true)}
                       className="px-5 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 font-bold"
                     >
-                      Reveal {PIECE_NAMES[originalPieceType]} (
+                      Reveal {PIECE_NAMES[originalPieceType as keyof typeof PIECE_NAMES]} (
                       {/* Ensure originalPieceType is a valid key before accessing GL */}
-                      {GL[originalPieceType as keyof typeof GL]?.[W] ?? "?"})
+                      {(() => {
+                        const glyphSet = GL[originalPieceType as keyof typeof GL];
+                        return glyphSet && W in glyphSet ? glyphSet[W as keyof typeof glyphSet] : "?";
+                      })()})
                     </button>
                   )}
                 </div>

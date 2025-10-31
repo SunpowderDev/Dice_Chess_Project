@@ -1,4 +1,4 @@
-export type PieceType = "K" | "Q" | "R" | "B" | "N" | "P" | "ROCK";
+export type PieceType = "K" | "Q" | "R" | "B" | "N" | "P";
 export type Color = "w" | "b";
 export type PieceColor = Color | "n";
 
@@ -67,6 +67,9 @@ export type MoveRecord = {
 
 export type TerrainCell = "none" | "forest" | "water";
 export type Terrain = TerrainCell[][];
+
+export type ObstacleType = "rock" | "none";
+export type Obstacle = ObstacleType[][];
 
 export type MarketAction =
   | { type: "piece"; name: Piece["type"]; isFree?: boolean }

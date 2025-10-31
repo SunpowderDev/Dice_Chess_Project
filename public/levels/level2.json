@@ -7,8 +7,8 @@
   "playerArmyGold": 0,
   "botBehavior": "defensive",
   "terrainMatrix": [
-    ["R", "R", "W", "_", "n", "n"],
-    ["R", "n", "W", "_", "W", "n"],
+    ["W(Rock)", "W(Rock)", "W", "_", "n", "n"],
+    ["_(Rock)", "n", "W", "_", "W", "n"],
     ["n", "W", "_", "_", "W", "n"],
     ["n", "W", "_", "W", "n", "n"],
     ["n", "W", "_", "W", "n", "n"],

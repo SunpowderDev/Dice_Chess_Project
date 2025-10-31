@@ -4,8 +4,11 @@ import type { StoryCard } from "./types";
 export type EquipType = "sword" | "shield" | "lance" | "torch" | "bow" | "staff" | "crystal_ball" | "disguise" | "scythe" | "banner" | "curse" | "skull" | "purse";
 export type PieceType = "K" | "Q" | "R" | "B" | "N" | "P";
 
-// Terrain cell types: R=rock, F=forest, W=water, _=none/empty, n=random
-export type TerrainConfigCell = "R" | "F" | "W" | "_" | "n";
+// Terrain cell types with optional obstacles in parentheses
+// Examples: "F", "W", "_", "n", "W(Rock)", "F(Rock)", "_(Rock)"
+// Terrain: F=forest, W=water, _=none/empty, n=random
+// Obstacles: Rock (can be placed on any terrain)
+export type TerrainConfigCell = string; // Flexible to support "W(Rock)" style notation
 
 export interface NamedPiece {
   type: PieceType;
@@ -26,7 +29,8 @@ export interface LevelConfig {
   playerArmyGold: number;
   // Optional: Fixed terrain matrix. If not provided, uses random generation
   // Each row represents a board row (from white's side to black's side)
-  // R=rock, F=forest, W=water, _=empty, n=random
+  // F=forest, W=water, _=empty, n=random
+  // Obstacles can be added with parentheses: "W(Rock)", "F(Rock)", "_(Rock)"
   terrainMatrix?: TerrainConfigCell[][];
   // Optional: Custom name for white king
   whiteKingName?: string;

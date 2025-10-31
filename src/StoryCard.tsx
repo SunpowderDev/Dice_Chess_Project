@@ -333,7 +333,7 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode }) =>
     const pieceGlyphSet = GL[card.character.type as keyof typeof GL];
     const colorKey = card.character.color as "w" | "b";
     const glyph =
-      pieceGlyphSet && pieceGlyphSet[colorKey] ? pieceGlyphSet[colorKey] : "?";
+      pieceGlyphSet && colorKey in pieceGlyphSet ? pieceGlyphSet[colorKey as keyof typeof pieceGlyphSet] : "?";
 
     return (
       <div className="piece-container" style={{ width: '88px', height: '88px' }}>
