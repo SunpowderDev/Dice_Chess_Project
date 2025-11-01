@@ -25,6 +25,7 @@ export interface Piece {
   equip?: Equip;
   originalType?: Piece["type"];
   stunnedForTurns?: number;
+  shadowForTurns?: number; // Shadow visual indicator (for Bell of Names protection)
   name?: string;
   kills?: number; // Track enemy kills for veteran status
   isPreconfigured?: boolean; // True if named via level config (shows gold background)
@@ -69,7 +70,7 @@ export type MoveRecord = {
 export type TerrainCell = "none" | "forest" | "water";
 export type Terrain = TerrainCell[][];
 
-export type ObstacleType = "rock" | "courtier" | "column" | "gate" | "none";
+export type ObstacleType = "rock" | "courtier" | "column" | "gate" | "bell" | "none";
 export type Obstacle = ObstacleType[][];
 
 export type MarketAction =

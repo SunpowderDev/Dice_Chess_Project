@@ -6,7 +6,7 @@
   "enemyPieceGold": 180,
   "enemyEquipmentGold": 80,
   "enemyPawnBudget": 0.3,
-  "playerPieceGold": 90,
+  "playerPieceGold": 50,
   "playerEquipmentGold": 20,
   "playerPawnBudget": 0.15,
   "botBehavior": "balanced",

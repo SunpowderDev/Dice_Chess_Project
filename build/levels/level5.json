@@ -1,15 +1,154 @@
 {
   "level": 5,
-  "name": "Elite Challenge",
-  "boardSize": 9,
+  "name": "Chapter 5: Battaglia Campale",
+  "boardSize": 8,
   "startingGold": 0,
-  "enemyArmyGold": 480,
-  "playerArmyGold": 0,
+  "enemyPieceGold": 300,
+  "enemyEquipmentGold": 150,
+  "enemyPawnBudget": 0.3,
+  "playerPieceGold": 100,
+  "playerEquipmentGold": 60,
+  "playerPawnBudget": 0.35,
+  "botBehavior": "aggressive",
+  "namedWhitePieces": [
+    {
+      "type": "K",
+      "name": "Eohmer",
+      "speechLines": [
+        "Break the bell, end the madman.",
+        "Your name will be **forgotten**, Morcant!",
+        "The bell's chime fades.",
+        "This ends **now**.",
+        "No more **sacrilege**!",
+        "Your shadow falls, **Prelate**.",
+        "**Justice** comes for you!"
+      ]
+    }
+  ],
+  "namedBlackPieces": [
+    {
+      "type": "K",
+      "name": "Morcant",
+      "speechLines": [
+        "I am the name that will not fall.",
+        "**Kneel**, Eohmer, for I am your **new god**!",
+        "My name rings **true**!",
+        "History forgets yours, **Crownless**.",
+        "The bell **protects** me!",
+        "You cannot kill a **god**!",
+        "My **shadow** is eternal!",
+        "**Sacrilege** is my armor!"
+      ]
+    }
+  ],
+  "storyCards": [
+    {
+      "id": "level5-narrator",
+      "character": {
+        "type": "K",
+        "color": "w",
+        "name": "Narrator"
+      },
+      "bodyText": "Winter draws near and the light thins, but you are ready. The field darkens with black magi; the air hums like a struck chalice. You fear nothing.",
+      "image": "/level5_Battlefield.png",
+      "leftChoice": {
+        "text": "What are those dark staves?",
+        "events": [
+          { "type": "next_card", "cardId": "level5-Pintus" }
+        ]
+      },
+      "rightChoice": {
+        "text": "What is that golden glint?",
+        "events": [
+          { "type": "next_card", "cardId": "level5-Pintus" }
+        ]
+      }
+    },
+    {
+      "id": "level5-Pintus",
+      "character": {
+        "type": "K",
+        "color": "b",
+        "name": "Pintus IX"
+      },
+      "bodyText": "\"I know why Morcant sacked your castle—the Bell of Names in your crypt. His name now stains it, a sacrilege that armors him against death. Break the bell and the man returns; leave it whole and you fight a **shadow** that will not fall.\"",
+      "image": "/level5_BellofNames.png",
+      "leftChoice": {
+        "text": "His soul is forfeit.",
+        "events": [
+          { "type": "next_card", "cardId": "level5-Morcant" }
+        ],
+        "overlayColor": "rgba(101, 67, 33, 0.85)"
+      },
+      "rightChoice": {
+        "text": "Speak louder, usurper!",
+        "events": [
+          { "type": "next_card", "cardId": "level5-Morcant" }
+        ],
+        "overlayColor": "rgba(101, 67, 33, 0.85)"
+      }
+    },
+    {
+      "id": "level5-Morcant",
+      "character": {
+        "type": "K",
+        "color": "b",
+        "name": "Morcant"
+      },
+      "bodyText": "\"Kneel, Eohmer, for I am your new god, and my name only rings **true**! Let history forget yours, **Crownless**.\"",
+      "image": "/level5_Morcant.png",
+      "leftChoice": {
+        "text": "Ambush an Ebon Staff-Mage",
+        "events": [
+          { "type": "unlock_item", "item": "staff" },
+          { "type": "give_gold", "amount": 50 },
+          { "type": "start_battle" }
+        ],
+        "overlayColor": "rgba(249, 115, 22, 0.8)"
+      },
+      "rightChoice": {
+        "text": "Use the peasants as meat shield",
+        "events": [
+          { "type": "give_free_unit", "pieceType": "P" },
+          { "type": "give_free_unit", "pieceType": "P" },
+          { "type": "give_free_unit", "pieceType": "P" },
+          { "type": "give_free_unit", "pieceType": "P" },
+          { "type": "give_free_unit", "pieceType": "P" },
+          { "type": "give_free_unit", "pieceType": "P" },
+          { "type": "give_free_unit", "pieceType": "P" },
+          { "type": "give_free_unit", "pieceType": "P" },
+          { "type": "give_free_unit", "pieceType": "P" },
+          { "type": "give_free_unit", "pieceType": "P" },
+          { "type": "start_battle" }
+        ],
+        "overlayColor": "rgba(34, 197, 94, 0.8)"
+      }
+    }
+  ],
   "availableItems": {
-    "blackRandomization": ["sword", "shield", "lance", "torch", "bow", "staff", "crystal_ball", "disguise", "scythe", "banner", "curse", "skull", "purse"],
-    "whiteRandomization": ["sword", "shield", "lance", "torch", "bow", "staff", "crystal_ball", "disguise", "scythe", "banner", "curse", "skull"],
-    "whitePurchase": ["sword", "shield", "lance", "torch", "bow", "staff", "crystal_ball", "disguise", "scythe", "banner", "curse", "skull"]
+    "blackRandomization": ["shield", "sword", "bow", "torch", "banner", "curse", "staff", "scythe"],
+    "whiteRandomization": [],
+    "whitePurchase": ["shield", "sword", "bow", "torch", "banner", "disguise", "crystal_ball", "lance", "staff", "scythe", "curse", "skull"]
   },
-  "victoryConditions": ["king_beheaded", "king_captured", "king_dishonored"]
+  "randomizationPieces": {
+    "black": ["P", "B", "N", "R", "Q"],
+    "white": ["P", "B", "N", "R"]
+  },
+  "guaranteedPieces": {
+    "black": [],
+    "white": []
+  },
+  "terrainMatrix": [
+    ["n", "n", "n", "n", "n", "n", "n", "n"],
+    ["n", "n", "n", "n", "n", "n", "n", "n"],
+    ["n", "n", "n", "n", "n", "n", "n", "n"],
+    ["n", "n", "n", "n", "n", "n", "n", "n"],
+    ["n", "n", "n", "n", "n", "n", "n", "n"],
+    ["n", "n", "n", "n", "n", "n", "n", "n"],
+    ["n", "n", "n", "n", "n", "n", "n", "n"],
+    ["n", "n", "n", "n", "n(Bell)", "n", "n", "n"]
+  ],
+  "victoryConditions": ["king_beheaded", "king_captured", "king_dishonored"],
+  "pawnPromotionType": "Q",
+  "marketEnabled": true
 }
-

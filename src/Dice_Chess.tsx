@@ -489,11 +489,17 @@ function decrementStunFor(side: Color, b: Board, boardSize: number = S) {
   for (let y = 0; y < boardSize; y++) {
     for (let x = 0; x < boardSize; x++) {
       const p = b[y]?.[x]; // Safe navigation
-      if (p && p.color === side && p.stunnedForTurns && p.stunnedForTurns > 0) {
-        p.stunnedForTurns -= 1;
-        // Clear exhausted flag when stun wears off
-        if (p.stunnedForTurns === 0) {
-          p.isExhausted = false;
+      if (p && p.color === side) {
+        if (p.stunnedForTurns && p.stunnedForTurns > 0) {
+          p.stunnedForTurns -= 1;
+          // Clear exhausted flag when stun wears off
+          if (p.stunnedForTurns === 0) {
+            p.isExhausted = false;
+          }
+        }
+        // Decrement shadow turns (for Bell of Names protection visual)
+        if (p.shadowForTurns && p.shadowForTurns > 0) {
+          p.shadowForTurns -= 1;
         }
       }
     }
@@ -1569,6 +1575,19 @@ function resolve(
     defAdv: isVeteranDefender, // Track defender advantage
   };
 }
+
+// Helper function to check if the Bell of Names exists on the board
+function bellOfNamesExists(obstacles: Obstacle, boardSize: number): boolean {
+  for (let y = 0; y < boardSize; y++) {
+    for (let x = 0; x < boardSize; x++) {
+      if (obstacles[y]?.[x] === "bell") {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function resolveObstacle(
   r: () => number,
   a: Piece,
@@ -1606,6 +1625,8 @@ function resolveObstacle(
     threshold = 1; // Courtier is easier to destroy
   } else if (obstacleType === "gate") {
     threshold = 3; // Gate requires 3+ to break
+  } else if (obstacleType === "bell") {
+    threshold = 4; // Bell requires 4+ to break
   }
   
   const useAdv = a.type === "K" || adv;
@@ -1746,6 +1767,10 @@ function bot(
           // Column cannot be destroyed, so skip attacking it
           if (targetObstacle === "column") {
             continue; // Skip column attacks
+          }
+          // Black bot should NEVER attack the bell (it protects their king)
+          if (targetObstacle === "bell" && c === B) {
+            continue; // Skip bell attacks for black
           }
           const winProb =
             obstacleWinPercent(b, T, O, p, { x, y }, t, boardSize) / 100;
@@ -1988,6 +2013,8 @@ function obstacleWinPercent(
     threshold = 1; // Courtier is easier to destroy
   } else if (obstacleType === "gate") {
     threshold = 3; // Gate requires 3+ to break
+  } else if (obstacleType === "bell") {
+    threshold = 4; // Bell requires 4+ to break
   }
   
   const aSup = supportCount(BD, TD, OD, att, from, to, boardSize);
@@ -2661,6 +2688,7 @@ function BoardComponent({
                 if (obstacleType === "courtier") return GL.COURTIER.n;
                 if (obstacleType === "column") return GL.COLUMN.n;
                 if (obstacleType === "gate") return GL.GATE.n;
+                if (obstacleType === "bell") return GL.BELL.n;
                 return null;
               };
 
@@ -2940,7 +2968,7 @@ function BoardComponent({
                             p.stunnedForTurns && p.stunnedForTurns > 0
                               ? "stunned-piece"
                               : ""
-                          }`}
+                          } ${p.shadowForTurns && p.shadowForTurns > 0 ? "shadow-piece" : ""}`}
                         >
                           {getPieceSymbol(p)}
                         </span>
@@ -3756,6 +3784,18 @@ export default function App() {
     }
   }, [seed, campaign.level, unspentGold, currentLevelConfig]);
 
+  // Show story cards immediately when advancing to next level (skip intro popup)
+  useEffect(() => {
+    // Only show story cards if:
+    // 1. We have story cards in the queue
+    // 2. No current story card is showing
+    // 3. Intro popup is not showing (campaign.level > 1 means we're past the first level)
+    // 4. We're not showing the intro popup
+    if (storyCardQueue.length > 0 && !currentStoryCard && !showIntro && campaign.level > 1) {
+      setCurrentStoryCard(storyCardQueue[0]);
+    }
+  }, [storyCardQueue, currentStoryCard, showIntro, campaign.level]);
+
   useEffect(() => {
     sfx.muted = muted;
   }, [muted]);
@@ -4498,10 +4538,10 @@ export default function App() {
             ];
             outcomes.push({
               message: `Unlocked ${event.item}!`,
-              glyph: "🔓",
-              color: "text-blue-100",
-              bgColor: "bg-blue-900",
-              borderColor: "border-blue-500",
+              glyph: equipIcon(event.item) || "🔓",
+              color: "text-orange-100",
+              bgColor: "bg-orange-900",
+              borderColor: "border-orange-500",
             });
             break;
 
@@ -5569,7 +5609,7 @@ export default function App() {
         setMoveHistory((hist) => {
           const newHistory = [...hist];
           const lastMove = newHistory[newHistory.length - 1];
-          if (lastMove) lastMove.notation += " (King escaped!)";
+          if (lastMove) lastMove.notation += " (Escaped!)";
           return newHistory;
         });
         setPhase("playing");
@@ -5633,11 +5673,23 @@ export default function App() {
       : { ...mv };
 
     if (isSuccess) {
+      // Check if we're destroying the Bell of Names
+      const wasBellDestroyed = O1[to.y][to.x] === "bell";
+      
       B1[to.y][to.x] = attackerState;
       B1[from.y][from.x] = null;
       O1[to.y][to.x] = "none"; // Remove the obstacle
       setObstacles(O1); // Update obstacles state
       setLastMove({ from, to }); // Set last move only on success
+      
+      // Special message when the bell is destroyed
+      if (wasBellDestroyed) {
+        setSpeechBubble({ 
+          text: "**The bell shatters! Morcant is now vulnerable!**", 
+          id: Date.now(), 
+          targetId: "bell_destroyed" 
+        });
+      }
 
       // Check for exhaustion
       if (mv) checkExhaustion(mv.id, from, to, B1);
@@ -5676,7 +5728,7 @@ export default function App() {
         setMoveHistory((hist) => {
           const newHistory = [...hist];
           const lastMove = newHistory[newHistory.length - 1];
-          if (lastMove) lastMove.notation += " (King escaped!)";
+          if (lastMove) lastMove.notation += " (Escaped!)";
           return newHistory;
         });
         setFx(null);
@@ -5758,6 +5810,39 @@ export default function App() {
         );
         // If defender was a King, the game ends immediately
         if (tg.type === "K") {
+          // Check for Bell of Names protection (protects black king only)
+          if (tg.color === B && bellOfNamesExists(obstacles, currentBoardSize)) {
+            // Black king is protected by the Bell of Names - conversion fails
+            const bellPhrase = "The Bell of Names shields Morcant!";
+            setPhrase(bellPhrase);
+            setSpeechBubble({ 
+              text: "**The bell protects me!**", 
+              id: Date.now(), 
+              targetId: tg.id 
+            });
+            
+            setMoveHistory((hist) => {
+              const newHistory = [...hist];
+              const lastMove = newHistory[newHistory.length - 1];
+              if (lastMove) lastMove.notation += ` (${bellPhrase})`;
+              return newHistory;
+            });
+            
+            // Apply shadow visual effect to the king for 1 turn
+            const B1 = cloneB(Bstate);
+            const shadowKing = B1[to.y]?.[to.x];
+            if (shadowKing) {
+              shadowKing.shadowForTurns = 1;
+            }
+            // Staff is still consumed, but conversion fails
+            B1[from.y][from.x] = { ...mv, equip: undefined };
+            setB(B1);
+            setFx(null);
+            setRerollState(null);
+            setPhase("playing");
+            return;
+          }
+          
           // No death → no stun
           if (mv.color === W) {
             sfx.winCheckmate();
@@ -5787,6 +5872,41 @@ export default function App() {
           sfx.combatLose(); // Play sound for attacker dying to skull
           const deadDefender = B1[to.y][to.x];
           const deadAttacker = B1[from.y][from.x];
+          
+          // Check for Bell of Names protection (protects black king only)
+          if (deadDefender?.type === "K" && deadDefender.color === B && bellOfNamesExists(obstacles, currentBoardSize)) {
+            // Black king is protected by the Bell of Names - only attacker dies
+            B1[from.y][from.x] = null;
+            onPieceDeath(B1, deadAttacker, from, turn); // 🎃 attacker's death
+            
+            const bellPhrase = "The Bell of Names shields Morcant!";
+            setPhrase(bellPhrase);
+            setSpeechBubble({ 
+              text: "**The bell protects me!**", 
+              id: Date.now(), 
+              targetId: tg.id 
+            });
+            
+            setMoveHistory((hist) => {
+              const newHistory = [...hist];
+              const lastMove = newHistory[newHistory.length - 1];
+              if (lastMove) lastMove.notation += ` (${bellPhrase})`;
+              return newHistory;
+            });
+            
+            // Apply shadow visual effect to the king for 1 turn
+            const shadowKing = B1[to.y]?.[to.x];
+            if (shadowKing) {
+              shadowKing.shadowForTurns = 1;
+            }
+            
+            setB(B1);
+            setFx(null);
+            setRerollState(null);
+            setPhase("playing");
+            return;
+          }
+          
           B1[to.y][to.x] = null;
           B1[from.y][from.x] = null;
           onPieceDeath(B1, deadDefender, to, turn); // 🎃 defender's death
@@ -5890,6 +6010,40 @@ export default function App() {
           }
 
           if (tg.type === "K") {
+            // Check for Bell of Names protection (protects black king only)
+            if (tg.color === B && bellOfNamesExists(obstacles, currentBoardSize)) {
+              // Black king is protected by the Bell of Names - he cannot be killed
+              // The attacker's attack fails completely (as if blocked)
+              const bellPhrase = "The Bell of Names shields Morcant!";
+              setPhrase(bellPhrase);
+              setSpeechBubble({ 
+                text: "**The bell protects me!**", 
+                id: Date.now(), 
+                targetId: tg.id 
+              });
+              
+              setMoveHistory((hist) => {
+                const newHistory = [...hist];
+                const lastMove = newHistory[newHistory.length - 1];
+                if (lastMove) lastMove.notation += ` (${bellPhrase})`;
+                return newHistory;
+              });
+              
+              // Apply shadow visual effect to the king for 1 turn
+              const B1 = cloneB(Bstate);
+              const shadowKing = B1[to.y]?.[to.x];
+              if (shadowKing) {
+                shadowKing.shadowForTurns = 1;
+                setB(B1);
+              } else {
+                setB(Bstate); // Fallback if king not found
+              }
+              setFx(null);
+              setRerollState(null);
+              setPhase("playing");
+              return;
+            }
+            
             if (moved.color === W) {
               sfx.winCheckmate();
             } else {
@@ -5923,7 +6077,7 @@ export default function App() {
             setMoveHistory((hist) => {
               const newHistory = [...hist];
               const lastMove = newHistory[newHistory.length - 1];
-              if (lastMove) lastMove.notation += " (King escaped!)";
+              if (lastMove) lastMove.notation += " (Escaped!)";
               return newHistory;
             });
             setFx(null);
@@ -5958,8 +6112,40 @@ export default function App() {
 
         if (attackerState.equip === "skull") {
           // Kill defender too
-          sfx.combatLose(); // Play sound for defender dying to attacker's skull
           const deadDefender = B1[to.y][to.x];
+          
+          // Check for Bell of Names protection (protects black king only)
+          if (deadDefender?.type === "K" && deadDefender.color === B && bellOfNamesExists(obstacles, currentBoardSize)) {
+            // Black king is protected by the Bell of Names - skull fails to kill him
+            const bellPhrase = "The Bell of Names shields Morcant!";
+            setPhrase(bellPhrase);
+            setSpeechBubble({ 
+              text: "**The bell protects me!**", 
+              id: Date.now(), 
+              targetId: tg.id 
+            });
+            
+            setMoveHistory((hist) => {
+              const newHistory = [...hist];
+              const lastMove = newHistory[newHistory.length - 1];
+              if (lastMove) lastMove.notation += ` (${bellPhrase})`;
+              return newHistory;
+            });
+            
+            // Apply shadow visual effect to the king for 1 turn
+            const shadowKing = B1[to.y]?.[to.x];
+            if (shadowKing) {
+              shadowKing.shadowForTurns = 1;
+            }
+            
+            setB(B1);
+            setFx(null);
+            setRerollState(null);
+            setPhase("playing");
+            return;
+          }
+          
+          sfx.combatLose(); // Play sound for defender dying to attacker's skull
           B1[to.y][to.x] = null;
           onPieceDeath(B1, deadDefender, to, turn); // 🎃 defender's death
           // Check if we unlocked an item from defender
@@ -6463,6 +6649,7 @@ export default function App() {
                       if (obstacleType === "courtier") return GL.COURTIER.n;
                       if (obstacleType === "column") return GL.COLUMN.n;
                       if (obstacleType === "gate") return GL.GATE.n;
+                      if (obstacleType === "bell") return GL.BELL.n;
                       return GL.ROCK.n; // Fallback
                     })()}
                   </span>
@@ -6911,6 +7098,9 @@ export default function App() {
 
     setUnspentGold(totalGoldToCarry); // Carry over all gold to next level
     setShowVictoryDetails(false); // Reset for next level
+    setWin(null); // Clear win state
+    setKilledEnemyPieces([]); // Clear killed pieces for next level
+    setThisLevelUnlockedItems([]); // Clear unlocked items for next level
     const nextLevel = campaign.level + 1;
     setCampaign((prev) => ({
       ...prev,
@@ -6920,6 +7110,7 @@ export default function App() {
     // Generate a new seed that incorporates the level to ensure variation
     setSeed(new Date().toISOString() + `-level-${nextLevel}`);
     // useEffect watching seed AND campaign.level will call init with the correct (new) level and the saved unspentGold
+    // init will load story cards into storyCardQueue, and we'll show the first one immediately
   };
 
   return (

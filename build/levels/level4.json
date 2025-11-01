@@ -3,8 +3,8 @@
   "name": "Chapter 4: The Gentle Captive",
   "boardSize": 7,
   "startingGold": 0,
-  "enemyPieceGold": 250,
-  "enemyEquipmentGold": 100,
+  "enemyPieceGold": 220,
+  "enemyEquipmentGold": 110,
   "enemyPawnBudget": 0.25,
   "playerPieceGold": 60,
   "playerEquipmentGold": 40,
@@ -18,7 +18,7 @@
         "Cover yourself, you degenerate.",
         "The Eye got **blind** watching what you do, **Pintus**!",
         "Veil your shame, Pintus. Even idols blush.",
-        "Put on your robes; leave off your rot.",
+        "'Tis not art, but **depravity**.",
         "**Behave**, Pintus!.",
         "Eau the **wench**...",
         "**Vulgar** was definitely a choice of words..."
@@ -31,7 +31,7 @@
       "name": "Pintus IX",
       "speechLines": [
         "A man like you shan't judge me.",
-        "Kings posture; pontiffs rhetoric.",
+        "You don't understand **art**!",
         "No, no .. don't **leave me** Delila!.",
         "With your temper, you'll never find a **Queen**.",
         "**Bald** is your head **Crownless**!",
@@ -71,7 +71,7 @@
         "color": "b",
         "name": "Pintus IX"
       },
-      "bodyText": "\"By the **Seal of the See**: Eohmer, be excommunicated. Tis but **vulgar** banditry!\"",
+      "bodyText": "\"By the **See** be excommunicated! 'Tis but **vulgar** banditry!\"",
       "image": "/level4_Pintus.png",
       "leftChoice": {
         "text": "Partake in his vices",
@@ -94,7 +94,7 @@
     }
   ],
   "availableItems": {
-    "blackRandomization": ["shield", "sword", "bow", "torch", "banner", "curse"],
+    "blackRandomization": ["crystal_ball", "disguise", "curse"],
     "whiteRandomization": ["shield", "sword"],
     "whitePurchase": ["shield", "sword", "bow", "torch", "banner", "disguise", "crystal_ball"]
   },
@@ -120,11 +120,11 @@
   "courtierSpeechChance": 0.25,
   "courtierSpeechInterval": { "min": 2000, "max": 5000 },
   "courtierSpeechLines": [
-    "Oh **Pintus**!",
+    "**Ohhh** **Pintus**!",
     "**My** Pontiff!",
     "**Protect** me!",
     "**Nice sword**, soldier!",
-    "**Love** me tender!",
+    "**Love** me Pintuuus!",
     "The King is **here**!",
     "**Hide** the wine!",
     "**Disguise** yourself!",

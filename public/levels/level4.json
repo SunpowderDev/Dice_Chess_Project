@@ -3,8 +3,8 @@
   "name": "Chapter 4: The Gentle Captive",
   "boardSize": 7,
   "startingGold": 0,
-  "enemyPieceGold": 250,
-  "enemyEquipmentGold": 100,
+  "enemyPieceGold": 220,
+  "enemyEquipmentGold": 110,
   "enemyPawnBudget": 0.25,
   "playerPieceGold": 60,
   "playerEquipmentGold": 40,
@@ -94,7 +94,7 @@
     }
   ],
   "availableItems": {
-    "blackRandomization": ["shield", "sword", "bow", "torch", "banner", "curse"],
+    "blackRandomization": ["crystal_ball", "disguise", "curse"],
     "whiteRandomization": ["shield", "sword"],
     "whitePurchase": ["shield", "sword", "bow", "torch", "banner", "disguise", "crystal_ball"]
   },

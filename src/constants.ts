@@ -68,6 +68,7 @@ export const GL = {
   COURTIER: { n: "\u265F" }, // Courtier NPC (uses black pawn glyph, colored brown)
   COLUMN: { n: "🏛️" }, // Indestructible column
   GATE: { n: "🚪" }, // Gate obstacle (requires 3+ to break)
+  BELL: { n: "🔔" }, // Bell of Names (protects black king while intact)
 } as const;
 
 export const PHRASES = {

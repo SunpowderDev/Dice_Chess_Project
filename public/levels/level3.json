@@ -108,7 +108,7 @@
           { "type": "give_free_item", "item": "disguise", "count": 5 },
           { "type": "start_battle" }
         ],
-        "overlayColor": "rgba(234, 179, 8, 0.8)"
+        "overlayColor": "rgba(34, 197, 94, 0.8)"
       }
     }
   ],
