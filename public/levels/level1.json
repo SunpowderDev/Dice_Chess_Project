@@ -99,5 +99,6 @@
     ["_(Column)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Column)"],
     ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"],
     ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"]
-  ]
+  ],
+  "marketEnabled": false
 }

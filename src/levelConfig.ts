@@ -59,6 +59,10 @@ export interface LevelConfig {
   // Interval range in milliseconds between courtier speech checks (defaults to [2000, 5000])
   // Each check uses a random value between min and max for more natural timing
   courtierSpeechInterval?: number | { min: number; max: number };
+  // Whether the market is available for this level (defaults to true)
+  marketEnabled?: boolean;
+  // Which pieces are available for purchase in the market (defaults to all except King: ["Q", "R", "B", "N", "P"])
+  availablePieces?: PieceType[];
 }
 
 // Define all available equipment (for fallback scaling)
@@ -131,7 +135,9 @@ export async function loadLevelConfig(level: number): Promise<LevelConfig> {
         blackRandomization: ALL_ITEMS,
         whiteRandomization: WHITE_ITEMS,
         whitePurchase: WHITE_ITEMS
-      }
+      },
+      marketEnabled: true,
+      availablePieces: ["Q", "R", "B", "N", "P"]
     };
 
     // Cache the fallback
@@ -164,7 +170,9 @@ export function getLevelConfig(level: number): LevelConfig {
       blackRandomization: ALL_ITEMS,
       whiteRandomization: WHITE_ITEMS,
       whitePurchase: WHITE_ITEMS
-    }
+    },
+    marketEnabled: true,
+    availablePieces: ["Q", "R", "B", "N", "P"]
   };
 }
 

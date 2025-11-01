@@ -63,7 +63,10 @@ export function Market({
   setCampaign,
   sfx,
 }: MarketProps) {
-  const pieces: Piece["type"][] = ["Q", "R", "B", "N", "P"];
+  // Get available pieces from level config, default to all except King
+  const defaultPieces: Piece["type"][] = ["Q", "R", "B", "N", "P"];
+  const availablePieces = levelConfig?.availablePieces || defaultPieces;
+  const pieces = availablePieces.filter(p => p !== "K"); // Always exclude King from market
 
   // Get available items for purchase from level config AND unlocked items
   const levelItems = levelConfig?.availableItems.whitePurchase || [];

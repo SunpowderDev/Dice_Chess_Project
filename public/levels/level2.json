@@ -19,6 +19,7 @@
     "whiteRandomization": ["sword", "shield"],
     "whitePurchase": ["sword", "shield"]
   },
-  "victoryConditions": ["king_beheaded", "king_captured", "king_dishonored"]
+  "victoryConditions": ["king_beheaded", "king_captured", "king_dishonored"],
+  "availablePieces": ["R", "B", "N", "P"]
 }
 

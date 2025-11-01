@@ -92,6 +92,8 @@
     "blackRandomization": ["sword", "shield", "bow", "torch", "purse"],
     "whiteRandomization": ["sword", "shield", "bow", "torch"],
     "whitePurchase": ["sword", "shield", "bow", "torch", "lance", "staff"]
-  }
+  },
+  "marketEnabled": true,
+  "availablePieces": ["Q", "R", "B", "N", "P"]
 }
 

@@ -1027,9 +1027,13 @@ function moves(
     while (inBounds(nx, ny, boardSize)) {
       const t = b[ny]?.[nx]; // Safe navigation
       const obstacle = O[ny]?.[nx]; // Check for obstacles
-      if (obstacle !== "none") {
-        // Obstacle blocks movement, can attack it
+      if (obstacle !== "none" && obstacle !== "column") {
+        // Obstacle blocks movement, can attack it (but not columns)
         out.push({ x: nx, y: ny });
+        break;
+      }
+      if (obstacle === "column") {
+        // Column blocks movement but cannot be attacked
         break;
       }
       if (t) {
@@ -1050,8 +1054,8 @@ function moves(
             if (!inBounds(nx, ny, boardSize)) continue;
             const t = b[ny]?.[nx]; // Safe navigation
             const obstacle = O[ny]?.[nx]; // Check for obstacles
-            // Can move to empty squares or attack enemies/obstacles
-            if (obstacle !== "none" || !t || t.color !== col) out.push({ x: nx, y: ny });
+            // Can move to empty squares or attack enemies/obstacles (but not columns)
+            if ((obstacle !== "none" && obstacle !== "column") || !t || t.color !== col) out.push({ x: nx, y: ny });
           }
       break;
     case "Q":
@@ -1092,8 +1096,8 @@ function moves(
         if (!inBounds(nx, ny, boardSize)) return;
         const t = b[ny]?.[nx]; // Safe navigation
         const obstacle = O[ny]?.[nx]; // Check for obstacles
-        // Can move to empty squares or attack enemies/obstacles
-        if (obstacle !== "none" || !t || t.color !== col) out.push({ x: nx, y: ny });
+        // Can move to empty squares or attack enemies/obstacles (but not columns)
+        if ((obstacle !== "none" && obstacle !== "column") || !t || t.color !== col) out.push({ x: nx, y: ny });
       });
       break;
     case "P":
@@ -1108,8 +1112,8 @@ function moves(
           if (!inBounds(cx, cy, boardSize)) continue;
           const t = b[cy]?.[cx]; // Safe navigation
           const diagObstacle = O[cy]?.[cx]; // Check for diagonal obstacle
-          // Pawns can attack diagonally to capture pieces OR obstacles
-          if ((t && t.color !== col) || diagObstacle !== "none") out.push({ x: cx, y: cy });
+          // Pawns can attack diagonally to capture pieces OR obstacles (but not columns)
+          if ((t && t.color !== col) || (diagObstacle !== "none" && diagObstacle !== "column")) out.push({ x: cx, y: cy });
         }
       }
       break;
@@ -1126,8 +1130,8 @@ function moves(
       if (inBounds(x, targetY, boardSize)) {
         const targetPiece = b[targetY]?.[x]; // Safe navigation
         const targetObstacle = O[targetY]?.[x]; // Check for obstacle at target
-        // Can attack enemy pieces OR obstacles
-        if ((targetPiece && targetPiece.color !== col) || targetObstacle !== "none") {
+        // Can attack enemy pieces OR obstacles (but not columns)
+        if ((targetPiece && targetPiece.color !== col) || (targetObstacle !== "none" && targetObstacle !== "column")) {
           out.push({ x, y: targetY });
         }
       }
@@ -2516,7 +2520,7 @@ function BoardComponent({
                   speechBubbleObstaclePos.y === y &&
                   obstacles[y]?.[x] === "courtier"));
               const isMarketPlacement =
-                marketAction?.type === "piece" && y <= 1 && !p;
+                marketAction?.type === "piece" && y <= 1 && !p && obstacles[y]?.[x] === "none";
               const isMarketEquipTarget =
                 marketAction?.type === "item" &&
                 p?.color === W &&
@@ -4085,7 +4089,7 @@ export default function App() {
     const nextCard = storyOutcome?.nextCard;
     setStoryOutcome(null);
 
-    // If there's a next card, show it; otherwise show transition then go to market
+    // If there's a next card, show it; otherwise show transition then go to market or playing
     if (nextCard) {
       setCurrentStoryCard(nextCard);
     } else {
@@ -4096,6 +4100,8 @@ export default function App() {
 
       // Since banners start covering the screen, we can change phase immediately
       // The transition will reveal it when banners slide out
+      // Always go to market phase to show victory conditions popup
+      // Market component will be hidden if marketEnabled is false
       setPhase("market");
 
       // Medieval transition sound via WebAudio (match 2.5s animation)
@@ -4339,6 +4345,8 @@ export default function App() {
           setCurrentStoryCard(nextCard);
         } else if (shouldStartBattle) {
           setStoryCardQueue([]);
+          // Always go to market phase to show victory conditions popup
+          // Market component will be hidden if marketEnabled is false
           setPhase("market");
         }
       }
@@ -4499,7 +4507,9 @@ export default function App() {
     // Story cards will be shown after intro via handleIntroComplete
     setCurrentStoryCard(null);
     setStoryCardQueue(levelConfig.storyCards || []);
-    setPhase("market"); // Default phase, will be overridden if story cards exist
+    // Default phase: market (will show victory conditions popup)
+    // Market component will be hidden if marketEnabled is false (will be overridden if story cards exist)
+    setPhase("market");
 
     // Set starting gold with carry-over (level-specific starting gold + unspent gold from previous level)
     setMarketPoints(levelConfig.startingGold + currentUnspentGold);
@@ -4525,9 +4535,9 @@ export default function App() {
       let actionCompleted = false;
 
       if (marketAction?.type === "piece") {
-        if (y <= 1 && !B1[y]?.[x]) {
+        if (y <= 1 && !B1[y]?.[x] && obstacles[y]?.[x] === "none") {
           // Safe navigation
-          // Valid placement
+          // Valid placement (no piece and no obstacle)
           sfx.deploy();
           const newPieceId = `${W}${marketAction.name}-${Math.random()
             .toString(36)
@@ -4796,7 +4806,7 @@ export default function App() {
 
         if (!out.ok && p.color === W && prayerDice > 0) {
           setPhase("awaiting_reroll");
-          setRerollState({ from, to, kind: "obstacle", loserPos: from, obstacleType: fx.obstacleType });
+          setRerollState({ from, to, kind: "obstacle", loserPos: from, obstacleType: targetObstacle });
           return;
         }
 
@@ -5646,7 +5656,9 @@ export default function App() {
   }
 
   const handleStartBattle = () => {
-    if (marketPoints !== 0) {
+    // Only ask about unspent gold if market is available and there's unspent gold
+    const marketEnabled = currentLevelConfig?.marketEnabled !== false;
+    if (marketPoints !== 0 && marketEnabled) {
       setShowMarketConfirm(true);
     } else {
       setPhase("playing");
@@ -5753,10 +5765,20 @@ export default function App() {
     phase: Phase;
   }) => {
     const logRef = useRef<HTMLDivElement>(null);
+    const prevHistoryLengthRef = useRef<number>(0);
 
     useEffect(() => {
       if (logRef.current) {
-        logRef.current.scrollTop = logRef.current.scrollHeight;
+        const currentLength = history.length;
+        const prevLength = prevHistoryLengthRef.current;
+        
+        // Only auto-scroll when history length actually increased (new moves added)
+        // This prevents scroll resets when speech bubbles cause re-renders
+        if (currentLength > prevLength) {
+          logRef.current.scrollTop = logRef.current.scrollHeight;
+        }
+        
+        prevHistoryLengthRef.current = currentLength;
       }
     }, [history]);
 
@@ -6050,10 +6072,10 @@ export default function App() {
       const isPlayerAttacking = p.color === W;
 
       if (isPlayerAttacking) {
-        if (fx.kind === "piece") setDispD(fx.d.total);
+        if (fx && fx.kind === "piece") setDispD(fx.d.total);
         setRerollTarget("attacker");
       } else {
-        setDispA(fx.a.total);
+        if (fx) setDispA(fx.a.total);
         setRerollTarget("defender");
       }
 
@@ -6478,7 +6500,7 @@ export default function App() {
       <div style={{ display: (showIntro || showTransition || currentStoryCard || storyOutcome) ? "none" : "block" }}>
         <div className="max-w-7xl mx-auto flex gap-8 justify-center flex-wrap md:flex-nowrap">
           <div className="order-1 w-full max-w-lg">
-            {phase === "market" ? (
+            {phase === "market" && currentLevelConfig?.marketEnabled !== false ? (
               <Market
                 showTooltip={showTooltip}
                 hideTooltip={hideTooltip}
