@@ -50,6 +50,15 @@ export interface LevelConfig {
   };
   // Victory conditions for this level (defaults to all three if not specified)
   victoryConditions?: VictoryCondition[];
+  // Pawn promotion type (defaults to "Q" if not specified)
+  pawnPromotionType?: PieceType;
+  // Speech lines for courtier obstacles
+  courtierSpeechLines?: string[];
+  // Chance for each courtier to speak when the timer triggers (0.0 to 1.0, defaults to 0.3)
+  courtierSpeechChance?: number;
+  // Interval range in milliseconds between courtier speech checks (defaults to [2000, 5000])
+  // Each check uses a random value between min and max for more natural timing
+  courtierSpeechInterval?: number | { min: number; max: number };
 }
 
 // Define all available equipment (for fallback scaling)

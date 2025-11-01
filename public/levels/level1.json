@@ -74,6 +74,23 @@
     "whitePurchase": ["sword", "shield"]
   },
   "victoryConditions": ["king_escaped"],
+  "pawnPromotionType": "N",
+  "courtierSpeechChance": 0.15,
+  "courtierSpeechInterval": { "min": 2000, "max": 4000 },
+  "courtierSpeechLines": [
+    "Lord have **mercy**!",
+    "**Putain**!",
+    "**Gasp**",
+    "**Nooo!**",
+    "Betrayer!",
+    "The chapel **burns**",
+    "**Parbleu!**",
+    "Save us!",
+    "**AAhhh**!",
+    "**Murderers**!",
+    "**Run**, your Majesty!",
+    "Take the **children**!"
+  ],
   "terrainMatrix": [
     ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"],
     ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"],

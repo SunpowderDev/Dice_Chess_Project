@@ -61,6 +61,7 @@ export type MoveRecord = {
     winPercent: number;
     attackerRolls: number[];
     defenderRolls: number[] | null;
+    obstacleType?: ObstacleType; // Type of obstacle if defenderRolls is null
   };
   inFog?: boolean;
 };

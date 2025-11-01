@@ -873,9 +873,13 @@ function placeFeatures(
   const randomCells: { x: number; y: number }[] = [];
 
   if (terrainMatrix && terrainMatrix.length === boardSize) {
-    // Process matrix: row 0 = board row 0 (white back rank), row N = board row N (black back rank)
+    // Process matrix: row 0 of matrix = top visual row (white side), row N = bottom visual row (black side)
+    // Board array: B[0] = white back rank, B[boardSize-1] = black back rank
+    // Visual rendering: B[boardSize-1] is displayed at top, B[0] at bottom
+    // So we need to reverse: matrix[0] -> B[boardSize-1], matrix[boardSize-1] -> B[0]
     for (let y = 0; y < boardSize; y++) {
-      const row = terrainMatrix[y];
+      const matrixRowIndex = boardSize - 1 - y; // Reverse the row index
+      const row = terrainMatrix[matrixRowIndex];
       if (row && row.length === boardSize) {
         for (let x = 0; x < boardSize; x++) {
           const cell = row[x];
@@ -2173,6 +2177,8 @@ function BoardComponent({
   setSellButtonPos,
   boardSize,
   victoryConditions,
+  setSpeechBubble,
+  currentLevelConfig,
 }: {
   board: Board;
   T: Terrain;
@@ -2197,7 +2203,8 @@ function BoardComponent({
   rerollState: {
     from: { x: number; y: number };
     to: { x: number; y: number };
-    kind: "piece" | "rock";
+    kind: "piece" | "obstacle";
+    obstacleType?: ObstacleType;
   } | null;
   rerollTarget: "attacker" | "defender" | null;
   combatId: number;
@@ -2218,7 +2225,10 @@ function BoardComponent({
   setSellButtonPos: (pos: { x: number; y: number } | null) => void;
   boardSize: number;
   victoryConditions: string[];
+  setSpeechBubble: (bubble: { text: string; id: number; targetId: string } | null) => void;
+  currentLevelConfig: any;
 }) {
+  console.log("[BOARD-COMPONENT] Rendering with boardSize:", boardSize);
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const isL = (x: number, y: number) =>
     legal.some((s) => s.x === x && s.y === y);
@@ -2240,9 +2250,32 @@ function BoardComponent({
   // Generate file labels (A-L for boards up to 12x12)
   const files = "ABCDEFGHIJKL";
 
-  const speechBubbleTarget = speechBubble
-    ? findPieceById(board, speechBubble.targetId, boardSize)
-    : null;
+  // Find speech bubble target - can be a piece or an obstacle (courtier)
+  let speechBubbleTarget: { p: Piece; x: number; y: number } | null = null;
+  let speechBubbleObstaclePos: { x: number; y: number } | null = null;
+  
+  if (speechBubble) {
+    // Check if it's an obstacle target (format: "courtier-x-y")
+    if (speechBubble.targetId.startsWith("courtier-")) {
+      const match = speechBubble.targetId.match(/courtier-(\d+)-(\d+)/);
+      if (match) {
+        const x = parseInt(match[1], 10);
+        const y = parseInt(match[2], 10);
+        if (inBounds(x, y, boardSize) && obstacles[y]?.[x] === "courtier") {
+          speechBubbleObstaclePos = { x, y };
+          // Create a dummy piece for rendering purposes (speech bubble expects a piece)
+          speechBubbleTarget = {
+            p: { id: speechBubble.targetId, type: "P", color: "b" } as Piece,
+            x,
+            y
+          };
+        }
+      }
+    } else {
+      // Regular piece target
+      speechBubbleTarget = findPieceById(board, speechBubble.targetId, boardSize);
+    }
+  }
 
   const showRerollPopup = phase === "awaiting_reroll" && rerollState;
   const rerollTargetPos =
@@ -2372,6 +2405,10 @@ function BoardComponent({
             {Array.from({ length: boardSize * boardSize }, (_, i) => {
               const x = i % boardSize,
                 y = boardSize - 1 - Math.floor(i / boardSize);
+              // Debug: log if y is out of bounds
+              if (y >= boardSize || y < 0) {
+                console.error("[RENDERING ERROR] Invalid y coordinate!", { i, x, y, boardSize, calculatedY: boardSize - 1 - Math.floor(i / boardSize) });
+              }
               const p = board[y]?.[x]; // Safe navigation
               const currentObstacle = obstacles[y]?.[x]; // Get obstacle at this position
               const hasObstacle = currentObstacle !== "none";
@@ -2477,9 +2514,14 @@ function BoardComponent({
                 attacks(board, T, obstacles, x, y, hover.x, hover.y, boardSize);
 
               const showSpeechBubble =
-                speechBubbleTarget &&
-                speechBubbleTarget.x === x &&
-                speechBubbleTarget.y === y;
+                speechBubble &&
+                ((speechBubbleTarget &&
+                  speechBubbleTarget.x === x &&
+                  speechBubbleTarget.y === y) ||
+                 (speechBubbleObstaclePos &&
+                  speechBubbleObstaclePos.x === x &&
+                  speechBubbleObstaclePos.y === y &&
+                  obstacles[y]?.[x] === "courtier"));
               const isMarketPlacement =
                 marketAction?.type === "piece" && y <= 1 && !p;
               const isMarketEquipTarget =
@@ -2603,7 +2645,7 @@ function BoardComponent({
                   {water && !isEscapeRow && <span className="water" />}
 
                   {/* 1.5. Obstacle Layer */}
-                  {hasObstacle && (
+                  {hasObstacle && !inFog && (
                     <span
                       className="obstacle-container"
                       style={{
@@ -2613,10 +2655,10 @@ function BoardComponent({
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        pointerEvents: "none",
+                        pointerEvents: "none"
                       }}
                     >
-                      <span className={`obstacle-chip ${currentObstacle}`}>
+                      <span className={`obstacle-chip ${currentObstacle}`} id={`courtier-${x}-${y}`}>
                         {getObstacleGlyph(currentObstacle)}
                       </span>
                     </span>
@@ -2776,12 +2818,13 @@ function BoardComponent({
                       </span>
                     )}
                   {showSpeechBubble &&
-                    speechBubbleTarget &&
                     speechBubble && ( // Ensure target and speechBubble exist
                       <div
                         key={speechBubble.id}
                         className={`speech-bubble ${
-                          speechBubbleTarget.p.color === "w"
+                          speechBubbleObstaclePos
+                            ? "black-king-bubble" // Courtiers use black bubble style
+                            : speechBubbleTarget && speechBubbleTarget.p.color === "w"
                             ? "white-king-bubble"
                             : "black-king-bubble"
                         }`}
@@ -3119,7 +3162,7 @@ export default function App() {
   const [legal, setLegal] = useState<{ x: number; y: number }[]>([]);
   const [win, setWin] = useState<Color | null>(null);
   const [phrase, setPhrase] = useState<string | null>(null);
-  const [fx, setFx] = useState<any>(null); // {kind:'piece'|'rock',from,to,a,d?,win?,ok?}
+  const [fx, setFx] = useState<any>(null); // {kind:'piece'|'obstacle',from,to,a,d?,win?,ok?,obstacleType?:ObstacleType}
   const [phase, setPhase] = useState<Phase>("market");
   const [dispA, setDispA] = useState<number | null>(null);
   const [dispD, setDispD] = useState<number | null>(null);
@@ -3182,8 +3225,9 @@ export default function App() {
   const [rerollState, setRerollState] = useState<{
     from: { x: number; y: number };
     to: { x: number; y: number };
-    kind: "piece" | "rock";
+    kind: "piece" | "obstacle";
     loserPos: { x: number; y: number };
+    obstacleType?: ObstacleType;
   } | null>(null);
   const [rerollPopupPosition, setRerollPopupPosition] = useState<{
     top: number;
@@ -3343,7 +3387,7 @@ export default function App() {
   }, [campaign.level]);
 
   // Get current board size from level configuration
-  const currentBoardSize = currentLevelConfig?.boardSize || 8;
+  const currentBoardSize = currentLevelConfig?.boardSize ?? 7;
 
   // Track items unlocked in this level
   const [thisLevelUnlockedItems, setThisLevelUnlockedItems] = useState<
@@ -3559,26 +3603,22 @@ export default function App() {
             return;
           }
           
-          // Normal victory logic for other victory conditions
-          sfx.winCheckmate();
-          setWin(W); // Player wins if bot has no moves
-          handleLevelCompletion(W, Bstate);
-          // Update phrase based on check/stalemate
-          const endPhrase = isBlackInCheck
-            ? "King captured! Checkmate!"
-            : "Stalemate";
-          setPhrase(endPhrase);
-
-          // Track King defeat for ransom if it's checkmate
-          if (isBlackInCheck && kB) {
-            setKilledEnemyPieces((prev) => [
-              ...prev,
-              { piece: kB.p, defeatType: "checkmate" },
-            ]);
-          }
-
-          // Add '#' only for checkmate, not stalemate
+          // If black is in check and has no moves → checkmate (game ends, player wins)
           if (isBlackInCheck) {
+            sfx.winCheckmate();
+            setWin(W); // Player wins if bot has no moves and is in check
+            handleLevelCompletion(W, Bstate);
+            setPhrase("King captured! Checkmate!");
+            
+            // Track King defeat for ransom
+            if (kB) {
+              setKilledEnemyPieces((prev) => [
+                ...prev,
+                { piece: kB.p, defeatType: "checkmate" },
+              ]);
+            }
+
+            // Add '#' for checkmate
             setMoveHistory((hist) => {
               const newHistory = [...hist];
               const lastMove = newHistory[newHistory.length - 1];
@@ -3587,7 +3627,24 @@ export default function App() {
               }
               return newHistory;
             });
+            return;
           }
+          
+          // If black is NOT in check and has no moves → skip turn (continue game)
+          setPhrase("Black skipped turn (no moves)");
+          setMoveHistory((hist) => {
+            const newHistory = [...hist];
+            const lastMove = newHistory[newHistory.length - 1];
+            if (lastMove) {
+              // Only add skip notation if it's not already there
+              if (!lastMove.notation.includes("(Skip)") && !lastMove.notation.includes("(Black skipped)")) {
+                lastMove.notation += " (Skip)";
+              }
+            }
+            return newHistory;
+          });
+          // Skip black's turn and continue with white
+          setTurn(W);
           return;
         }
         perform(m.from, m.to, true);
@@ -3770,6 +3827,96 @@ export default function App() {
       return () => clearTimeout(timer);
     }
   }, [speechBubble, TMG.bubble]);
+
+  // Ref to track speech bubble state for timer closure
+  const speechBubbleRef = useRef(speechBubble);
+  useEffect(() => {
+    speechBubbleRef.current = speechBubble;
+  }, [speechBubble]);
+
+  // Courtier speech timer - triggers independently from piece speech
+  useEffect(() => {
+    if (
+      phase !== "playing" ||
+      !currentLevelConfig?.courtierSpeechLines ||
+      currentLevelConfig.courtierSpeechLines.length === 0 ||
+      win
+    ) {
+      return; // Don't run during market, story, or after game ends
+    }
+
+    const speechChance = currentLevelConfig?.courtierSpeechChance ?? 0.3;
+    const intervalConfig = currentLevelConfig?.courtierSpeechInterval ?? { min: 2000, max: 5000 };
+    
+    // Calculate random interval (either a fixed number or random between min/max)
+    const getRandomInterval = (): number => {
+      if (typeof intervalConfig === "number") {
+        return intervalConfig;
+      } else {
+        const min = intervalConfig.min ?? 2000;
+        const max = intervalConfig.max ?? 5000;
+        return min + Math.random() * (max - min);
+      }
+    };
+
+    let timeoutId: NodeJS.Timeout | null = null;
+    let isActive = true;
+
+    const scheduleNextCheck = () => {
+      if (!isActive) return;
+      
+      const interval = getRandomInterval();
+      timeoutId = setTimeout(() => {
+        // Check if we're still in playing phase and should continue
+        if (phase !== "playing" || win || !currentLevelConfig?.courtierSpeechLines) {
+          isActive = false;
+          return;
+        }
+
+        // Only trigger if there's no active speech bubble (don't interrupt piece speech)
+        if (!speechBubbleRef.current) {
+          const speakingCourtiers: { x: number; y: number; line: string }[] = [];
+          obstacles.forEach((row, y) => {
+            row.forEach((obs, x) => {
+              if (obs === "courtier" && Math.random() < speechChance) {
+                const randomLine = currentLevelConfig.courtierSpeechLines![Math.floor(Math.random() * currentLevelConfig.courtierSpeechLines!.length)];
+                speakingCourtiers.push({ x, y, line: randomLine });
+              }
+            });
+          });
+          
+          // Show speech bubbles for all courtiers that rolled successfully
+          // Queue them sequentially so they appear one after another
+          if (speakingCourtiers.length > 0) {
+            speakingCourtiers.forEach((courtier, idx) => {
+              setTimeout(() => {
+                // Double-check there's still no piece speech bubble before showing
+                if (!speechBubbleRef.current) {
+                  setSpeechBubble({
+                    text: courtier.line,
+                    id: Date.now() + idx,
+                    targetId: `courtier-${courtier.x}-${courtier.y}`
+                  });
+                  setTimeout(() => setSpeechBubble(null), 2000);
+                }
+              }, idx * 2500); // Stagger by 2.5 seconds each
+            });
+          }
+        }
+        
+        // Schedule next check
+        scheduleNextCheck();
+      }, interval);
+    };
+
+    // Start the first check
+    scheduleNextCheck();
+
+    return () => {
+      isActive = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [phase, currentLevelConfig, obstacles, win]);
 
   // safety: hide tooltip whenever we leave Market or start an action
   useEffect(() => {
@@ -4378,6 +4525,7 @@ export default function App() {
   }
 
   function click(x: number, y: number) {
+    console.log("[CLICK] Clicked at coordinates:", { x, y, boardSize: currentBoardSize });
     if (drag) return;
     if (phase === "market") {
       const B1 = cloneB(Bstate);
@@ -4513,9 +4661,11 @@ export default function App() {
     isBot: boolean,
     isDragMove = false
   ) {
+    console.log("[PERFORM] Move requested:", { from, to, isBot, currentBoardSize });
     setDrag(null);
     if (fx || win || moveAnim) return;
     const p = Bstate[from.y]?.[from.x]; // Safe navigation
+    console.log("[PERFORM] Piece at from:", p);
     if (!p) return;
     const t = Bstate[to.y]?.[to.x]; // Safe navigation
 
@@ -4536,11 +4686,74 @@ export default function App() {
       // Check for exhaustion
       checkExhaustion(p.id, from, to, B1);
 
+      // Pawn promotion check for normal moves
+      if (userPiece.type === "P") {
+        const shouldPromote = 
+          (userPiece.color === W && to.y === currentBoardSize - 1) ||
+          (userPiece.color === B && to.y === 0);
+        console.log("[PAWN-PROMOTION-SWAP-USER]", {
+          piece: userPiece,
+          pieceColor: userPiece.color,
+          W: W,
+          B: B,
+          colorMatches: {
+            isWhite: userPiece.color === W,
+            isBlack: userPiece.color === B,
+            colorValue: userPiece.color
+          },
+          to: { x: to.x, y: to.y },
+          boardSize: currentBoardSize,
+          expectedWhiteRow: currentBoardSize - 1,
+          expectedBlackRow: 0,
+          shouldPromote,
+          conditionWhite: userPiece.color === W && to.y === currentBoardSize - 1,
+          conditionBlack: userPiece.color === B && to.y === 0,
+          whiteCheck: `${userPiece.color === W} && ${to.y === currentBoardSize - 1}`,
+          blackCheck: `${userPiece.color === B} && ${to.y === 0}`
+        });
+        if (shouldPromote) {
+          const promotionType = currentLevelConfig?.pawnPromotionType || "Q";
+          console.log("[PAWN-PROMOTION-SWAP-USER] Promoting pawn to", promotionType);
+          B1[to.y][to.x] = { ...userPiece, type: promotionType };
+        }
+      }
+      if (targetPiece.type === "P") {
+        const shouldPromote = 
+          (targetPiece.color === W && from.y === currentBoardSize - 1) ||
+          (targetPiece.color === B && from.y === 0);
+        console.log("[PAWN-PROMOTION-SWAP-TARGET]", {
+          piece: targetPiece,
+          pieceColor: targetPiece.color,
+          W: W,
+          B: B,
+          colorMatches: {
+            isWhite: targetPiece.color === W,
+            isBlack: targetPiece.color === B,
+            colorValue: targetPiece.color
+          },
+          from: { x: from.x, y: from.y },
+          boardSize: currentBoardSize,
+          expectedWhiteRow: currentBoardSize - 1,
+          expectedBlackRow: 0,
+          shouldPromote,
+          conditionWhite: targetPiece.color === W && from.y === currentBoardSize - 1,
+          conditionBlack: targetPiece.color === B && from.y === 0,
+          whiteCheck: `${targetPiece.color === W} && ${from.y === currentBoardSize - 1}`,
+          blackCheck: `${targetPiece.color === B} && ${from.y === 0}`
+        });
+        if (shouldPromote) {
+          const promotionType = currentLevelConfig?.pawnPromotionType || "Q";
+          console.log("[PAWN-PROMOTION-SWAP-TARGET] Promoting pawn to", promotionType);
+          B1[from.y][from.x] = { ...targetPiece, type: promotionType };
+        }
+      }
+
       setB(B1);
       setLastMove({ from, to });
       decrementStunFor(turn, B1, currentBoardSize); // tick down the mover's stun at END of their turn
       setTurn(nextTurn);
       setPhase("playing");
+      
       const notation = getChessNotation(from, to, p, false);
       setMoveHistory((hist) => [
         ...hist,
@@ -4575,12 +4788,13 @@ export default function App() {
         currentBoardSize
       );
       setFx({
-        kind: "rock",
+        kind: "obstacle",
         from,
         to,
         a: out.a,
         ok: out.ok,
         id: currentCombatId,
+        obstacleType: targetObstacle, // Store actual obstacle type
       });
 
       const notation = getChessNotation(from, to, p, true);
@@ -4603,7 +4817,8 @@ export default function App() {
           isSupported: sup > 0,
           winPercent: winPct,
           attackerRolls: out.a.rolls,
-          defenderRolls: null, // Explicitly null for rock combat
+          defenderRolls: null, // Explicitly null for obstacle combat
+          obstacleType: targetObstacle, // Store obstacle type for display
         },
         inFog: !vis[to.y]?.[to.x], // Safe navigation
       };
@@ -4621,7 +4836,7 @@ export default function App() {
 
         if (!out.ok && p.color === W && prayerDice > 0) {
           setPhase("awaiting_reroll");
-          setRerollState({ from, to, kind: "rock", loserPos: from });
+          setRerollState({ from, to, kind: "obstacle", loserPos: from, obstacleType: fx.obstacleType });
           return;
         }
 
@@ -4786,22 +5001,48 @@ export default function App() {
       "(prefers-reduced-motion: reduce)"
     ).matches;
     const commitQuietMove = () => {
+      console.log("[COMMIT-QUIET-MOVE] Starting quiet move", { from, to, piece: p });
       sfx.move();
       const B1 = cloneB(Bstate);
       const moved: Piece = { ...p };
+      console.log("[COMMIT-QUIET-MOVE] moved piece:", moved);
       B1[to.y][to.x] = moved;
       B1[from.y][from.x] = null;
-      if (moved.type === "P") {
-        if (
-          (moved.color === W && to.y === currentBoardSize - 1) ||
-          (moved.color === B && to.y === 0)
-        ) {
-          B1[to.y][to.x] = { ...moved, type: "Q" };
-        }
-      }
 
       // Check for exhaustion after the move
       checkExhaustion(p.id, from, to, B1);
+
+      // Pawn promotion check for normal moves - check the piece that's now on the board
+      const pieceAtDestination = B1[to.y]?.[to.x];
+      console.log("[COMMIT-QUIET-MOVE] Checking for pawn at destination");
+      console.log("  to:", to);
+      console.log("  moved:", moved);
+      console.log("  pieceAtDestination:", pieceAtDestination);
+      console.log("  Are they the same object?", moved === pieceAtDestination);
+      if (pieceAtDestination && pieceAtDestination.type === "P") {
+        console.log("[PAWN-PROMOTION-NORMAL] Pawn found, checking promotion");
+        console.log("  piece.color:", pieceAtDestination.color);
+        console.log("  to.y:", to.y);
+        console.log("  currentBoardSize:", currentBoardSize);
+        console.log("  W:", W, "B:", B);
+        
+        // Direct comparison without intermediate variables
+        const shouldPromote = 
+          (pieceAtDestination.color === W && to.y === currentBoardSize - 1) ||
+          (pieceAtDestination.color === B && to.y === 0);
+        
+        console.log("  Comparison results:");
+        console.log("    pieceAtDestination.color === W:", pieceAtDestination.color === W);
+        console.log("    to.y === currentBoardSize - 1:", to.y === currentBoardSize - 1);
+        console.log("    White condition:", pieceAtDestination.color === W && to.y === currentBoardSize - 1);
+        console.log("    Black condition:", pieceAtDestination.color === B && to.y === 0);
+        console.log("  shouldPromote:", shouldPromote);
+        if (shouldPromote) {
+          const promotionType = currentLevelConfig?.pawnPromotionType || "Q";
+          console.log("[PAWN-PROMOTION-NORMAL] Promoting pawn to", promotionType);
+          B1[to.y][to.x] = { ...pieceAtDestination, type: promotionType };
+        }
+      }
 
       // Check for King Escaped victory condition
       const victoryConditions = currentLevelConfig?.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"];
@@ -4948,6 +5189,40 @@ export default function App() {
         const conv: Piece = { ...tg, color: mv.color };
         B1[to.y][to.x] = conv;
         B1[from.y][from.x] = { ...moved, equip: undefined };
+        
+        // Pawn promotion check after staff conversion (attacker stays at from position)
+        const attackerAtFrom = B1[from.y]?.[from.x];
+        if (attackerAtFrom && attackerAtFrom.type === "P") {
+          const shouldPromote = 
+            (attackerAtFrom.color === W && from.y === currentBoardSize - 1) ||
+            (attackerAtFrom.color === B && from.y === 0);
+          console.log("[PAWN-PROMOTION-STAFF]", {
+            piece: attackerAtFrom,
+            pieceColor: attackerAtFrom.color,
+            W: W,
+            B: B,
+            colorMatches: {
+              isWhite: attackerAtFrom.color === W,
+              isBlack: attackerAtFrom.color === B,
+              colorValue: attackerAtFrom.color
+            },
+            from: { x: from.x, y: from.y },
+            boardSize: currentBoardSize,
+            expectedWhiteRow: currentBoardSize - 1,
+            expectedBlackRow: 0,
+            shouldPromote,
+            conditionWhite: attackerAtFrom.color === W && from.y === currentBoardSize - 1,
+            conditionBlack: attackerAtFrom.color === B && from.y === 0,
+            whiteCheck: `${attackerAtFrom.color === W} && ${from.y === currentBoardSize - 1}`,
+            blackCheck: `${attackerAtFrom.color === B} && ${from.y === 0}`
+          });
+          if (shouldPromote) {
+            const promotionType = currentLevelConfig?.pawnPromotionType || "Q";
+            console.log("[PAWN-PROMOTION-STAFF] Promoting pawn to", promotionType);
+            B1[from.y][from.x] = { ...attackerAtFrom, type: promotionType };
+          }
+        }
+        
         // Check if we unlocked an item (converted piece = "killed" for unlock purposes)
         checkUnlockItem(
           tg,
@@ -5078,6 +5353,18 @@ export default function App() {
 
           // Check for exhaustion
           checkExhaustion(mv.id, from, to, B1);
+
+          // Pawn promotion check after combat win (must happen before early returns for king kills)
+          const pieceAtDestination = B1[to.y]?.[to.x];
+          if (pieceAtDestination && pieceAtDestination.type === "P") {
+            const shouldPromote = 
+              (pieceAtDestination.color === W && to.y === currentBoardSize - 1) ||
+              (pieceAtDestination.color === B && to.y === 0);
+            if (shouldPromote) {
+              const promotionType = currentLevelConfig?.pawnPromotionType || "Q";
+              B1[to.y][to.x] = { ...pieceAtDestination, type: promotionType };
+            }
+          }
 
           if (tg.type === "K") {
             if (moved.color === W) {
@@ -5232,15 +5519,72 @@ export default function App() {
       // (end attacker lose)
     }
 
-    // Pawn promotion (only on a piece that ended up on 'to')
-    if (B1[to.y]?.[to.x]?.type === "P") {
-      // Safe navigation
-      const pc = B1[to.y][to.x] as Piece;
-      if (
-        (pc.color === W && to.y === currentBoardSize - 1) ||
-        (pc.color === B && to.y === 0)
-      ) {
-        B1[to.y][to.x] = { ...pc, type: "Q" };
+    // Pawn promotion (check both positions - winner might be at 'to' or 'from')
+    // Check the final position of the winner
+    const winnerFinalPos = out.win ? to : from;
+    const winnerFinalPiece = B1[winnerFinalPos.y]?.[winnerFinalPos.x];
+    if (winnerFinalPiece?.type === "P") {
+      const shouldPromoteWinner = 
+        (winnerFinalPiece.color === W && winnerFinalPos.y === currentBoardSize - 1) ||
+        (winnerFinalPiece.color === B && winnerFinalPos.y === 0);
+      console.log("[PAWN-PROMOTION-COMBAT-WINNER]", {
+        piece: winnerFinalPiece,
+        pieceColor: winnerFinalPiece.color,
+        W: W,
+        B: B,
+        colorMatches: {
+          isWhite: winnerFinalPiece.color === W,
+          isBlack: winnerFinalPiece.color === B,
+          colorValue: winnerFinalPiece.color
+        },
+        pos: winnerFinalPos,
+        boardSize: currentBoardSize,
+        expectedWhiteRow: currentBoardSize - 1,
+        expectedBlackRow: 0,
+        shouldPromote: shouldPromoteWinner,
+        conditionWhite: winnerFinalPiece.color === W && winnerFinalPos.y === currentBoardSize - 1,
+        conditionBlack: winnerFinalPiece.color === B && winnerFinalPos.y === 0,
+        whiteCheck: `${winnerFinalPiece.color === W} && ${winnerFinalPos.y === currentBoardSize - 1}`,
+        blackCheck: `${winnerFinalPiece.color === B} && ${winnerFinalPos.y === 0}`
+      });
+      if (shouldPromoteWinner) {
+        const promotionType = currentLevelConfig?.pawnPromotionType || "Q";
+        console.log("[PAWN-PROMOTION-COMBAT-WINNER] Promoting pawn to", promotionType);
+        B1[winnerFinalPos.y][winnerFinalPos.x] = { ...winnerFinalPiece, type: promotionType };
+      }
+    }
+    
+    // Also check if loser ended up at promotion square (shouldn't happen, but just in case)
+    const loserFinalPos = out.win ? from : to;
+    const loserFinalPiece = B1[loserFinalPos.y]?.[loserFinalPos.x];
+    if (loserFinalPiece?.type === "P") {
+      const shouldPromoteLoser = 
+        (loserFinalPiece.color === W && loserFinalPos.y === currentBoardSize - 1) ||
+        (loserFinalPiece.color === B && loserFinalPos.y === 0);
+      console.log("[PAWN-PROMOTION-COMBAT-LOSER]", {
+        piece: loserFinalPiece,
+        pieceColor: loserFinalPiece.color,
+        W: W,
+        B: B,
+        colorMatches: {
+          isWhite: loserFinalPiece.color === W,
+          isBlack: loserFinalPiece.color === B,
+          colorValue: loserFinalPiece.color
+        },
+        pos: loserFinalPos,
+        boardSize: currentBoardSize,
+        expectedWhiteRow: currentBoardSize - 1,
+        expectedBlackRow: 0,
+        shouldPromote: shouldPromoteLoser,
+        conditionWhite: loserFinalPiece.color === W && loserFinalPos.y === currentBoardSize - 1,
+        conditionBlack: loserFinalPiece.color === B && loserFinalPos.y === 0,
+        whiteCheck: `${loserFinalPiece.color === W} && ${loserFinalPos.y === currentBoardSize - 1}`,
+        blackCheck: `${loserFinalPiece.color === B} && ${loserFinalPos.y === 0}`
+      });
+      if (shouldPromoteLoser) {
+        const promotionType = currentLevelConfig?.pawnPromotionType || "Q";
+        console.log("[PAWN-PROMOTION-COMBAT-LOSER] Promoting pawn to", promotionType);
+        B1[loserFinalPos.y][loserFinalPos.x] = { ...loserFinalPiece, type: promotionType };
       }
     }
 
@@ -5588,7 +5932,7 @@ export default function App() {
               <span className="text-sm">🙏</span>
             )}
             {
-              move.combat.defenderRolls === null ? ( // Rock combat check
+              move.combat.defenderRolls === null ? ( // Obstacle combat check
                 <div className="flex items-center gap-1">
                   <span className="text-xs text-zinc-500">vs</span>
                   <span
@@ -5598,7 +5942,13 @@ export default function App() {
                         '"Noto Sans Symbols 2", "Segoe UI Symbol", "DejaVu Sans", system-ui, sans-serif',
                     }}
                   >
-                    {GL.ROCK.n}
+                    {(() => {
+                      const obstacleType = move.combat?.obstacleType || "rock";
+                      if (obstacleType === "rock") return GL.ROCK.n;
+                      if (obstacleType === "courtier") return GL.COURTIER.n;
+                      if (obstacleType === "column") return GL.COLUMN.n;
+                      return GL.ROCK.n; // Fallback
+                    })()}
                   </span>
                 </div>
               ) : move.combat.defenderRolls ? ( // Piece combat
@@ -5761,7 +6111,8 @@ export default function App() {
         setRerollTarget("defender");
       }
 
-      if (kind === "rock") {
+      if (kind === "obstacle") {
+        const obstacleType = rerollState?.obstacleType || obstacles[to.y]?.[to.x] || "rock";
         const lanceLungeUsed =
           p.equip === "lance" &&
           to.y === from.y + (p.color === W ? 1 : -1) * 2 &&
@@ -5908,7 +6259,7 @@ export default function App() {
         p.equip === "lance" &&
         to.y === from.y + (p.color === W ? 1 : -1) * 2 &&
         to.x === from.x;
-      if (kind === "rock") {
+      if (kind === "obstacle") {
         finishRockCombat(fx.ok, lanceLungeUsed, from, to);
       } else {
         const loser = fx.win ? Bstate[to.y]?.[to.x] : Bstate[from.y]?.[from.x]; // Safe navigation
@@ -6269,6 +6620,8 @@ export default function App() {
                 setSellButtonPos={setSellButtonPos}
                 boardSize={currentBoardSize}
                 victoryConditions={currentLevelConfig?.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"]}
+                setSpeechBubble={setSpeechBubble}
+                currentLevelConfig={currentLevelConfig}
               />
             </div>
           </div>
