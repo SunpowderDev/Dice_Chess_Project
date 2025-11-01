@@ -1,14 +1,14 @@
 {
   "level": 3,
   "name": "Chapter 3: Pilgrim's Pass",
-  "boardSize": 8,
-  "startingGold": 200,
+  "boardSize": 7,
+  "startingGold": 100,
   "enemyPieceGold": 220,
-  "enemyEquipmentGold": 100,
+  "enemyEquipmentGold": 140,
   "enemyPawnBudget": 0.25,
-  "playerPieceGold": 120,
-  "playerEquipmentGold": 30,
-  "playerPawnBudget": 0.2,
+  "playerPieceGold": 30,
+  "playerEquipmentGold": 0,
+  "playerPawnBudget": 0.4,
   "botBehavior": "balanced",
   "namedWhitePieces": [
     {
@@ -27,7 +27,7 @@
     },
     {
       "type": "Q",
-      "name": "Dame Daphne",
+      "name": "Delila",
       "equip": "banner",
       "speechLines": [
         "Close the ranks!",
@@ -43,12 +43,12 @@
   ],
   "namedBlackPieces": [
     {
-      "type": "K",
-      "name": "Pontiff's Guard",
-      "equip": "shield",
+      "type": "Q",
+      "name": "Clomilla",
+      "equip": "scythe",
       "speechLines": [
-        "No **passage** for the faithless!",
-        "The Pontiff **commands** it!",
+        "Pintus is **ill** disposed!",
+        "The Pontiff **is** the Eye's Voice!",
         "**Begone** knaves!",
         "Turn **back**, heretic!",
         "You shall not **pass**!",
@@ -71,26 +71,26 @@
       "leftChoice": {
         "text": "Vices are great leverages..",
         "events": [
-          { "type": "next_card", "cardId": "level3-DameDaphne" }
+          { "type": "next_card", "cardId": "level3-DameDelila" }
         ]
       },
       "rightChoice": {
         "text": "Watch the pilgrims slip through the gates.",
         "events": [
-          { "type": "next_card", "cardId": "level3-DameDaphne" }
+          { "type": "next_card", "cardId": "level3-DameDelila" }
         ]
       }
     },
     {
-      "id": "level3-DameDaphne",
+      "id": "level3-DameDelila",
       "character": {
         "type": "Q",
         "color": "w",
         "equip": "banner",
-        "name": "Dame Daphne"
+        "name": "Dame Delila"
       },
       "bodyText": "\"Drowned in velvet **wine** and **vice**, the Pontiff won't heed courtesies. My liege, permit House Deliss to be the **tip** of your quill!\"",
-      "image": "/level3_DameDaphne.png",
+      "image": "/level3_DameDelila.png",
       "leftChoice": {
         "text": "Some people knock; others enter.",
         "events": [
@@ -113,8 +113,8 @@
     }
   ],
   "availableItems": {
-    "blackRandomization": ["shield", "sword", "bow", "torch"],
-    "whiteRandomization": ["shield", "sword", "disguise"],
+    "blackRandomization": ["shield", "sword", "bow", "torch", "crystal_ball", "banner"],
+    "whiteRandomization": ["shield", "sword"],
     "whitePurchase": ["shield", "sword", "bow", "torch", "disguise", "crystal_ball"]
   },
   "randomizationPieces": {
@@ -126,18 +126,17 @@
     "white": ["B"]
   },
   "terrainMatrix": [
-    ["_", "W", "W", "W", "W", "W", "W", "_"],
-    ["_", "W", "_(Courtier)", "_", "_", "_(Courtier)", "W", "_"],
-    ["_", "W", "_", "_(Courtier)", "_(Courtier)", "_", "W", "_"],
-    ["W", "W", "_(Courtier)", "_", "_", "_(Courtier)", "W", "W"],
-    ["W", "W", "_", "_(Courtier)", "_(Courtier)", "_", "W", "W"],
-    ["_", "W", "_(Courtier)", "_", "_", "_(Courtier)", "W", "_"],
-    ["_", "W", "_", "_(Courtier)", "_(Courtier)", "_", "W", "_"],
-    ["_", "W", "W", "_", "_", "W", "W", "_"]
+    ["f", "f", "f", "f", "f", "f", "f"],
+    ["W", "W", "_(Courtier)", "_", "_", "W", "W"],
+    ["W", "W", "_", "_(Courtier)", "_(Courtier)", "W", "W"],
+    ["W", "W", "_(Courtier)", "_(Courtier)", "_(Courtier)", "W", "W"],
+    ["W(Rock)", "W(Rock)", "_(Gate)", "_(Gate)", "_(Gate)", "W(Rock)", "W(Rock)"],
+    ["_", "_", "_", "_", "_", "_", "_"],
+    ["_", "_", "_", "_", "_", "_", "_)"]
   ],
   "victoryConditions": ["king_escaped"],
-  "pawnPromotionType": "N",
-  "courtierSpeechChance": 0.15,
+  "pawnPromotionType": "R",
+  "courtierSpeechChance": 0.05,
   "courtierSpeechInterval": { "min": 2000, "max": 4000 },
   "courtierSpeechLines": [
     "Blessed be the **journey**!",

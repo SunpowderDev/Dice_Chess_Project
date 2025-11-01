@@ -1,0 +1,140 @@
+{
+  "level": 2,
+  "name": "Chapter 2: The Darkest Hunt",
+  "boardSize": 7,
+  "startingGold": 150,
+  "enemyPieceGold": 180,
+  "enemyEquipmentGold": 80,
+  "enemyPawnBudget": 0.3,
+  "playerPieceGold": 90,
+  "playerEquipmentGold": 20,
+  "playerPawnBudget": 0.15,
+  "botBehavior": "balanced",
+  "namedWhitePieces": [
+    {
+      "type": "K",
+      "name": "Eohmer",
+      "speechLines": [
+        "**Corvis**, old friend...",
+        "I trusted **you**!",
+        "You put your boy in **danger**?!",
+        "This is **madness**!",
+        "Stand **down**, Captain!",
+        "I can't **believe** it!",
+        "**Please**, not like this!",
+        "You were like a **brother**!",
+        "What did he **show** you? It must have been **fabricated**!"
+      ]
+    }
+  ],
+  "namedBlackPieces": [
+    {
+      "type": "K",
+      "name": "Cpt Corvis",
+      "equip": "bow",
+      "speechLines": [
+        "It's not personal, Eohmer.",
+        "Be careful,**Quin**.",
+        "Boy, stop **whining**.",
+        "We both know how this **ends**.",
+        "**Forgive** me, my King.",
+        "I've **seen** it, Eohmer.",
+        "It won't be **painful**.",
+        "The crown is **cursed**!",
+        "**Surrender** friend, and you will live."
+      ]
+    },
+    {
+      "type": "B",
+      "name": "Young Quin",
+      "equip": "bow",
+      "speechLines": [
+        "Father, **why**?",
+        "I won't let you **hurt** him!",
+        "This isn't **right**!",
+        "**Please**, my lord!",
+        "Spare him for **me**!",
+        "I owe him a **debt**!",
+        "**Mercy**, father, mercy!",
+        "He was **kind** to us!"
+      ]
+    }
+  ],
+  "storyCards": [
+    {
+      "id": "level2-narrator",
+      "character": {
+        "type": "K",
+        "color": "w",
+        "name": "Narrator"
+      },
+      "bodyText": "Flames past him, Eohmer finds himself trapped by the dark forests that kept his enemies at bay. There, his old friend Captain Corvis waits, the very hand that unbarred Highkeep for Morcant.",
+      "image": "/level2_ForestHunt.png",
+      "leftChoice": {
+        "text": "What happened to you... old friend?",
+        "events": [
+          { "type": "next_card", "cardId": "level2-Corvis" }
+        ]
+      },
+      "rightChoice": {
+        "text": "A king has no friends, only followers and foes.",
+        "events": [
+          { "type": "next_card", "cardId": "level2-Corvis" }
+        ]
+      }
+    },
+    {
+      "id": "level2-Corvis",
+      "character": {
+        "type": "K",
+        "color": "b",
+        "equip": "bow",
+        "name": "Cpt Corvis"
+      },
+      "bodyText": "I've **seen** it Eohmer, the future that holds you King is doomed! You'll **curse** us all!",
+      "image": "/level2_CptCorvis.png",
+      "leftChoice": {
+        "text": "Publicly expose the betrayer",
+        "events": [
+          { "type": "assign_item_to_enemy", "item": "bow", "count": 3 },
+          { "type": "give_free_unit", "pieceType": "R" },
+          { "type": "start_battle" }
+        ]
+      },
+      "rightChoice": {
+        "text": "Attack without ceremony.",
+        "events": [
+          { "type": "give_free_item", "item": "scythe" },
+          { "type": "start_battle" }
+        ],
+        "overlayColor": "rgba(34, 197, 94, 0.8)"
+      }
+    }
+  ],
+  "availableItems": {
+    "blackRandomization": ["bow", "torch", "lance"],
+    "whiteRandomization": ["sword", "shield"],
+    "whitePurchase": ["shield", "sword", "bow", "torch"]
+  },
+  "randomizationPieces": {
+    "black": ["R", "B", "N", "P"],
+    "white": ["P", "B", "N"]
+  },
+  "guaranteedPieces": {
+    "black": ["B", "B"],
+    "white": ["B"]
+  },
+  "terrainMatrix": [
+    ["_", "_", "_", "_", "_", "_", "_"],
+    ["_", "_", "_", "_", "_", "_", "_"],
+    ["F", "_", "F", "_", "F", "_", "F"],
+    ["_", "F(Rock)", "_", "F", "_", "F", "_"],
+    ["F", "_", "F", "_", "F", "_", "F"],
+    ["_", "F", "_", "F", "_", "F", "_(Rock)"],
+    ["F", "_", "F", "_", "F", "_", "F"]
+  ],
+  "victoryConditions": ["king_beheaded", "king_captured", "king_dishonored"],
+  "pawnPromotionType": "N",
+  "courtierSpeechChance": 0,
+  "marketEnabled": true
+}

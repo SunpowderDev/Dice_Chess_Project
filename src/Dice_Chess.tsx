@@ -2524,6 +2524,9 @@ function BoardComponent({
     }
   };
 
+  // All possible victory conditions
+  const allVictoryConditions = ["king_captured", "king_beheaded", "king_dishonored", "king_escaped"];
+
   return (
     <div className="inline-block relative">
       {phase === "market" && (
@@ -2533,19 +2536,24 @@ function BoardComponent({
             <div className="bg-zinc-900 bg-opacity-95 rounded-xl px-6 py-5 shadow-2xl border-2 border-gray-600">
               <h3 className="text-emerald-600 font-bold text-lg mb-3 text-center">Victory Conditions</h3>
               <div className="flex flex-col gap-2 text-sm text-white mb-4">
-                {victoryConditions.map((condition, idx) => {
+                {allVictoryConditions.map((condition, idx) => {
+                  const isAvailable = victoryConditions.includes(condition);
                   const isKingEscaped = condition === "king_escaped";
                   const description = getVictoryConditionDescription(condition);
                   return (
                     <div key={idx} className="flex flex-col gap-0.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-emerald-400">✓</span>
-                        <span className={isKingEscaped ? "font-bold" : ""}>
+                        {isAvailable ? (
+                          <span className="text-emerald-400">✓</span>
+                        ) : (
+                          <span className="text-red-500 text-lg leading-none">✗</span>
+                        )}
+                        <span className={isKingEscaped ? "font-bold" : ""} style={!isAvailable ? { textDecoration: 'line-through', opacity: 0.5 } : {}}>
                           {formatVictoryCondition(condition)}
                         </span>
                       </div>
                       {description && (
-                        <span className="text-gray-400 italic text-xs ml-6">
+                        <span className="text-gray-400 italic text-xs ml-6" style={!isAvailable ? { opacity: 0.5 } : {}}>
                           {description}
                         </span>
                       )}
@@ -4614,14 +4622,19 @@ export default function App() {
             });
             setB(newBoard);
 
+            const itemEmoji = equipIcon(event.item);
+            const isNegativeItem = event.item === "curse" || event.item === "skull";
+            const itemName = event.item === "curse" ? "Cursed" : event.item.charAt(0).toUpperCase() + event.item.slice(1);
+            // Use item emoji for curse, skull emoji for skull item, or sparkle for others
+            const glyphEmoji = event.item === "curse" ? itemEmoji : (event.item === "skull" ? "💀" : "✨");
             outcomes.push({
               message: event.target === "player"
-                ? `Curse: ${event.count} units affected!`
-                : `Blessed ${event.count} enemy units!`,
-              glyph: event.target === "player" ? "💀" : "✨",
-              color: event.target === "player" ? "text-red-100" : "text-blue-100",
-              bgColor: event.target === "player" ? "bg-red-900" : "bg-blue-900",
-              borderColor: event.target === "player" ? "border-red-500" : "border-blue-500",
+                ? `${itemEmoji} ${event.count} of your units ${itemName}!`
+                : `${event.count} enemy units are ${itemName}!`,
+              glyph: glyphEmoji,
+              color: isNegativeItem ? "text-red-100" : "text-blue-100",
+              bgColor: isNegativeItem ? "bg-red-900" : "bg-blue-900",
+              borderColor: isNegativeItem ? "border-red-500" : "border-blue-500",
             });
             break;
 

@@ -1,15 +1,136 @@
 {
   "level": 4,
-  "name": "Dark Forces",
-  "boardSize": 8,
+  "name": "Chapter 4: The Gentle Captive",
+  "boardSize": 7,
   "startingGold": 0,
-  "enemyArmyGold": 410,
-  "playerArmyGold": 0,
+  "enemyPieceGold": 250,
+  "enemyEquipmentGold": 100,
+  "enemyPawnBudget": 0.25,
+  "playerPieceGold": 60,
+  "playerEquipmentGold": 40,
+  "playerPawnBudget": 0.3,
+  "botBehavior": "balanced",
+  "namedWhitePieces": [
+    {
+      "type": "K",
+      "name": "Eohmer",
+      "speechLines": [
+        "Cover yourself, you degenerate.",
+        "The Eye got **blind** watching what you do, **Pintus**!",
+        "Veil your shame, Pintus. Even idols blush.",
+        "Put on your robes; leave off your rot.",
+        "**Behave**, Pintus!.",
+        "Eau the **wench**...",
+        "**Vulgar** was definitely a choice of words..."
+      ]
+    }
+  ],
+  "namedBlackPieces": [
+    {
+      "type": "K",
+      "name": "Pintus IX",
+      "speechLines": [
+        "A man like you shan't judge me.",
+        "Kings posture; pontiffs rhetoric.",
+        "No, no .. don't **leave me** Delila!.",
+        "With your temper, you'll never find a **Queen**.",
+        "**Bald** is your head **Crownless**!",
+        "Just take a tithe and **leave**!",
+        "Protect me, **ladies**!",
+        "**Swiggles** and **slithers**..."
+      ]
+    }
+  ],
+  "storyCards": [
+    {
+      "id": "level4-narrator",
+      "character": {
+        "type": "K",
+        "color": "w",
+        "name": "Narrator"
+      },
+      "bodyText": "Power is rarely persuaded, often escorted. The Pontiff must be taken whole: a living seal that unlocks gold and men. Kill him and you mint a martyr; capture him and you coin an army.",
+      "image": "/level4_PalaceGrounds.png",
+      "leftChoice": {
+        "text": "I brought two pairs of gloves: silk and iron.",
+        "events": [
+          { "type": "next_card", "cardId": "level4-Pintus" }
+        ]
+      },
+      "rightChoice": {
+        "text": "We'll catch Pintus rigid with ritual.",
+        "events": [
+          { "type": "next_card", "cardId": "level4-Pintus" }
+        ]
+      }
+    },
+    {
+      "id": "level4-Pintus",
+      "character": {
+        "type": "K",
+        "color": "b",
+        "name": "Pintus IX"
+      },
+      "bodyText": "\"By the **Seal of the See**: Eohmer, be excommunicated. Tis but **vulgar** banditry!\"",
+      "image": "/level4_Pintus.png",
+      "leftChoice": {
+        "text": "Partake in his vices",
+        "events": [
+          { "type": "give_free_unit", "pieceType": "Q" },
+          { "type": "give_free_unit", "pieceType": "Q" },
+          { "type": "attach_item_to_units", "item": "curse", "target": "enemy", "count": 4 },
+          { "type": "start_battle" }
+        ],
+        "overlayColor": "rgba(16, 185, 129, 0.8)"
+      },
+      "rightChoice": {
+        "text": "Censure and seize tithes",
+        "events": [
+          { "type": "give_gold", "amount": 150 },
+          { "type": "start_battle" }
+        ],
+        "overlayColor": "rgba(234, 179, 8, 0.8)"
+      }
+    }
+  ],
   "availableItems": {
-    "blackRandomization": ["sword", "shield", "lance", "torch", "bow", "scythe", "curse", "purse"],
-    "whiteRandomization": ["sword", "shield", "torch", "bow", "lance", "staff", "crystal_ball", "banner"],
-    "whitePurchase": ["sword", "shield", "torch", "bow", "lance", "staff", "crystal_ball", "banner", "disguise"]
+    "blackRandomization": ["shield", "sword", "bow", "torch", "banner", "curse"],
+    "whiteRandomization": ["shield", "sword"],
+    "whitePurchase": ["shield", "sword", "bow", "torch", "banner", "disguise", "crystal_ball"]
   },
-  "victoryConditions": ["king_beheaded", "king_captured", "king_dishonored"]
+  "randomizationPieces": {
+    "black": ["B", "Q", "P"],
+    "white": ["P", "B", "N", "R"]
+  },
+  "guaranteedPieces": {
+    "black": ["K"],
+    "white": []
+  },
+  "terrainMatrix": [
+    ["_", "_", "_", "_", "_", "_", "_"],
+    ["_", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_"],
+    ["_", "_", "W", "W(Courtier)", "W", "_(Courtier)", "_"],
+    ["_", "_", "W(Courtier)", "_(Column)", "W", "_", "_"],
+    ["_", "_", "W", "W", "W(Courtier)", "_(Courtier)", "_"],
+    ["_", "_(Courtier)", "_", "_", "_", "_", "_"],
+    ["_", "_", "_", "_", "_", "_", "_"]
+  ],
+  "victoryConditions": ["king_captured"],
+  "pawnPromotionType": "Q",
+  "courtierSpeechChance": 0.25,
+  "courtierSpeechInterval": { "min": 2000, "max": 5000 },
+  "courtierSpeechLines": [
+    "Oh **Pintus**!",
+    "**My** Pontiff!",
+    "**Protect** me!",
+    "**Nice sword**, soldier!",
+    "**Love** me tender!",
+    "The King is **here**!",
+    "**Hide** the wine!",
+    "**Disguise** yourself!",
+    "**Beautiful** ladies!",
+    "**Merci**!",
+    "Is this a **play**?"
+  ],
+  "marketEnabled": true
 }
-
