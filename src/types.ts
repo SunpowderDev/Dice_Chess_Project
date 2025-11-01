@@ -69,7 +69,7 @@ export type MoveRecord = {
 export type TerrainCell = "none" | "forest" | "water";
 export type Terrain = TerrainCell[][];
 
-export type ObstacleType = "rock" | "courtier" | "column" | "none";
+export type ObstacleType = "rock" | "courtier" | "column" | "gate" | "none";
 export type Obstacle = ObstacleType[][];
 
 export type MarketAction =
@@ -92,6 +92,7 @@ export type CampaignState = {
   unlockedItems: Exclude<Equip, undefined>[]; // items unlocked during campaign
   freeUnits: Map<PieceType, number>; // free units available to deploy (pieceType -> count)
   freeItems: Map<Exclude<Equip, undefined>, number>; // free items available to deploy (item -> count)
+  prayerDiceCost?: number; // custom prayer dice cost (if increased by story event)
 };
 
 // Story Card System Types
@@ -102,12 +103,14 @@ export type StoryEvent =
   | { type: "give_item"; item: Exclude<Equip, undefined>; target: "player" | "enemy" }
   | { type: "give_unit"; pieceType: PieceType; equip?: Equip; target: "player" | "enemy" }
   | { type: "give_prayer_die" }
+  | { type: "remove_prayer_die" }
   | { type: "unlock_item"; item: Exclude<Equip, undefined> }
   | { type: "give_free_unit"; pieceType: PieceType; equip?: Equip }
-  | { type: "give_free_item"; item: Exclude<Equip, undefined> }
+  | { type: "give_free_item"; item: Exclude<Equip, undefined>; count?: number }
   | { type: "attach_item_to_units"; item: Exclude<Equip, undefined>; target: "player" | "enemy"; count: number }
   | { type: "spawn_enemy_pawns"; count: number }
   | { type: "assign_item_to_enemy"; item: Exclude<Equip, undefined>; count: number }
+  | { type: "increase_prayer_cost" }
   | { type: "start_battle" };
 
 // Outcome display data with visual information

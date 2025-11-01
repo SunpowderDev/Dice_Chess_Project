@@ -1,0 +1,134 @@
+{
+  "level": 1,
+  "name": "Chapter 1: Eohmer the Crownless",
+  "boardSize": 7,
+  "startingGold": 0,
+  "enemyPieceGold": 0,
+  "enemyEquipmentGold": 35,
+  "playerPieceGold": 40,
+  "playerEquipmentGold": 20,
+  "botBehavior": "aggressive",
+  "whiteKingName": "Eohmer",
+  "namedWhitePieces": [
+    {
+      "type": "N",
+      "name": "Sir Galahad",
+      "equip": "sword",
+      "speechLines": [
+        "Protect the king!", "Betrayer!", "Your word is my **command**!", "**Damn** you Ivo!", "Follow me!", "Make space!", "For **Eohmer**!"
+      ]
+    }
+  ],
+  "namedBlackPieces": [
+    {
+      "type": "R",
+      "name": "Ivo The Wall",
+      "equip": "shield",
+      "speechLines": [
+        "Your reign is **forfeit**!",
+        "**Cut** the loud ones!",
+        "Morcant pays **better**!",
+        "Gold speaks **louder** than oaths!",
+        "Honor has its **price**!",
+        "**Loyalty** buys nothing, Sir Galahad!",
+        "**Surrend**, Eohmer!",
+        "Noble **scum**"
+      ]
+    }
+  ],
+  "storyCards": [
+    {
+      "id": "level1-narrator",
+      "character": {
+        "type": "K",
+        "color": "w",
+        "name": "Narrator"
+      },
+      "bodyText": "Your castle burns from within. On Coronation Night, Prelate Morcant's coup has turned prayer into password; men once loyal to you die to keys he forged from their trust.",
+      "image": "/level1_ChapelBurning.png",
+      "leftChoice": {
+        "text": "You look at the courtiers screaming.. dazed..",
+        "events": [
+          { "type": "next_card", "cardId": "level1-Galahad" }
+        ]
+      },
+      "rightChoice": {
+        "text": "Sir Galahad, to me!",
+        "events": [
+          { "type": "next_card", "cardId": "level1-Galahad" }
+        ]
+      }
+    },
+    {
+      "id": "level1-Galahad",
+      "character": {
+        "type": "N",
+        "color": "w",
+        "equip": "sword",
+        "name": "Sir Galahad"
+      },
+      "bodyText": "My Liege, you shan't fall here, lest the crown become rumor by dawn. Your word is my **command**!",
+      "image": "/level1_SirGalahad.png",
+      "leftChoice": {
+        "text": "Save the royal regalia!",
+        "events": [
+          { "type": "assign_item_to_enemy", "item": "purse", "count": 3 },
+          { "type": "spawn_enemy_pawns", "count": 2 },
+          { "type": "start_battle" }
+        ]
+      },
+      "rightChoice": {
+        "text": "Flight to the postern gate! God alone will be our judge!",
+        "events": [
+          { "type": "give_prayer_die" },
+          { "type": "start_battle" }
+        ],
+        "overlayColor": "rgba(147, 51, 234, 0.8)"
+      }
+    }
+  ],
+  "availableItems": {
+    "blackRandomization": ["sword", "lance"],
+    "whiteRandomization": ["shield"]
+  },
+  "randomizationPieces": {
+    "black": [],
+    "white": ["P"]
+  },
+  "guaranteedPieces": {
+    "black": [
+      { "type": "P" },
+      { "type": "P" },
+      { "type": "P" }
+    ],
+    "white": []
+  },
+  "victoryConditions": ["king_escaped"],
+  "pawnPromotionType": "N",
+  "courtierSpeechChance": 0.15,
+  "courtierSpeechInterval": { "min": 2000, "max": 4000 },
+  "courtierSpeechLines": [
+    "Lord have **mercy**!",
+    "**Putain**!",
+    "**Gasp**",
+    "**Nooo!**",
+    "Betrayer!",
+    "The chapel **burns**",
+    "**Parbleu!**",
+    "Save us!",
+    "**AAhhh**!",
+    "**Murderers**!",
+    "**Run**, your Majesty!",
+    "Take the **children**!"
+  ],
+  "terrainMatrix": [
+    ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"],
+    ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"],
+    ["_(Column)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Column)"],
+    ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"],
+    ["_(Column)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Column)"],
+    ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"],
+    ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"]
+  ],
+  "marketEnabled": false
+}

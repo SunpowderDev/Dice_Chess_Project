@@ -1,0 +1,15 @@
+{
+  "level": 5,
+  "name": "Elite Challenge",
+  "boardSize": 9,
+  "startingGold": 0,
+  "enemyArmyGold": 480,
+  "playerArmyGold": 0,
+  "availableItems": {
+    "blackRandomization": ["sword", "shield", "lance", "torch", "bow", "staff", "crystal_ball", "disguise", "scythe", "banner", "curse", "skull", "purse"],
+    "whiteRandomization": ["sword", "shield", "lance", "torch", "bow", "staff", "crystal_ball", "disguise", "scythe", "banner", "curse", "skull"],
+    "whitePurchase": ["sword", "shield", "lance", "torch", "bow", "staff", "crystal_ball", "disguise", "scythe", "banner", "curse", "skull"]
+  },
+  "victoryConditions": ["king_beheaded", "king_captured", "king_dishonored"]
+}
+

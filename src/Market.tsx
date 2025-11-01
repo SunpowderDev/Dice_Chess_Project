@@ -71,9 +71,10 @@ export function Market({
   // Get available items for purchase from level config AND unlocked items
   const levelItems = levelConfig?.availableItems.whitePurchase || [];
   const unlockedItems = (campaign && campaign.unlockedItems) || [];
+  const freeItemsList = campaign?.freeItems ? Array.from(campaign.freeItems.keys()) : [];
 
-  // Combine level items and unlocked items, removing duplicates
-  const allAvailableItems = [...new Set([...levelItems, ...unlockedItems])];
+  // Combine level items, unlocked items, and free items, removing duplicates
+  const allAvailableItems = [...new Set([...levelItems, ...unlockedItems, ...freeItemsList])];
   const filteredItems = allAvailableItems.filter((item) => item !== "purse");
   const items: { name: Exclude<Equip, undefined> }[] = filteredItems.map(
     (itemName) => ({ name: itemName })
@@ -122,18 +123,8 @@ export function Market({
                     e.preventDefault(); // Prevent button from taking focus and causing a scroll jump
                     sfx.purchase();
                     
-                    // Set the market action (gold will be deducted when placed on board)
+                    // Set the market action (gold and free units will be deducted when placed on board)
                     setMarketAction({ type: "piece", name, isFree: hasFree });
-                    
-                    // Decrement free unit count if using a free unit
-                    if (hasFree) {
-                      setCampaign((prev) => {
-                        const newFreeUnits = new Map(prev.freeUnits);
-                        newFreeUnits.set(name, freeCount - 1);
-                        if (freeCount - 1 === 0) newFreeUnits.delete(name);
-                        return { ...prev, freeUnits: newFreeUnits };
-                      });
-                    }
                   }}
                   className="disabled:opacity-50 disabled:cursor-not-allowed bg-zinc-700 hover:bg-zinc-600 p-2 rounded-lg flex flex-col items-center text-white"
                 >
@@ -187,18 +178,8 @@ export function Market({
                   e.preventDefault(); // Prevent button from taking focus and causing a scroll jump
                   sfx.purchase();
                   
-                  // Set the market action (gold will be deducted when placed on board)
+                  // Set the market action (gold and free items will be deducted when placed on board)
                   setMarketAction({ type: "item", name, isFree: hasFree });
-                  
-                  // Decrement free item count if using a free item
-                  if (hasFree) {
-                    setCampaign((prev) => {
-                      const newFreeItems = new Map(prev.freeItems);
-                      newFreeItems.set(name, freeCount - 1);
-                      if (freeCount - 1 === 0) newFreeItems.delete(name);
-                      return { ...prev, freeItems: newFreeItems };
-                    });
-                  }
                 }}
                 className="disabled:opacity-50 disabled:cursor-not-allowed bg-zinc-700 hover:bg-zinc-600 p-2 rounded-lg flex flex-col items-center"
               >
@@ -224,12 +205,13 @@ export function Market({
           data-tip
           onMouseEnter={() => showTooltip(ITEM_DESCRIPTIONS["prayer_die"])}
           onMouseLeave={hideTooltip}
-          disabled={marketPoints < ITEM_COSTS["prayer_die"]}
+          disabled={marketPoints < (campaign.prayerDiceCost ?? ITEM_COSTS["prayer_die"])}
           onMouseDown={(e) => {
             e.preventDefault();
             sfx.purchase();
             // Prayer die is purchased immediately, so deduct gold here
-            setMarketPoints(prev => prev - ITEM_COSTS["prayer_die"]);
+            const prayerCost = campaign.prayerDiceCost ?? ITEM_COSTS["prayer_die"];
+            setMarketPoints(prev => prev - prayerCost);
             setPrayerDice(campaign.prayerDice + 1);
             // Update campaign state
             setCampaign((prev) => ({
@@ -243,7 +225,7 @@ export function Market({
           <span>
             Prayer Die{" "}
             <span className="text-amber-400">
-              {ITEM_COSTS["prayer_die"]}g
+              {campaign.prayerDiceCost ?? ITEM_COSTS["prayer_die"]}g
             </span>
           </span>
         </button>

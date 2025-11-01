@@ -407,23 +407,26 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode }) =>
         {/* Outcome mode - show results */}
         {outcomeMode ? (
           <div className="story-outcome-area">
-            <div className="space-y-4">
-              {outcomeMode.outcomes.map((outcome, idx) => (
-                <div
-                  key={idx}
-                  className={`${outcome.bgColor} border-2 ${outcome.borderColor} rounded-lg p-5 ${outcome.color} text-center font-bold shadow-lg transform transition-all duration-300`}
-                  style={{
-                    animation: `outcomeAppear 0.4s ease-out ${idx * 0.15}s both, outcomePulse 1s ease-in-out ${idx * 0.15 + 0.4}s both`,
-                  }}
-                >
-                  <div className="flex items-center justify-center gap-3">
-                    <span className="text-4xl" style={{ animation: `glyphSpin 0.6s ease-out ${idx * 0.15}s both` }}>
-                      {outcome.glyph}
-                    </span>
-                    <span className="text-2xl">{outcome.message}</span>
+            <div className={outcomeMode.outcomes.length > 3 ? "space-y-2" : "space-y-4"}>
+              {outcomeMode.outcomes.map((outcome, idx) => {
+                const isCompact = outcomeMode.outcomes.length > 3;
+                return (
+                  <div
+                    key={idx}
+                    className={`${outcome.bgColor} border-2 ${outcome.borderColor} rounded-lg ${isCompact ? 'p-3' : 'p-5'} ${outcome.color} text-center font-bold shadow-lg transform transition-all duration-300`}
+                    style={{
+                      animation: `outcomeAppear 0.4s ease-out ${idx * 0.15}s both, outcomePulse 1s ease-in-out ${idx * 0.15 + 0.4}s both`,
+                    }}
+                  >
+                    <div className="flex items-center justify-center gap-3">
+                      <span className={isCompact ? "text-2xl" : "text-4xl"} style={{ animation: `glyphSpin 0.6s ease-out ${idx * 0.15}s both` }}>
+                        {outcome.glyph}
+                      </span>
+                      <span className={isCompact ? "text-lg" : "text-2xl"}>{outcome.message}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ) : (

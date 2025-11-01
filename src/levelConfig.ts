@@ -32,6 +32,9 @@ export interface LevelConfig {
   enemyEquipmentGold?: number; // Gold specifically for enemy equipment randomization - controls how many pieces get equipment (if not set, uses enemyArmyGold as fallback)
   playerPieceGold?: number; // Gold specifically for player pieces (if not set, uses playerArmyGold as fallback)
   playerEquipmentGold?: number; // Gold specifically for player equipment randomization - controls how many pieces get equipment (if not set, uses playerArmyGold as fallback)
+  // Optional: Pawn budget allocation (0.0 to 1.0) - percentage of piece gold to spend on pawns before generating other pieces
+  enemyPawnBudget?: number; // Percentage of enemyPieceGold to allocate for pawns (e.g., 0.3 = 30% for pawns, 70% for back-rank pieces)
+  playerPawnBudget?: number; // Percentage of playerPieceGold to allocate for pawns (e.g., 0.3 = 30% for pawns, 70% for back-rank pieces)
   // Optional: Guaranteed pieces that must spawn (don't consume gold budget)
   guaranteedPieces?: {
     black?: Array<{ type: PieceType; equip?: EquipType }>; // Pieces that must spawn for black

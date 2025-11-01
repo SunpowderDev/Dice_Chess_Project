@@ -617,7 +617,8 @@ function build(
   allowedPieceTypes?: PieceType[], // Optional: which piece types can be randomly generated
   guaranteedPieces?: Array<{ type: PieceType; equip?: Equip }>, // Optional: guaranteed pieces that must spawn (don't consume gold)
   equipmentGold?: number, // Optional: gold specifically for equipment randomization (if not set, uses a default allocation)
-  obstacles?: Obstacle // Optional: obstacles grid to check which slots are blocked
+  obstacles?: Obstacle, // Optional: obstacles grid to check which slots are blocked
+  pawnBudget?: number // Optional: percentage (0.0-1.0) of gold to allocate for pawns before generating other pieces
 ) {
   const EQ: Exclude<Equip, undefined>[] = availableItems ?? [
     "sword",
@@ -660,23 +661,37 @@ function build(
   // Step 2: Create named pieces first (they don't consume gold budget and have priority placement)
   const namedBackRankPieces: Piece[] = [];
   const namedFrontRankPieces: Piece[] = [];
+  let kingFromNamedPieces: Piece | null = null;
 
   if (namedPieces && namedPieces.length > 0) {
     for (const namedPiece of namedPieces) {
-      const piece: Piece = {
-        id: id(namedPiece.type),
-        type: namedPiece.type,
-        color,
-        name: namedPiece.name,
-        equip: namedPiece.equip,
-        isPreconfigured: true, // Mark as preconfigured for gold background
-        speechLines: namedPiece.speechLines, // Store custom speech lines
-      };
-
-      if (namedPiece.type === "P") {
-        namedFrontRankPieces.push(piece);
+      // If this is a King and we're not skipping King creation, handle it specially
+      if (namedPiece.type === "K" && !skipKing) {
+        kingFromNamedPieces = {
+          id: id(namedPiece.type),
+          type: namedPiece.type,
+          color,
+          name: namedPiece.name,
+          equip: namedPiece.equip,
+          isPreconfigured: true, // Mark as preconfigured for gold background
+          speechLines: namedPiece.speechLines, // Store custom speech lines
+        };
       } else {
-        namedBackRankPieces.push(piece);
+        const piece: Piece = {
+          id: id(namedPiece.type),
+          type: namedPiece.type,
+          color,
+          name: namedPiece.name,
+          equip: namedPiece.equip,
+          isPreconfigured: true, // Mark as preconfigured for gold background
+          speechLines: namedPiece.speechLines, // Store custom speech lines
+        };
+
+        if (namedPiece.type === "P") {
+          namedFrontRankPieces.push(piece);
+        } else {
+          namedBackRankPieces.push(piece);
+        }
       }
     }
   }
@@ -686,12 +701,17 @@ function build(
   let kingCreated = false;
   
   if (!skipKing) {
-    const king: Piece = { id: `${color}-K`, type: "K", color };
-    if (kingName) {
-      king.name = kingName;
-      king.isPreconfigured = true; // Mark king as preconfigured if named
+    // If King was defined in namedPieces, use that; otherwise create a basic King
+    if (kingFromNamedPieces) {
+      back.push(kingFromNamedPieces);
+    } else {
+      const king: Piece = { id: `${color}-K`, type: "K", color };
+      if (kingName) {
+        king.name = kingName;
+        king.isPreconfigured = true; // Mark king as preconfigured if named
+      }
+      back.push(king);
     }
-    back.push(king);
     kingCreated = true;
   }
 
@@ -735,14 +755,40 @@ function build(
     availableBackSlots - (kingCreated ? 1 : 0) - namedBackRankPieces.length - guaranteedBackRankPieces.length - overflowPawnsCount;
 
   // Step 5: Generate army spec based on remaining slots and gold
-  const SPECS = specPool(initialGold, allowedPieceTypes);
-  // Fallback to minimal army spec if specPool returns empty (when gold is too low)
   const allowed = allowedPieceTypes && allowedPieceTypes.length > 0 
     ? new Set(allowedPieceTypes)
     : new Set<PieceType>(["Q", "R", "B", "N", "P"]);
-  // No minimum pawn requirement - use 0 if no specs available
-  const defaultSpec = { q: 0, r: 0, b: 0, n: 0, p: 0 };
-  const s = SPECS.length > 0 ? rand(r, SPECS) : defaultSpec;
+  
+  let s: { q: number; r: number; b: number; n: number; p: number };
+  
+  // If pawnBudget is specified, allocate gold for pawns first, then generate back-rank pieces
+  if (pawnBudget !== undefined && pawnBudget > 0 && allowed.has("P")) {
+    const P_COST = 10;
+    const pawnGold = Math.floor(initialGold * pawnBudget);
+    const backRankGold = initialGold - pawnGold;
+    
+    // Calculate how many pawns we can afford with the pawn budget
+    const pawnCount = Math.floor(pawnGold / P_COST);
+    
+    // Generate back-rank pieces with remaining gold (exclude pawns from allowed types)
+    const backRankAllowed = Array.from(allowed).filter(t => t !== "P") as PieceType[];
+    const BACK_SPECS = specPool(backRankGold, backRankAllowed);
+    const backSpec = BACK_SPECS.length > 0 ? rand(r, BACK_SPECS) : { q: 0, r: 0, b: 0, n: 0, p: 0 };
+    
+    s = {
+      q: backSpec.q,
+      r: backSpec.r,
+      b: backSpec.b,
+      n: backSpec.n,
+      p: pawnCount
+    };
+  } else {
+    // Original behavior: generate all pieces together
+    const SPECS = specPool(initialGold, allowedPieceTypes);
+    // Fallback to minimal army spec if specPool returns empty (when gold is too low)
+    const defaultSpec = { q: 0, r: 0, b: 0, n: 0, p: 0 };
+    s = SPECS.length > 0 ? rand(r, SPECS) : defaultSpec;
+  }
 
   // Add randomly generated pieces (only up to remaining back rank slots and only if allowed)
   let addedPieces = 0;
@@ -1558,6 +1604,8 @@ function resolveObstacle(
   let threshold = 5; // Rock default
   if (obstacleType === "courtier") {
     threshold = 1; // Courtier is easier to destroy
+  } else if (obstacleType === "gate") {
+    threshold = 3; // Gate requires 3+ to break
   }
   
   const useAdv = a.type === "K" || adv;
@@ -1938,6 +1986,8 @@ function obstacleWinPercent(
   let threshold = 5; // Rock default
   if (obstacleType === "courtier") {
     threshold = 1; // Courtier is easier to destroy
+  } else if (obstacleType === "gate") {
+    threshold = 3; // Gate requires 3+ to break
   }
   
   const aSup = supportCount(BD, TD, OD, att, from, to, boardSize);
@@ -2602,6 +2652,7 @@ function BoardComponent({
                 if (obstacleType === "rock") return GL.ROCK.n;
                 if (obstacleType === "courtier") return GL.COURTIER.n;
                 if (obstacleType === "column") return GL.COLUMN.n;
+                if (obstacleType === "gate") return GL.GATE.n;
                 return null;
               };
 
@@ -2680,8 +2731,7 @@ function BoardComponent({
               const isMarketEquipTarget =
                 marketAction?.type === "item" &&
                 p?.color === W &&
-                !p?.equip &&
-                p.type !== "K"; // Kings cannot be equipped
+                !p?.equip;
 
               const isRerollTarget =
                 rerollTargetPos &&
@@ -4319,6 +4369,9 @@ export default function App() {
       
       // Accumulate all campaign changes to apply in one batch
       let campaignUpdates: Partial<CampaignState & { pendingEnemyPawns: number; pendingEnemyItemAssignments: Array<{ item: string; count: number }> }> = {};
+      
+      // Track free units to combine consecutive events of the same type
+      let pendingFreeUnit: { pieceType: PieceType; count: number } | null = null;
 
       for (const event of events) {
         switch (event.type) {
@@ -4330,6 +4383,17 @@ export default function App() {
             break;
 
           case "give_gold":
+            // Flush pending free unit before other events
+            if (pendingFreeUnit) {
+              outcomes.push({
+                message: `${pendingFreeUnit.count} Free ${PIECE_NAMES[pendingFreeUnit.pieceType]}${pendingFreeUnit.count > 1 ? 's' : ''}`,
+                glyph: "🍀",
+                color: "text-green-100",
+                bgColor: "bg-green-900",
+                borderColor: "border-green-500",
+              });
+              pendingFreeUnit = null;
+            }
             setMarketPoints((prev) => prev + event.amount);
             outcomes.push({
               message: `+${event.amount} Gold`,
@@ -4341,6 +4405,17 @@ export default function App() {
             break;
 
           case "remove_gold":
+            // Flush pending free unit before other events
+            if (pendingFreeUnit) {
+              outcomes.push({
+                message: `${pendingFreeUnit.count} Free ${PIECE_NAMES[pendingFreeUnit.pieceType]}${pendingFreeUnit.count > 1 ? 's' : ''}`,
+                glyph: "🍀",
+                color: "text-green-100",
+                bgColor: "bg-green-900",
+                borderColor: "border-green-500",
+              });
+              pendingFreeUnit = null;
+            }
             setMarketPoints((prev) => Math.max(0, prev - event.amount));
             outcomes.push({
               message: `-${event.amount} Gold`,
@@ -4352,6 +4427,17 @@ export default function App() {
             break;
 
           case "give_prayer_die":
+            // Flush pending free unit before other events
+            if (pendingFreeUnit) {
+              outcomes.push({
+                message: `${pendingFreeUnit.count} Free ${PIECE_NAMES[pendingFreeUnit.pieceType]}${pendingFreeUnit.count > 1 ? 's' : ''}`,
+                glyph: "🍀",
+                color: "text-green-100",
+                bgColor: "bg-green-900",
+                borderColor: "border-green-500",
+              });
+              pendingFreeUnit = null;
+            }
             campaignUpdates.prayerDice = (campaignUpdates.prayerDice ?? campaign.prayerDice) + 1;
             setPrayerDice((prev) => prev + 1);
             outcomes.push({
@@ -4363,7 +4449,41 @@ export default function App() {
             });
             break;
 
+          case "remove_prayer_die":
+            // Flush pending free unit before other events
+            if (pendingFreeUnit) {
+              outcomes.push({
+                message: `${pendingFreeUnit.count} Free ${PIECE_NAMES[pendingFreeUnit.pieceType]}${pendingFreeUnit.count > 1 ? 's' : ''}`,
+                glyph: "🍀",
+                color: "text-green-100",
+                bgColor: "bg-green-900",
+                borderColor: "border-green-500",
+              });
+              pendingFreeUnit = null;
+            }
+            campaignUpdates.prayerDice = Math.max(0, (campaignUpdates.prayerDice ?? campaign.prayerDice) - 1);
+            setPrayerDice((prev) => Math.max(0, prev - 1));
+            outcomes.push({
+              message: "-1 Prayer Die",
+              glyph: "🙏",
+              color: "text-purple-100",
+              bgColor: "bg-purple-900",
+              borderColor: "border-purple-500",
+            });
+            break;
+
           case "unlock_item":
+            // Flush pending free unit before other events
+            if (pendingFreeUnit) {
+              outcomes.push({
+                message: `${pendingFreeUnit.count} Free ${PIECE_NAMES[pendingFreeUnit.pieceType]}${pendingFreeUnit.count > 1 ? 's' : ''}`,
+                glyph: "🍀",
+                color: "text-green-100",
+                bgColor: "bg-green-900",
+                borderColor: "border-green-500",
+              });
+              pendingFreeUnit = null;
+            }
             campaignUpdates.unlockedItems = [
               ...(campaignUpdates.unlockedItems ?? campaign.unlockedItems),
               event.item
@@ -4383,33 +4503,89 @@ export default function App() {
               const currentCount = newFreeUnits.get(event.pieceType) || 0;
               newFreeUnits.set(event.pieceType, currentCount + 1);
               campaignUpdates.freeUnits = newFreeUnits;
+              
+              // Accumulate consecutive free units of the same type
+              if (pendingFreeUnit && pendingFreeUnit.pieceType === event.pieceType) {
+                pendingFreeUnit.count++;
+              } else {
+                // If there's a pending unit of a different type, flush it first
+                if (pendingFreeUnit) {
+                  outcomes.push({
+                    message: `${pendingFreeUnit.count} Free ${PIECE_NAMES[pendingFreeUnit.pieceType]}${pendingFreeUnit.count > 1 ? 's' : ''}`,
+                    glyph: "🍀",
+                    color: "text-green-100",
+                    bgColor: "bg-green-900",
+                    borderColor: "border-green-500",
+                  });
+                }
+                pendingFreeUnit = { pieceType: event.pieceType, count: 1 };
+              }
             }
-            outcomes.push({
-              message: `Free ${event.pieceType} Unit`,
-              glyph: "🎁",
-              color: "text-green-100",
-              bgColor: "bg-green-900",
-              borderColor: "border-green-500",
-            });
             break;
 
           case "give_free_item":
+            // Flush pending free unit before other events
+            if (pendingFreeUnit) {
+              outcomes.push({
+                message: `${pendingFreeUnit.count} Free ${PIECE_NAMES[pendingFreeUnit.pieceType]}${pendingFreeUnit.count > 1 ? 's' : ''}`,
+                glyph: "🍀",
+                color: "text-green-100",
+                bgColor: "bg-green-900",
+                borderColor: "border-green-500",
+              });
+              pendingFreeUnit = null;
+            }
             {
+              const count = event.count ?? 1;
               const newFreeItems = new Map(campaignUpdates.freeItems ?? campaign.freeItems);
               const currentCount = newFreeItems.get(event.item) || 0;
-              newFreeItems.set(event.item, currentCount + 1);
+              newFreeItems.set(event.item, currentCount + count);
               campaignUpdates.freeItems = newFreeItems;
+              const itemIcon = equipIcon(event.item);
+              outcomes.push({
+                message: `x${count} ${itemIcon} Free ${event.item}`,
+                glyph: "🍀",
+                color: "text-green-100",
+                bgColor: "bg-green-900",
+                borderColor: "border-green-500",
+              });
             }
+            break;
+
+          case "increase_prayer_cost":
+            // Flush pending free unit before other events
+            if (pendingFreeUnit) {
+              outcomes.push({
+                message: `${pendingFreeUnit.count} Free ${PIECE_NAMES[pendingFreeUnit.pieceType]}${pendingFreeUnit.count > 1 ? 's' : ''}`,
+                glyph: "🍀",
+                color: "text-green-100",
+                bgColor: "bg-green-900",
+                borderColor: "border-green-500",
+              });
+              pendingFreeUnit = null;
+            }
+            campaignUpdates.prayerDiceCost = 100;
             outcomes.push({
-              message: `Free ${event.item}`,
-              glyph: "🎁",
-              color: "text-green-100",
-              bgColor: "bg-green-900",
-              borderColor: "border-green-500",
+              message: "Prayer Dice now cost 100g",
+              glyph: "💎",
+              color: "text-purple-100",
+              bgColor: "bg-purple-900",
+              borderColor: "border-purple-500",
             });
             break;
 
           case "attach_item_to_units":
+            // Flush pending free unit before other events
+            if (pendingFreeUnit) {
+              outcomes.push({
+                message: `${pendingFreeUnit.count} Free ${PIECE_NAMES[pendingFreeUnit.pieceType]}${pendingFreeUnit.count > 1 ? 's' : ''}`,
+                glyph: "🍀",
+                color: "text-green-100",
+                bgColor: "bg-green-900",
+                borderColor: "border-green-500",
+              });
+              pendingFreeUnit = null;
+            }
             // Attach items to random units on the board
             const targetColor = event.target === "player" ? W : B;
             const targetPieces: { x: number; y: number; piece: Piece }[] = [];
@@ -4450,6 +4626,17 @@ export default function App() {
             break;
 
           case "spawn_enemy_pawns":
+            // Flush pending free unit before other events
+            if (pendingFreeUnit) {
+              outcomes.push({
+                message: `${pendingFreeUnit.count} Free ${PIECE_NAMES[pendingFreeUnit.pieceType]}${pendingFreeUnit.count > 1 ? 's' : ''}`,
+                glyph: "🍀",
+                color: "text-green-100",
+                bgColor: "bg-green-900",
+                borderColor: "border-green-500",
+              });
+              pendingFreeUnit = null;
+            }
             // Store the count to spawn when battle starts
             campaignUpdates.pendingEnemyPawns = 
               (campaignUpdates.pendingEnemyPawns ?? ((campaign as any).pendingEnemyPawns || 0)) + event.count;
@@ -4463,14 +4650,25 @@ export default function App() {
             break;
 
           case "assign_item_to_enemy":
+            // Flush pending free unit before other events
+            if (pendingFreeUnit) {
+              outcomes.push({
+                message: `${pendingFreeUnit.count} Free ${PIECE_NAMES[pendingFreeUnit.pieceType]}${pendingFreeUnit.count > 1 ? 's' : ''}`,
+                glyph: "🍀",
+                color: "text-green-100",
+                bgColor: "bg-green-900",
+                borderColor: "border-green-500",
+              });
+              pendingFreeUnit = null;
+            }
             // Store to process after board is initialized
             campaignUpdates.pendingEnemyItemAssignments = [
               ...(campaignUpdates.pendingEnemyItemAssignments ?? ((campaign as any).pendingEnemyItemAssignments || [])),
               { item: event.item, count: event.count }
             ];
             outcomes.push({
-              message: `Add ${event.count} 💰`,
-              glyph: "💰",
+              message: `Enemy equips ${event.count} ${event.item === "bow" ? "🏹" : "💰"}`,
+              glyph: event.item === "bow" ? "🏹" : "💰",
               color: "text-orange-100",
               bgColor: "bg-orange-900",
               borderColor: "border-orange-500",
@@ -4479,6 +4677,17 @@ export default function App() {
 
           case "give_item":
           case "give_unit":
+            // Flush pending free unit before other events
+            if (pendingFreeUnit) {
+              outcomes.push({
+                message: `${pendingFreeUnit.count} Free ${PIECE_NAMES[pendingFreeUnit.pieceType]}${pendingFreeUnit.count > 1 ? 's' : ''}`,
+                glyph: "🍀",
+                color: "text-green-100",
+                bgColor: "bg-green-900",
+                borderColor: "border-green-500",
+              });
+              pendingFreeUnit = null;
+            }
             // These will be handled when the battle starts (adds to initial boards)
             outcomes.push({
               message: event.type === "give_item" 
@@ -4495,6 +4704,17 @@ export default function App() {
             shouldStartBattle = true;
             break;
         }
+      }
+      
+      // Flush any pending free unit at the end
+      if (pendingFreeUnit) {
+        outcomes.push({
+          message: `${pendingFreeUnit.count} Free ${PIECE_NAMES[pendingFreeUnit.pieceType]}${pendingFreeUnit.count > 1 ? 's' : ''}`,
+          glyph: "🍀",
+          color: "text-green-100",
+          bgColor: "bg-green-900",
+          borderColor: "border-green-500",
+        });
       }
       
       // Apply all campaign updates in one batch to avoid race conditions
@@ -4583,7 +4803,11 @@ export default function App() {
     // Campaign logic: handle white army based on level and survivors
     if (campaign.level <= 1 || campaign.whiteRoster.length === 0) {
       // Level 1 or no survivors: generate fresh white army (use playerPieceGold from config)
-      const guaranteedWhitePieces = levelConfig.guaranteedPieces?.white || [];
+      // Convert string array to object array if needed for backward compatibility
+      const rawGuaranteedWhite = levelConfig.guaranteedPieces?.white || [];
+      const guaranteedWhitePieces = rawGuaranteedWhite.map(item => 
+        typeof item === 'string' ? { type: item as PieceType } : item
+      );
       const w = build(
         W,
         r,
@@ -4601,7 +4825,8 @@ export default function App() {
         levelConfig.randomizationPieces?.white, // Allowed piece types for white randomization
         guaranteedWhitePieces, // Guaranteed pieces for white
         playerEquipmentGold, // Equipment gold for white
-        O0 // Obstacles grid to check blocked slots
+        O0, // Obstacles grid to check blocked slots
+        levelConfig.playerPawnBudget // Pawn budget percentage for white
       );
       // Place white pieces, avoiding obstacles
       placePiecesAvoidingObstacles(B0, O0, w.back, 0, boardSize);
@@ -4618,9 +4843,102 @@ export default function App() {
       }
       setCampaign((prev) => ({ ...prev, whiteRoster: allWhitePieces }));
     } else {
-      // Level 2+: place carried over survivors
+      // Level 2+: Hybrid approach - place survivors, then add guaranteed pieces, then random pieces
+      
+      // Step 1: Place carried over survivors first
       const deserializedRoster = campaign.whiteRoster.map(deserializePiece);
       placeRoster(B0, O0, deserializedRoster, boardSize);
+      
+      // Step 1.5: Update speech lines and properties of existing roster pieces from namedWhitePieces
+      // This allows level designers to add new speech lines without creating duplicate pieces
+      if (levelConfig.namedWhitePieces && levelConfig.namedWhitePieces.length > 0) {
+        for (const namedPiece of levelConfig.namedWhitePieces) {
+          // Find matching piece on the board (by name and type)
+          let foundMatch = false;
+          for (let y = 0; y < boardSize && !foundMatch; y++) {
+            for (let x = 0; x < boardSize && !foundMatch; x++) {
+              const boardPiece = B0[y][x];
+              if (boardPiece && 
+                  boardPiece.color === W && 
+                  boardPiece.type === namedPiece.type && 
+                  boardPiece.name === namedPiece.name) {
+                // Found a match - update its properties
+                if (namedPiece.speechLines) {
+                  boardPiece.speechLines = namedPiece.speechLines;
+                }
+                if (namedPiece.equip && !boardPiece.equip) {
+                  // Only add equipment if the piece doesn't already have any
+                  boardPiece.equip = namedPiece.equip;
+                }
+                foundMatch = true;
+              }
+            }
+          }
+        }
+      }
+      
+      // Step 2: Filter out namedWhitePieces that already exist in roster (to avoid duplicates)
+      const namedPiecesToAdd = levelConfig.namedWhitePieces?.filter(namedPiece => {
+        // Check if this named piece already exists on the board
+        for (let y = 0; y < boardSize; y++) {
+          for (let x = 0; x < boardSize; x++) {
+            const boardPiece = B0[y][x];
+            if (boardPiece && 
+                boardPiece.color === W && 
+                boardPiece.type === namedPiece.type && 
+                boardPiece.name === namedPiece.name) {
+              return false; // Already exists, don't add
+            }
+          }
+        }
+        return true; // Doesn't exist, add it
+      }) || [];
+      
+      // Step 3: Add guaranteed pieces from level config (if any)
+      const rawGuaranteedWhite = levelConfig.guaranteedPieces?.white || [];
+      const guaranteedWhitePieces = rawGuaranteedWhite.map(item => 
+        typeof item === 'string' ? { type: item as PieceType } : item
+      );
+      
+      if (guaranteedWhitePieces.length > 0 || playerPieceGold > 0 || namedPiecesToAdd.length > 0) {
+        // Generate guaranteed pieces and random pieces with remaining budget
+        const w = build(
+          W,
+          r,
+          playerPieceGold, // Use full playerPieceGold for random generation
+          true,
+          levelConfig.availableItems.whiteRandomization,
+          boardSize,
+          namedPiecesToAdd, // Only add named pieces that don't already exist
+          undefined, // No custom king name (King already exists from survivors)
+          B0, // Pass board to count available slots
+          0, // White back rank
+          1, // White front rank
+          true, // Skip King generation (King already exists from survivors)
+          [], // No guaranteed items for white
+          levelConfig.randomizationPieces?.white, // Allowed piece types for white randomization
+          guaranteedWhitePieces, // Guaranteed pieces to add
+          playerEquipmentGold, // Equipment gold for white
+          O0, // Obstacles grid to check blocked slots
+          levelConfig.playerPawnBudget // Pawn budget percentage for white
+        );
+        
+        // Place the new pieces (back rank and front rank)
+        placePiecesAvoidingObstacles(B0, O0, w.back, 0, boardSize);
+        placePiecesAvoidingObstacles(B0, O0, w.front, 1, boardSize);
+      }
+      
+      // Update campaign roster with all current white pieces (survivors + new pieces)
+      const allWhitePieces: Piece[] = [];
+      for (let y = 0; y < boardSize; y++) {
+        for (let x = 0; x < boardSize; x++) {
+          const piece = B0[y][x];
+          if (piece && piece.color === W) {
+            allWhitePieces.push(piece);
+          }
+        }
+      }
+      setCampaign((prev) => ({ ...prev, whiteRoster: allWhitePieces }));
     }
 
     // Black army: always generate fresh each level
@@ -4641,7 +4959,11 @@ export default function App() {
     
     // Check for pending pawns (from story events) - add them to guaranteed pieces
     const pendingPawns = (campaign as any).pendingEnemyPawns || 0;
-    const guaranteedBlackPieces = [...(levelConfig.guaranteedPieces?.black || [])];
+    // Convert string array to object array if needed for backward compatibility
+    const rawGuaranteedBlack = levelConfig.guaranteedPieces?.black || [];
+    const guaranteedBlackPieces = rawGuaranteedBlack.map(item => 
+      typeof item === 'string' ? { type: item as PieceType } : item
+    );
     
     // Add pending pawns from story events as guaranteed pieces
     for (let i = 0; i < pendingPawns; i++) {
@@ -4665,7 +4987,8 @@ export default function App() {
       levelConfig.randomizationPieces?.black, // Allowed piece types for black randomization
       guaranteedBlackPieces, // Guaranteed pieces for black (including pending pawns)
       enemyEquipmentGold, // Equipment gold for black
-      O0 // Obstacles grid to check blocked slots
+      O0, // Obstacles grid to check blocked slots
+      levelConfig.enemyPawnBudget // Pawn budget percentage for black
     );
     
     // Place black pieces, avoiding obstacles
@@ -4736,8 +5059,20 @@ export default function App() {
           };
           setB(B1);
           
-          // Only deduct gold if not using a free unit
-          if (!marketAction.isFree) {
+          // Deduct gold or consume free unit
+          if (marketAction.isFree) {
+            // Consume the free unit
+            setCampaign((prev) => {
+              const newFreeUnits = new Map(prev.freeUnits);
+              const currentCount = newFreeUnits.get(marketAction.name as PieceType) || 0;
+              if (currentCount > 1) {
+                newFreeUnits.set(marketAction.name as PieceType, currentCount - 1);
+              } else {
+                newFreeUnits.delete(marketAction.name as PieceType);
+              }
+              return { ...prev, freeUnits: newFreeUnits };
+            });
+          } else {
             setMarketPoints(
               prev => prev - (VAL[marketAction.name as keyof typeof VAL] || 10)
             );
@@ -4770,8 +5105,20 @@ export default function App() {
           }
           setB(B1);
           
-          // Only deduct gold if not using a free item
-          if (!marketAction.isFree) {
+          // Deduct gold or consume free item
+          if (marketAction.isFree) {
+            // Consume the free item
+            setCampaign((prev) => {
+              const newFreeItems = new Map(prev.freeItems);
+              const currentCount = newFreeItems.get(marketAction.name) || 0;
+              if (currentCount > 1) {
+                newFreeItems.set(marketAction.name, currentCount - 1);
+              } else {
+                newFreeItems.delete(marketAction.name);
+              }
+              return { ...prev, freeItems: newFreeItems };
+            });
+          } else {
             setMarketPoints(prev => prev - ITEM_COSTS[marketAction.name]);
           }
           
@@ -6102,6 +6449,7 @@ export default function App() {
                       if (obstacleType === "rock") return GL.ROCK.n;
                       if (obstacleType === "courtier") return GL.COURTIER.n;
                       if (obstacleType === "column") return GL.COLUMN.n;
+                      if (obstacleType === "gate") return GL.GATE.n;
                       return GL.ROCK.n; // Fallback
                     })()}
                   </span>
@@ -6731,9 +7079,9 @@ export default function App() {
                   ? "Your Turn — White"
                   : "Bot Turn — Black"}
               </div>
-              <div className="flex items-center gap-2 text-purple-100 font-bold text-2xl">
+              <div className="flex items-center gap-2 font-bold text-2xl">
                 <span>🙏</span>
-                <span>x{prayerDice}</span>
+                <span className="text-purple-100">x{prayerDice}</span>
               </div>
             </div>
             <div className="stand" ref={boardRef}>
@@ -7034,9 +7382,11 @@ export default function App() {
                     level,
                     whiteRoster: [], // Reset roster when jumping levels
                   }));
-                  setShowIntro(false);
-                  setPhase("market");
+                  setShowIntro(true); // Show intro popup which leads to story cards
                   setWin(null);
+                  // Let init() handle phase setting - don't override it here
+                  // Generate new seed to trigger re-init
+                  setSeed(new Date().toISOString() + `-level-${level}`);
                 }}
                 style={{
                   background: campaign.level === level ? "#00ff00" : "#222",

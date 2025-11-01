@@ -67,6 +67,7 @@ export const GL = {
   ROCK: { n: "🪨" },
   COURTIER: { n: "\u265F" }, // Courtier NPC (uses black pawn glyph, colored brown)
   COLUMN: { n: "🏛️" }, // Indestructible column
+  GATE: { n: "🚪" }, // Gate obstacle (requires 3+ to break)
 } as const;
 
 export const PHRASES = {
