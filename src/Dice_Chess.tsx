@@ -3275,6 +3275,26 @@ export default function App() {
   const [showBoardTooltips, setShowBoardTooltips] = useState(true);
   const [needsReinit, setNeedsReinit] = useState(false); // Track when board needs re-initialization
   
+  // ========== DEV TOOLS - COMMENT OUT BEFORE RELEASE ==========
+  const [showDevPanel, setShowDevPanel] = useState(false); // Hidden by default
+  
+  // Keyboard shortcut: Press Ctrl+D (Windows/Linux) or Cmd+D (Mac) to toggle dev panel
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Check for Ctrl+D (Windows/Linux) or Cmd+D (Mac)
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+        // Only toggle if not typing in an input field
+        if (!(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+          e.preventDefault(); // Prevent browser default (bookmark dialog)
+          setShowDevPanel((prev) => !prev);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
+  // ============================================================
+  
   // Clear saved game data on initial app load (when intro popup is shown)
   useEffect(() => {
     if (showIntro) {
@@ -6976,6 +6996,94 @@ export default function App() {
           onCancel={handleNameCancel}
         />
       )}
+      
+      {/* ========== DEV TOOLS - COMMENT OUT BEFORE RELEASE ========== */}
+      {showDevPanel && (
+        <div
+          style={{
+            position: "fixed",
+            top: 10,
+            right: 10,
+            zIndex: 10000,
+            background: "rgba(0, 0, 0, 0.9)",
+            color: "#00ff00",
+            padding: "12px",
+            borderRadius: "8px",
+            fontFamily: "monospace",
+            fontSize: "12px",
+            border: "2px solid #00ff00",
+            minWidth: "180px",
+          }}
+        >
+          <div style={{ marginBottom: "8px", fontWeight: "bold", fontSize: "14px" }}>
+            🛠️ DEV TOOLS <span style={{ fontSize: "10px", opacity: 0.6 }}>(Ctrl/Cmd+D)</span>
+          </div>
+          <div style={{ marginBottom: "8px", fontSize: "11px", opacity: 0.8 }}>
+            Current Level: <strong>{campaign.level}</strong>
+          </div>
+          <div style={{ marginBottom: "8px", fontSize: "10px", opacity: 0.6 }}>
+            Jump to Level:
+          </div>
+          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "8px" }}>
+            {[1, 2, 3, 4, 5].map((level) => (
+              <button
+                key={level}
+                onClick={() => {
+                  setCampaign((prev) => ({
+                    ...prev,
+                    level,
+                    whiteRoster: [], // Reset roster when jumping levels
+                  }));
+                  setShowIntro(false);
+                  setPhase("market");
+                  setWin(null);
+                }}
+                style={{
+                  background: campaign.level === level ? "#00ff00" : "#222",
+                  color: campaign.level === level ? "#000" : "#00ff00",
+                  border: "1px solid #00ff00",
+                  padding: "6px 12px",
+                  cursor: "pointer",
+                  borderRadius: "4px",
+                  fontFamily: "monospace",
+                  fontSize: "12px",
+                  fontWeight: "bold",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  if (campaign.level !== level) {
+                    e.currentTarget.style.background = "#333";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (campaign.level !== level) {
+                    e.currentTarget.style.background = "#222";
+                  }
+                }}
+              >
+                Level {level}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setShowDevPanel(false)}
+            style={{
+              background: "#ff0000",
+              color: "#fff",
+              border: "none",
+              padding: "6px 10px",
+              cursor: "pointer",
+              borderRadius: "4px",
+              fontSize: "11px",
+              width: "100%",
+              fontWeight: "bold",
+            }}
+          >
+            Hide Panel
+          </button>
+        </div>
+      )}
+      {/* ============================================================ */}
     </div>
   );
 }

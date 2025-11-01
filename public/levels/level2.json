@@ -1,18 +1,18 @@
 {
   "level": 2,
-  "name": "Rising Threat",
+  "name": "Chapter 2: Treacherous Waters",
   "boardSize": 6,
   "startingGold": 0,
   "enemyArmyGold": 270,
   "playerArmyGold": 0,
   "botBehavior": "defensive",
   "terrainMatrix": [
-    ["W(Rock)", "W(Rock)", "W", "_", "n", "n"],
-    ["_(Rock)", "n", "W", "_", "W", "n"],
-    ["n", "W", "_", "_", "W", "n"],
-    ["n", "W", "_", "W", "n", "n"],
-    ["n", "W", "_", "W", "n", "n"],
-    ["n", "n", "_", "n", "n", "n"]
+    ["_", "_", "_", "_", "_", "_"],
+    ["W", "W", "_", "_", "W", "W"],
+    ["W", "W", "_", "_", "W", "W"],
+    ["W", "W", "_", "_", "W", "W"],
+    ["W(Rock)", "W(Rock)", "_", "_", "W(Rock)", "W(Rock)"],
+    ["f", "f", "_", "_", "f", "f"]
   ],
   "availableItems": {
     "blackRandomization": ["bow", "torch", "purse"],

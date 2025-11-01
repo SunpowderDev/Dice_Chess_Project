@@ -1,6 +1,6 @@
 {
   "level": 1,
-  "name": "Night of the Nameless",
+  "name": "Chapter 1: Eohmer the Crownless",
   "boardSize": 7,
   "startingGold": 0,
   "enemyPieceGold": 0,
@@ -15,14 +15,14 @@
       "name": "Sir Galahad",
       "equip": "sword",
       "speechLines": [
-        "Protect the king!", "Betrayer!", "Your word is my **command**!", "**Damn** you Corvis!", "Follow me!", "Make space!", "For **Eohmer**!"
+        "Protect the king!", "Betrayer!", "Your word is my **command**!", "**Damn** you Ivo!", "Follow me!", "Make space!", "For **Eohmer**!"
       ]
     }
   ],
   "namedBlackPieces": [
     {
       "type": "R",
-      "name": "Cpt Corvis",
+      "name": "Ivo The Wall",
       "equip": "shield",
       "speechLines": [
         "Your reign is **forfeit**!",
