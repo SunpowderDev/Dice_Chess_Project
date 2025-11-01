@@ -122,6 +122,7 @@ export type OutcomeData = {
 export type StoryChoice = {
   text: string;
   events: StoryEvent[];
+  overlayColor?: string; // Optional overlay color (CSS color value, e.g., "rgba(147, 51, 234, 0.8)" or "#9333ea")
 };
 
 export type StoryCard = {

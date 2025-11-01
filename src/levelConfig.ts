@@ -25,8 +25,18 @@ export interface LevelConfig {
   name: string;
   boardSize: number;
   startingGold: number;
-  enemyArmyGold: number;
-  playerArmyGold: number;
+  enemyArmyGold?: number; // DEPRECATED: Legacy field - falls back to this if enemyPieceGold/enemyEquipmentGold not specified. Use enemyPieceGold and enemyEquipmentGold for better control.
+  playerArmyGold?: number; // DEPRECATED: Legacy field - falls back to this if playerPieceGold/playerEquipmentGold not specified. Use playerPieceGold and playerEquipmentGold for better control.
+  // Optional: Separate gold pools for pieces and equipment (more control)
+  enemyPieceGold?: number; // Gold specifically for enemy pieces (if not set, uses enemyArmyGold as fallback)
+  enemyEquipmentGold?: number; // Gold specifically for enemy equipment randomization - controls how many pieces get equipment (if not set, uses enemyArmyGold as fallback)
+  playerPieceGold?: number; // Gold specifically for player pieces (if not set, uses playerArmyGold as fallback)
+  playerEquipmentGold?: number; // Gold specifically for player equipment randomization - controls how many pieces get equipment (if not set, uses playerArmyGold as fallback)
+  // Optional: Guaranteed pieces that must spawn (don't consume gold budget)
+  guaranteedPieces?: {
+    black?: Array<{ type: PieceType; equip?: EquipType }>; // Pieces that must spawn for black
+    white?: Array<{ type: PieceType; equip?: EquipType }>; // Pieces that must spawn for white
+  };
   // Optional: Fixed terrain matrix. If not provided, uses random generation
   // Each row represents a board row (from white's side to black's side)
   // F=forest, W=water, _=empty, n=random
@@ -63,6 +73,11 @@ export interface LevelConfig {
   marketEnabled?: boolean;
   // Which pieces are available for purchase in the market (defaults to all except King: ["Q", "R", "B", "N", "P"])
   availablePieces?: PieceType[];
+  // Which pieces are available for randomization when generating armies (defaults to all pieces: ["Q", "R", "B", "N", "P"])
+  randomizationPieces?: {
+    black?: PieceType[]; // Piece types that can be randomly generated for black army
+    white?: PieceType[]; // Piece types that can be randomly generated for white army
+  };
 }
 
 // Define all available equipment (for fallback scaling)

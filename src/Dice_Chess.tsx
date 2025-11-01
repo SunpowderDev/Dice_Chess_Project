@@ -549,9 +549,14 @@ const equipIcon = (e: Equip) =>
     : "";
 
 // --- Army Generation ---
-function specPool(totalGold: number) {
+function specPool(totalGold: number, allowedPieceTypes?: PieceType[]) {
   const o: Array<{ q: number; r: number; b: number; n: number; p: number }> =
     [];
+
+  // Default to all piece types if none specified
+  const allowed = allowedPieceTypes && allowedPieceTypes.length > 0 
+    ? new Set(allowedPieceTypes)
+    : new Set<PieceType>(["Q", "R", "B", "N", "P"]);
 
   // Piece gold values (matching VAL constant)
   const Q_COST = 80;
@@ -560,22 +565,32 @@ function specPool(totalGold: number) {
   const N_COST = 35;
   const P_COST = 10;
 
-  for (let q = 0; q <= 1; q++) {
-    for (let r = 0; r <= 3; r++) {
-      for (let b = 0; b <= 3; b++) {
-        for (let n = 0; n <= 3; n++) {
+  // Determine max counts for each piece type (only if allowed)
+  const maxQ = allowed.has("Q") ? 1 : 0;
+  const maxR = allowed.has("R") ? 3 : 0;
+  const maxB = allowed.has("B") ? 3 : 0;
+  const maxN = allowed.has("N") ? 3 : 0;
+
+  for (let q = 0; q <= maxQ; q++) {
+    for (let r = 0; r <= maxR; r++) {
+      for (let b = 0; b <= maxB; b++) {
+        for (let n = 0; n <= maxN; n++) {
           const back = q + r + b + n;
           if (back > 6) continue; // Max 6 back rank pieces (excluding King)
 
           const goldSpent = q * Q_COST + r * R_COST + b * B_COST + n * N_COST;
           const remainingGold = totalGold - goldSpent;
 
-          // Calculate how many pawns we can afford
-          const p = Math.floor(remainingGold / P_COST);
+          // Calculate how many pawns we can afford (only if pawns are allowed)
+          const maxPawns = allowed.has("P") ? Math.floor(remainingGold / P_COST) : 0;
+          const p = maxPawns;
 
-          // Require minimum 3 pawns for balanced armies
-          if (p >= 3 && remainingGold >= 0) {
-            o.push({ q, r, b, n, p });
+          // No minimum pawn requirement - generate all valid combinations
+          if (remainingGold >= 0) {
+            // Generate specs even with 0 pawns if we have back rank pieces or if pawns aren't allowed
+            if (back > 0 || (allowed.has("P") && p >= 0)) {
+              o.push({ q, r, b, n, p });
+            }
           }
         }
       }
@@ -598,7 +613,11 @@ function build(
   backRankRow?: number, // Which row is the back rank
   frontRankRow?: number, // Which row is the front rank
   skipKing?: boolean, // Optional flag to skip creating the King (for king_escaped only mode)
-  guaranteedItems?: Exclude<Equip, undefined>[] // Items that MUST be equipped (from story events)
+  guaranteedItems?: Exclude<Equip, undefined>[], // Items that MUST be equipped (from story events)
+  allowedPieceTypes?: PieceType[], // Optional: which piece types can be randomly generated
+  guaranteedPieces?: Array<{ type: PieceType; equip?: Equip }>, // Optional: guaranteed pieces that must spawn (don't consume gold)
+  equipmentGold?: number, // Optional: gold specifically for equipment randomization (if not set, uses a default allocation)
+  obstacles?: Obstacle // Optional: obstacles grid to check which slots are blocked
 ) {
   const EQ: Exclude<Equip, undefined>[] = availableItems ?? [
     "sword",
@@ -621,15 +640,20 @@ function build(
     `${color}${t}-${Math.random().toString(36).slice(2, 8)}`;
 
   // Step 1: Count available slots if board is provided
+  // We need to count slots that are empty on the board AND don't have obstacles
   let availableBackSlots = boardSize;
   let availableFrontSlots = boardSize;
 
   if (board && backRankRow !== undefined && frontRankRow !== undefined) {
+    // Count actual empty slots (no pieces AND no obstacles)
     availableBackSlots = 0;
     availableFrontSlots = 0;
     for (let x = 0; x < boardSize; x++) {
-      if (board[backRankRow]?.[x] === null) availableBackSlots++;
-      if (board[frontRankRow]?.[x] === null) availableFrontSlots++;
+      const backHasObstacle = obstacles && obstacles[backRankRow]?.[x] && obstacles[backRankRow][x] !== "none";
+      const frontHasObstacle = obstacles && obstacles[frontRankRow]?.[x] && obstacles[frontRankRow][x] !== "none";
+      
+      if (board[backRankRow]?.[x] === null && !backHasObstacle) availableBackSlots++;
+      if (board[frontRankRow]?.[x] === null && !frontHasObstacle) availableFrontSlots++;
     }
   }
 
@@ -674,39 +698,82 @@ function build(
   // Add named back rank pieces IMMEDIATELY after King (guaranteed placement)
   back.push(...namedBackRankPieces);
 
+  // Step 3.5: Add guaranteed pieces (don't consume gold budget)
+  const guaranteedBackRankPieces: Piece[] = [];
+  const guaranteedFrontRankPieces: Piece[] = [];
+  let overflowPawnsCount = 0; // Track how many pawns will overflow to back rank
+  
+  if (guaranteedPieces && guaranteedPieces.length > 0) {
+    for (const gp of guaranteedPieces) {
+      const piece: Piece = {
+        id: id(gp.type),
+        type: gp.type,
+        color,
+        equip: gp.equip,
+      };
+      if (gp.type === "P") {
+        guaranteedFrontRankPieces.push(piece);
+      } else {
+        guaranteedBackRankPieces.push(piece);
+      }
+    }
+    
+    // Calculate how many guaranteed pawns will overflow to back rank
+    // This happens when guaranteed pawns + named pawns exceed available front slots
+    const totalFrontRankPieces = namedFrontRankPieces.length + guaranteedFrontRankPieces.length;
+    if (totalFrontRankPieces > availableFrontSlots) {
+      overflowPawnsCount = totalFrontRankPieces - availableFrontSlots;
+    }
+  }
+  
+  // Add guaranteed back rank pieces
+  back.push(...guaranteedBackRankPieces);
+
   // Step 4: Calculate how many slots remain for random pieces (accounting for actual board space)
+  // Account for overflow pawns that will be placed in back rank
   const remainingBackSlots =
-    availableBackSlots - (kingCreated ? 1 : 0) - namedBackRankPieces.length; // -1 for King if created
+    availableBackSlots - (kingCreated ? 1 : 0) - namedBackRankPieces.length - guaranteedBackRankPieces.length - overflowPawnsCount;
 
   // Step 5: Generate army spec based on remaining slots and gold
-  const SPECS = specPool(initialGold);
+  const SPECS = specPool(initialGold, allowedPieceTypes);
   // Fallback to minimal army spec if specPool returns empty (when gold is too low)
-  const defaultSpec = { q: 0, r: 0, b: 0, n: 0, p: Math.max(3, Math.floor(initialGold / 10)) };
+  const allowed = allowedPieceTypes && allowedPieceTypes.length > 0 
+    ? new Set(allowedPieceTypes)
+    : new Set<PieceType>(["Q", "R", "B", "N", "P"]);
+  // No minimum pawn requirement - use 0 if no specs available
+  const defaultSpec = { q: 0, r: 0, b: 0, n: 0, p: 0 };
   const s = SPECS.length > 0 ? rand(r, SPECS) : defaultSpec;
 
-  // Add randomly generated pieces (only up to remaining back rank slots)
+  // Add randomly generated pieces (only up to remaining back rank slots and only if allowed)
   let addedPieces = 0;
-  if (s && s.q && addedPieces < remainingBackSlots) {
+  if (s && s.q && allowed.has("Q") && addedPieces < remainingBackSlots) {
     back.push({ id: id("Q"), type: "Q", color });
     addedPieces++;
   }
   if (s) {
-    for (let i = 0; i < s.r && addedPieces < remainingBackSlots; i++) {
+    for (let i = 0; i < s.r && allowed.has("R") && addedPieces < remainingBackSlots; i++) {
       back.push({ id: id("R"), type: "R", color });
       addedPieces++;
     }
-    for (let i = 0; i < s.b && addedPieces < remainingBackSlots; i++) {
+    for (let i = 0; i < s.b && allowed.has("B") && addedPieces < remainingBackSlots; i++) {
       back.push({ id: id("B"), type: "B", color });
       addedPieces++;
     }
-    for (let i = 0; i < s.n && addedPieces < remainingBackSlots; i++) {
+    for (let i = 0; i < s.n && allowed.has("N") && addedPieces < remainingBackSlots; i++) {
       back.push({ id: id("N"), type: "N", color });
       addedPieces++;
     }
   }
 
-  // Place back rank pieces on the board (all pieces should fit now)
+  // Place back rank pieces on the board (including overflow pawns from guaranteed pieces)
   const br = Array(boardSize).fill(null) as (Piece | null)[];
+  
+  // Add overflow pawns to back rank before placing
+  if (overflowPawnsCount > 0) {
+    const overflowPawns = guaranteedFrontRankPieces.splice(-overflowPawnsCount);
+    back.push(...overflowPawns);
+  }
+  
   const idx = Array.from({ length: boardSize }, (_, i) => i).sort(
     () => r() - 0.5
   );
@@ -720,58 +787,140 @@ function build(
     () => r() - 0.5
   );
 
-  const pawnItemsToEquip = isPlayer ? 2 : 3;
-  const backItemsToEquip = isPlayer ? 1 : 2;
-
+  // Calculate equipment budget - use equipmentGold if provided, otherwise use a default allocation
+  const equipmentBudget = equipmentGold ?? (isPlayer ? 20 : 40); // Default: 20 for player, 40 for enemy
+  let remainingEquipmentGold = equipmentBudget;
+  
+  // Guaranteed items (from story events) don't consume the randomization budget
+  // They are always equipped regardless of the equipment gold setting
+  
+  // Get available items for randomization (use passed parameter or default)
+  const EQ_AVAILABLE = availableItems && availableItems.length > 0 ? availableItems : EQ;
+  const EQ_FOR_PAWNS_AVAILABLE = EQ_AVAILABLE.filter(item => EQ_FOR_PAWNS.includes(item as any));
+  const EQ_FOR_BACK_RANK_AVAILABLE = EQ_AVAILABLE.filter(item => EQ_FOR_BACK_RANK.includes(item as any));
+  
+  // Get average item cost from available items for budget calculations
+  const availableItemCosts = EQ_AVAILABLE.map(item => ITEM_COSTS[item as keyof typeof ITEM_COSTS] || 10);
+  const averageItemCost = availableItemCosts.length > 0 
+    ? availableItemCosts.reduce((a, b) => a + b, 0) / availableItemCosts.length
+    : 10;
+  
+  // Calculate how many pieces can be equipped based on remaining budget
+  const maxPawnItemsToEquip = Math.floor(remainingEquipmentGold / averageItemCost);
+  const maxBackItemsToEquip = Math.floor(remainingEquipmentGold / averageItemCost);
+  
   // Place named pawns FIRST (guaranteed placement)
   for (let i = 0; i < namedFrontRankPieces.length; i++) {
     if (i < boardSize) {
       fr[slots[i]] = namedFrontRankPieces[i];
     }
   }
-
-  // Calculate how many slots remain for random pawns (accounting for actual board space)
-  const remainingPawnSlots =
-    Math.min(availableFrontSlots, boardSize) - namedFrontRankPieces.length;
-  const actualPawnsToGenerate = Math.min(s?.p || 0, remainingPawnSlots);
-
-  // Generate random pawns (only up to remaining slots)
-  const gp = Array.from({ length: actualPawnsToGenerate }, (_, i) => i)
-    .sort(() => r() - 0.5)
-    .slice(0, Math.min(pawnItemsToEquip, actualPawnsToGenerate));
-  for (let i = 0; i < actualPawnsToGenerate; i++) {
-    const slotIndex = namedFrontRankPieces.length + i; // Place after named pawns
-    const k = slots[slotIndex];
-    const eq = gp.includes(i)
-      ? (EQ_FOR_PAWNS[Math.floor(r() * EQ_FOR_PAWNS.length)] as Equip)
-      : undefined;
-    fr[k] = { id: id("P"), type: "P", color, equip: eq };
+  
+  // Place guaranteed pawns AFTER named pawns
+  // Note: overflow pawns have already been moved to back rank
+  for (let i = 0; i < guaranteedFrontRankPieces.length; i++) {
+    const slotIndex = namedFrontRankPieces.length + i;
+    if (slotIndex < availableFrontSlots && slots[slotIndex] !== undefined) {
+      fr[slots[slotIndex]] = guaranteedFrontRankPieces[i];
+    }
   }
 
-  // Step 5: Equip random back rank pieces (but don't override named piece equipment)
+  // Calculate how many slots remain for random pawns (accounting for actual board space)
+  // Only generate pawns if they are in the allowed piece types
+  const remainingPawnSlots =
+    Math.min(availableFrontSlots, boardSize) - namedFrontRankPieces.length - guaranteedFrontRankPieces.length;
+  const actualPawnsToGenerate = allowed.has("P") 
+    ? Math.min(s?.p || 0, remainingPawnSlots)
+    : 0;
+
+  // Generate random pawns (only up to remaining slots and only if allowed)
+  if (actualPawnsToGenerate > 0) {
+    for (let i = 0; i < actualPawnsToGenerate; i++) {
+      const slotIndex = namedFrontRankPieces.length + guaranteedFrontRankPieces.length + i;
+      const k = slots[slotIndex];
+      fr[k] = { id: id("P"), type: "P", color };
+    }
+  }
+  
+  // Step 5a: Equip random items to ALL unequipped pawns (both guaranteed and random, in front AND back ranks)
+  // This ensures guaranteed pawns can also get random equipment, even if they overflow to back rank
+  const allUnequippedPawns: Piece[] = [];
+  fr.forEach((p) => {
+    if (p && p.type === "P" && !p.equip) {
+      allUnequippedPawns.push(p);
+    }
+  });
+  // Also check back rank for pawns (can happen when front rank is full)
+  br.forEach((p) => {
+    if (p && p.type === "P" && !p.equip) {
+      allUnequippedPawns.push(p);
+    }
+  });
+  
+  if (allUnequippedPawns.length > 0 && remainingEquipmentGold > 0 && EQ_FOR_PAWNS_AVAILABLE.length > 0) {
+    // Calculate how many pawns to equip based on budget
+    const pawnsToEquipCount = Math.min(maxPawnItemsToEquip, allUnequippedPawns.length);
+    
+    // Randomly select which pawns to equip
+    const pawnIndicesToEquip = Array.from({ length: allUnequippedPawns.length }, (_, i) => i)
+      .sort(() => r() - 0.5)
+      .slice(0, pawnsToEquipCount);
+    
+    for (const idx of pawnIndicesToEquip) {
+      if (remainingEquipmentGold <= 0) break;
+      
+      const randomItem = EQ_FOR_PAWNS_AVAILABLE[Math.floor(r() * EQ_FOR_PAWNS_AVAILABLE.length)] as Equip;
+      const itemCost = ITEM_COSTS[randomItem as keyof typeof ITEM_COSTS] || 10;
+      
+      if (remainingEquipmentGold >= itemCost) {
+        allUnequippedPawns[idx].equip = randomItem;
+        remainingEquipmentGold -= itemCost;
+      }
+    }
+  }
+
+  // Step 5b: Equip random back rank pieces (but don't override named piece equipment)
   const nonKingBackRank = br.filter((x) => x && x.type !== "K") as Piece[];
-  const piecesToEquip = nonKingBackRank
-    .filter((p) => !p.equip) // Only equip pieces that don't already have equipment
+  const unequippedBackRank = nonKingBackRank.filter((p) => !p.equip);
+  
+  // Select which back rank pieces to equip based on remaining equipment budget
+  const backItemsToEquipCount = Math.min(
+    Math.floor(remainingEquipmentGold / averageItemCost),
+    unequippedBackRank.length
+  );
+  const piecesToEquip = unequippedBackRank
     .sort(() => r() - 0.5)
-    .slice(0, Math.min(backItemsToEquip, nonKingBackRank.length));
+    .slice(0, backItemsToEquipCount);
 
   piecesToEquip.forEach((p) => {
+    // Select item from available items that fits the budget
+    if (remainingEquipmentGold <= 0 || EQ_FOR_BACK_RANK_AVAILABLE.length === 0) return;
+    
     // Ensure King doesn't get disguise
     let equip: Equip;
+    let itemCost = 0;
+    let attempts = 0;
     do {
-      equip = EQ_FOR_BACK_RANK[
-        Math.floor(r() * EQ_FOR_BACK_RANK.length)
+      equip = EQ_FOR_BACK_RANK_AVAILABLE[
+        Math.floor(r() * EQ_FOR_BACK_RANK_AVAILABLE.length)
       ] as Equip;
-    } while (p.type === "K" && equip === "disguise");
-
-    if (equip === "disguise" && p.type !== "P") {
-      p.originalType = p.type;
-      p.type = "P";
+      itemCost = ITEM_COSTS[equip as keyof typeof ITEM_COSTS] || 10;
+      attempts++;
+    } while ((p.type === "K" && equip === "disguise") || (remainingEquipmentGold < itemCost && attempts < 10));
+    
+    // Only equip if we have budget for it
+    if (remainingEquipmentGold >= itemCost && equip) {
+      if (equip === "disguise" && p.type !== "P") {
+        p.originalType = p.type;
+        p.type = "P";
+      }
+      p.equip = equip;
+      remainingEquipmentGold -= itemCost;
     }
-    p.equip = equip;
   });
 
   // Step 6: Equip guaranteed items (from story events) to unequipped pieces
+  // Note: These items have already been accounted for in the equipment budget
   if (guaranteedItems && guaranteedItems.length > 0) {
     // Collect all unequipped pieces (front and back rank)
     const allPieces: Piece[] = [];
@@ -782,7 +931,14 @@ function build(
     allPieces.sort(() => r() - 0.5);
     
     for (let i = 0; i < Math.min(guaranteedItems.length, allPieces.length); i++) {
-      allPieces[i].equip = guaranteedItems[i];
+      const item = guaranteedItems[i];
+      allPieces[i].equip = item;
+      
+      // Handle disguise special case
+      if (item === "disguise" && allPieces[i].type !== "P") {
+        allPieces[i].originalType = allPieces[i].type;
+        allPieces[i].type = "P";
+      }
     }
   }
 
@@ -2596,6 +2752,7 @@ function BoardComponent({
                     setHover({ x, y });
                     if (
                       phase === "market" &&
+                      currentLevelConfig?.marketEnabled !== false &&
                       board[y]?.[x]?.color === W &&
                       board[y]?.[x]?.type !== "K"
                     ) {
@@ -3000,8 +3157,9 @@ function BoardComponent({
         </div>
       </div>
 
-      {/* Sell Button Overlay - Only show during market phase when not deploying an item/piece */}
+      {/* Sell Button Overlay - Only show during market phase when not deploying an item/piece and market is enabled */}
       {phase === "market" &&
+        currentLevelConfig?.marketEnabled !== false &&
         !marketAction &&
         sellButtonPos &&
         board[sellButtonPos.y]?.[sellButtonPos.x]?.color === W &&
@@ -4000,8 +4158,8 @@ export default function App() {
   // Sell piece function
   function sellPiece(x: number, y: number) {
     const piece = Bstate[y]?.[x];
-    if (!piece || piece.color !== W || phase !== "market" || piece.type === "K")
-      return; // Prevent selling King
+    if (!piece || piece.color !== W || phase !== "market" || piece.type === "K" || currentLevelConfig?.marketEnabled === false)
+      return; // Prevent selling King or when market is disabled
 
     const sellValue = getSellValue(piece);
     setMarketPoints((prev) => prev + sellValue);
@@ -4138,6 +4296,9 @@ export default function App() {
       const outcomes: OutcomeData[] = [];
       let nextCard: StoryCardType | undefined = undefined;
       let shouldStartBattle = false;
+      
+      // Accumulate all campaign changes to apply in one batch
+      let campaignUpdates: Partial<CampaignState & { pendingEnemyPawns: number; pendingEnemyItemAssignments: Array<{ item: string; count: number }> }> = {};
 
       for (const event of events) {
         switch (event.type) {
@@ -4171,10 +4332,7 @@ export default function App() {
             break;
 
           case "give_prayer_die":
-            setCampaign((prev) => ({
-              ...prev,
-              prayerDice: prev.prayerDice + 1,
-            }));
+            campaignUpdates.prayerDice = (campaignUpdates.prayerDice ?? campaign.prayerDice) + 1;
             setPrayerDice((prev) => prev + 1);
             outcomes.push({
               message: "+1 Prayer Die",
@@ -4186,10 +4344,10 @@ export default function App() {
             break;
 
           case "unlock_item":
-            setCampaign((prev) => ({
-              ...prev,
-              unlockedItems: [...prev.unlockedItems, event.item],
-            }));
+            campaignUpdates.unlockedItems = [
+              ...(campaignUpdates.unlockedItems ?? campaign.unlockedItems),
+              event.item
+            ];
             outcomes.push({
               message: `Unlocked ${event.item}!`,
               glyph: "🔓",
@@ -4200,12 +4358,12 @@ export default function App() {
             break;
 
           case "give_free_unit":
-            setCampaign((prev) => {
-              const newFreeUnits = new Map(prev.freeUnits);
+            {
+              const newFreeUnits = new Map(campaignUpdates.freeUnits ?? campaign.freeUnits);
               const currentCount = newFreeUnits.get(event.pieceType) || 0;
               newFreeUnits.set(event.pieceType, currentCount + 1);
-              return { ...prev, freeUnits: newFreeUnits };
-            });
+              campaignUpdates.freeUnits = newFreeUnits;
+            }
             outcomes.push({
               message: `Free ${event.pieceType} Unit`,
               glyph: "🎁",
@@ -4216,12 +4374,12 @@ export default function App() {
             break;
 
           case "give_free_item":
-            setCampaign((prev) => {
-              const newFreeItems = new Map(prev.freeItems);
+            {
+              const newFreeItems = new Map(campaignUpdates.freeItems ?? campaign.freeItems);
               const currentCount = newFreeItems.get(event.item) || 0;
               newFreeItems.set(event.item, currentCount + 1);
-              return { ...prev, freeItems: newFreeItems };
-            });
+              campaignUpdates.freeItems = newFreeItems;
+            }
             outcomes.push({
               message: `Free ${event.item}`,
               glyph: "🎁",
@@ -4273,12 +4431,8 @@ export default function App() {
 
           case "spawn_enemy_pawns":
             // Store the count to spawn when battle starts
-            // We'll need to modify the init function to check for this
-            setCampaign((prev) => ({
-              ...prev,
-              // Store in a temporary field we can check during init
-              pendingEnemyPawns: ((prev as any).pendingEnemyPawns || 0) + event.count,
-            }));
+            campaignUpdates.pendingEnemyPawns = 
+              (campaignUpdates.pendingEnemyPawns ?? ((campaign as any).pendingEnemyPawns || 0)) + event.count;
             outcomes.push({
               message: "Extra enemies added",
               glyph: "⚔️",
@@ -4289,14 +4443,11 @@ export default function App() {
             break;
 
           case "assign_item_to_enemy":
-            // Store to process after board is initialized (deferred like give_item/give_unit)
-            setCampaign((prev) => ({
-              ...prev,
-              pendingEnemyItemAssignments: [
-                ...((prev as any).pendingEnemyItemAssignments || []),
-                { item: event.item, count: event.count }
-              ],
-            }));
+            // Store to process after board is initialized
+            campaignUpdates.pendingEnemyItemAssignments = [
+              ...(campaignUpdates.pendingEnemyItemAssignments ?? ((campaign as any).pendingEnemyItemAssignments || [])),
+              { item: event.item, count: event.count }
+            ];
             outcomes.push({
               message: `Add ${event.count} 💰`,
               glyph: "💰",
@@ -4324,6 +4475,11 @@ export default function App() {
             shouldStartBattle = true;
             break;
         }
+      }
+      
+      // Apply all campaign updates in one batch to avoid race conditions
+      if (Object.keys(campaignUpdates).length > 0) {
+        setCampaign((prev) => ({ ...prev, ...campaignUpdates }));
       }
 
       // Store last card before hiding it
@@ -4362,9 +4518,13 @@ export default function App() {
   // Re-initialize board when pending events need to be processed
   useEffect(() => {
     if (needsReinit && currentLevelConfig) {
-      // Need to access the latest campaign state
-      init(seed, campaign.level, unspentGold, currentLevelConfig);
-      setNeedsReinit(false);
+      // Only call init if there are actually pending events in the campaign state
+      // This ensures we wait for the campaign state to be updated before initializing
+      const hasPendingEvents = (campaign as any).pendingEnemyPawns || (campaign as any).pendingEnemyItemAssignments;
+      if (hasPendingEvents) {
+        init(seed, campaign.level, unspentGold, currentLevelConfig);
+        setNeedsReinit(false);
+      }
     }
   }, [needsReinit, campaign]);
 
@@ -4393,17 +4553,21 @@ export default function App() {
 
     placeFeatures(B0, T0, O0, r, boardSize, levelConfig.terrainMatrix, escapeRow);
 
-    // Use level configuration
-    const enemyGold = levelConfig.enemyArmyGold;
-    const playerGold = levelConfig.playerArmyGold;
+    // Use level configuration - separate gold pools if specified
+    // If specific gold pools aren't set, fall back to legacy enemyArmyGold/playerArmyGold, or default to 0
+    const enemyPieceGold = levelConfig.enemyPieceGold ?? levelConfig.enemyArmyGold ?? 0;
+    const playerPieceGold = levelConfig.playerPieceGold ?? levelConfig.playerArmyGold ?? 0;
+    const enemyEquipmentGold = levelConfig.enemyEquipmentGold ?? levelConfig.enemyArmyGold ?? 0;
+    const playerEquipmentGold = levelConfig.playerEquipmentGold ?? levelConfig.playerArmyGold ?? 0;
 
     // Campaign logic: handle white army based on level and survivors
     if (campaign.level <= 1 || campaign.whiteRoster.length === 0) {
-      // Level 1 or no survivors: generate fresh white army (use playerGold from config)
+      // Level 1 or no survivors: generate fresh white army (use playerPieceGold from config)
+      const guaranteedWhitePieces = levelConfig.guaranteedPieces?.white || [];
       const w = build(
         W,
         r,
-        playerGold,
+        playerPieceGold,
         true,
         levelConfig.availableItems.whiteRandomization,
         boardSize,
@@ -4413,7 +4577,11 @@ export default function App() {
         0, // White back rank
         1, // White front rank
         false, // Don't skip King for white
-        [] // No guaranteed items for white
+        [], // No guaranteed items for white
+        levelConfig.randomizationPieces?.white, // Allowed piece types for white randomization
+        guaranteedWhitePieces, // Guaranteed pieces for white
+        playerEquipmentGold, // Equipment gold for white
+        O0 // Obstacles grid to check blocked slots
       );
       // Place white pieces, avoiding obstacles
       placePiecesAvoidingObstacles(B0, O0, w.back, 0, boardSize);
@@ -4451,13 +4619,19 @@ export default function App() {
       }
     }
     
-    // Check for pending pawns (from story events)
+    // Check for pending pawns (from story events) - add them to guaranteed pieces
     const pendingPawns = (campaign as any).pendingEnemyPawns || 0;
+    const guaranteedBlackPieces = [...(levelConfig.guaranteedPieces?.black || [])];
+    
+    // Add pending pawns from story events as guaranteed pieces
+    for (let i = 0; i < pendingPawns; i++) {
+      guaranteedBlackPieces.push({ type: "P" });
+    }
     
     const bl = build(
       B,
       r,
-      enemyGold,
+      enemyPieceGold,
       false,
       blackItemPool, // Regular randomization pool
       boardSize,
@@ -4467,19 +4641,12 @@ export default function App() {
       boardSize - 1, // Black back rank
       boardSize - 2, // Black front rank
       kingEscapedOnly, // Pass flag to skip black King
-      guaranteedItems // Guaranteed items that MUST be equipped
+      guaranteedItems, // Guaranteed items that MUST be equipped
+      levelConfig.randomizationPieces?.black, // Allowed piece types for black randomization
+      guaranteedBlackPieces, // Guaranteed pieces for black (including pending pawns)
+      enemyEquipmentGold, // Equipment gold for black
+      O0 // Obstacles grid to check blocked slots
     );
-    
-    // Add extra pawns to front rank before placing
-    if (pendingPawns > 0) {
-      for (let i = 0; i < pendingPawns; i++) {
-        bl.front.push({
-          id: `extra-pawn-${i}-${Date.now()}`,
-          type: "P",
-          color: B,
-        });
-      }
-    }
     
     // Place black pieces, avoiding obstacles
     placePiecesAvoidingObstacles(B0, O0, bl.back, boardSize - 1, boardSize);

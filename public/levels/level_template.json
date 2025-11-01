@@ -94,6 +94,10 @@
     "whitePurchase": ["sword", "shield", "bow", "torch", "lance", "staff"]
   },
   "marketEnabled": true,
-  "availablePieces": ["Q", "R", "B", "N", "P"]
+  "availablePieces": ["Q", "R", "B", "N", "P"],
+  "randomizationPieces": {
+    "black": ["Q", "R", "B", "N", "P"],
+    "white": ["Q", "R", "B", "N", "P"]
+  }
 }
 

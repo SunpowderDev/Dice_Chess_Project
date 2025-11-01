@@ -326,6 +326,30 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode }) =>
   const leftOpacity = Math.max(0, Math.min(1, -dragX / SWIPE_THRESHOLD));
   const rightOpacity = Math.max(0, Math.min(1, dragX / SWIPE_THRESHOLD));
 
+  // Get overlay background style for left choice
+  const getLeftOverlayStyle = () => {
+    if (card.leftChoice.overlayColor) {
+      return {
+        opacity: leftOpacity,
+        background: `linear-gradient(to right, ${card.leftChoice.overlayColor}, transparent)`,
+      };
+    }
+    // Default behavior - use CSS classes
+    return { opacity: leftOpacity };
+  };
+
+  // Get overlay background style for right choice
+  const getRightOverlayStyle = () => {
+    if (card.rightChoice.overlayColor) {
+      return {
+        opacity: rightOpacity,
+        background: `linear-gradient(to left, ${card.rightChoice.overlayColor}, transparent)`,
+      };
+    }
+    // Default behavior - use CSS classes
+    return { opacity: rightOpacity };
+  };
+
   // Get character display (styled like board pieces)
   const getCharacterDisplay = () => {
     if (!card.character) return null;
@@ -436,8 +460,8 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode }) =>
                 {isDragging && (
                   <>
                     <div
-                      className={`story-choice-overlay left ${card.character?.name === "Narrator" ? "narrator" : ""}`}
-                      style={{ opacity: leftOpacity }}
+                      className={`story-choice-overlay left ${card.character?.name === "Narrator" && !card.leftChoice.overlayColor ? "narrator" : ""}`}
+                      style={getLeftOverlayStyle()}
                     >
                       <div className="story-choice-text">
                         ← {card.leftChoice.text}
@@ -445,8 +469,8 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode }) =>
                     </div>
 
                     <div
-                      className={`story-choice-overlay right ${card.character?.name === "Narrator" ? "narrator" : ""}`}
-                      style={{ opacity: rightOpacity }}
+                      className={`story-choice-overlay right ${card.character?.name === "Narrator" && !card.rightChoice.overlayColor ? "narrator" : ""}`}
+                      style={getRightOverlayStyle()}
                     >
                       <div className="story-choice-text">
                         {card.rightChoice.text} →
