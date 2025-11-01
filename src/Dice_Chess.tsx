@@ -873,13 +873,11 @@ function placeFeatures(
   const randomCells: { x: number; y: number }[] = [];
 
   if (terrainMatrix && terrainMatrix.length === boardSize) {
-    // Process matrix: row 0 of matrix = top visual row (white side), row N = bottom visual row (black side)
-    // Board array: B[0] = white back rank, B[boardSize-1] = black back rank
-    // Visual rendering: B[boardSize-1] is displayed at top, B[0] at bottom
-    // So we need to reverse: matrix[0] -> B[boardSize-1], matrix[boardSize-1] -> B[0]
+    // Process matrix: terrainMatrix[0] = board row 0 (white's back rank, bottom visual)
+    // Board rendering flips y-axis: board[0] displays at bottom, board[boardSize-1] at top
+    // So: white starts at board[0,1] (bottom), black starts at board[boardSize-1, boardSize-2] (top)
     for (let y = 0; y < boardSize; y++) {
-      const matrixRowIndex = boardSize - 1 - y; // Reverse the row index
-      const row = terrainMatrix[matrixRowIndex];
+      const row = terrainMatrix[y];
       if (row && row.length === boardSize) {
         for (let x = 0; x < boardSize; x++) {
           const cell = row[x];
@@ -2228,7 +2226,6 @@ function BoardComponent({
   setSpeechBubble: (bubble: { text: string; id: number; targetId: string } | null) => void;
   currentLevelConfig: any;
 }) {
-  console.log("[BOARD-COMPONENT] Rendering with boardSize:", boardSize);
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const isL = (x: number, y: number) =>
     legal.some((s) => s.x === x && s.y === y);
@@ -2405,10 +2402,6 @@ function BoardComponent({
             {Array.from({ length: boardSize * boardSize }, (_, i) => {
               const x = i % boardSize,
                 y = boardSize - 1 - Math.floor(i / boardSize);
-              // Debug: log if y is out of bounds
-              if (y >= boardSize || y < 0) {
-                console.error("[RENDERING ERROR] Invalid y coordinate!", { i, x, y, boardSize, calculatedY: boardSize - 1 - Math.floor(i / boardSize) });
-              }
               const p = board[y]?.[x]; // Safe navigation
               const currentObstacle = obstacles[y]?.[x]; // Get obstacle at this position
               const hasObstacle = currentObstacle !== "none";
@@ -4686,34 +4679,18 @@ export default function App() {
       // Check for exhaustion
       checkExhaustion(p.id, from, to, B1);
 
-      // Pawn promotion check for normal moves
+      // Pawn promotion check for crystal ball swaps
+      // White promotes at top (boardSize-1), Black promotes at bottom (0)
       if (userPiece.type === "P") {
         const shouldPromote = 
           (userPiece.color === W && to.y === currentBoardSize - 1) ||
           (userPiece.color === B && to.y === 0);
-        console.log("[PAWN-PROMOTION-SWAP-USER]", {
-          piece: userPiece,
-          pieceColor: userPiece.color,
-          W: W,
-          B: B,
-          colorMatches: {
-            isWhite: userPiece.color === W,
-            isBlack: userPiece.color === B,
-            colorValue: userPiece.color
-          },
-          to: { x: to.x, y: to.y },
-          boardSize: currentBoardSize,
-          expectedWhiteRow: currentBoardSize - 1,
-          expectedBlackRow: 0,
-          shouldPromote,
-          conditionWhite: userPiece.color === W && to.y === currentBoardSize - 1,
-          conditionBlack: userPiece.color === B && to.y === 0,
-          whiteCheck: `${userPiece.color === W} && ${to.y === currentBoardSize - 1}`,
-          blackCheck: `${userPiece.color === B} && ${to.y === 0}`
-        });
+        console.log("[SWAP-PROMOTION-CHECK]", { piece: "user", color: userPiece.color, toY: to.y, boardSize: currentBoardSize, shouldPromote, config: currentLevelConfig?.pawnPromotionType });
         if (shouldPromote) {
-          const promotionType = currentLevelConfig?.pawnPromotionType || "Q";
-          console.log("[PAWN-PROMOTION-SWAP-USER] Promoting pawn to", promotionType);
+          let promotionType: PieceType = currentLevelConfig?.pawnPromotionType || "Q";
+          // Safeguard: never promote to Pawn or King
+          if (promotionType === "P" || promotionType === "K") promotionType = "Q";
+          console.log("[PAWN-PROMOTED-SWAP]", { color: userPiece.color === W ? "white" : "black", to: promotionType });
           B1[to.y][to.x] = { ...userPiece, type: promotionType };
         }
       }
@@ -4721,29 +4698,12 @@ export default function App() {
         const shouldPromote = 
           (targetPiece.color === W && from.y === currentBoardSize - 1) ||
           (targetPiece.color === B && from.y === 0);
-        console.log("[PAWN-PROMOTION-SWAP-TARGET]", {
-          piece: targetPiece,
-          pieceColor: targetPiece.color,
-          W: W,
-          B: B,
-          colorMatches: {
-            isWhite: targetPiece.color === W,
-            isBlack: targetPiece.color === B,
-            colorValue: targetPiece.color
-          },
-          from: { x: from.x, y: from.y },
-          boardSize: currentBoardSize,
-          expectedWhiteRow: currentBoardSize - 1,
-          expectedBlackRow: 0,
-          shouldPromote,
-          conditionWhite: targetPiece.color === W && from.y === currentBoardSize - 1,
-          conditionBlack: targetPiece.color === B && from.y === 0,
-          whiteCheck: `${targetPiece.color === W} && ${from.y === currentBoardSize - 1}`,
-          blackCheck: `${targetPiece.color === B} && ${from.y === 0}`
-        });
+        console.log("[SWAP-PROMOTION-CHECK]", { piece: "target", color: targetPiece.color, fromY: from.y, boardSize: currentBoardSize, shouldPromote, config: currentLevelConfig?.pawnPromotionType });
         if (shouldPromote) {
-          const promotionType = currentLevelConfig?.pawnPromotionType || "Q";
-          console.log("[PAWN-PROMOTION-SWAP-TARGET] Promoting pawn to", promotionType);
+          let promotionType: PieceType = currentLevelConfig?.pawnPromotionType || "Q";
+          // Safeguard: never promote to Pawn or King
+          if (promotionType === "P" || promotionType === "K") promotionType = "Q";
+          console.log("[PAWN-PROMOTED-SWAP]", { color: targetPiece.color === W ? "white" : "black", to: promotionType });
           B1[from.y][from.x] = { ...targetPiece, type: promotionType };
         }
       }
@@ -5001,45 +4961,42 @@ export default function App() {
       "(prefers-reduced-motion: reduce)"
     ).matches;
     const commitQuietMove = () => {
-      console.log("[COMMIT-QUIET-MOVE] Starting quiet move", { from, to, piece: p });
       sfx.move();
       const B1 = cloneB(Bstate);
       const moved: Piece = { ...p };
-      console.log("[COMMIT-QUIET-MOVE] moved piece:", moved);
       B1[to.y][to.x] = moved;
       B1[from.y][from.x] = null;
 
       // Check for exhaustion after the move
       checkExhaustion(p.id, from, to, B1);
 
-      // Pawn promotion check for normal moves - check the piece that's now on the board
+      // Pawn promotion check for normal moves
+      // White promotes at top (boardSize-1), Black promotes at bottom (0)
       const pieceAtDestination = B1[to.y]?.[to.x];
-      console.log("[COMMIT-QUIET-MOVE] Checking for pawn at destination");
-      console.log("  to:", to);
-      console.log("  moved:", moved);
-      console.log("  pieceAtDestination:", pieceAtDestination);
-      console.log("  Are they the same object?", moved === pieceAtDestination);
       if (pieceAtDestination && pieceAtDestination.type === "P") {
-        console.log("[PAWN-PROMOTION-NORMAL] Pawn found, checking promotion");
-        console.log("  piece.color:", pieceAtDestination.color);
-        console.log("  to.y:", to.y);
-        console.log("  currentBoardSize:", currentBoardSize);
-        console.log("  W:", W, "B:", B);
-        
-        // Direct comparison without intermediate variables
+        const isWhitePawn = pieceAtDestination.color === W;
+        const isBlackPawn = pieceAtDestination.color === B;
+        const atTopRow = to.y === currentBoardSize - 1;
+        const atBottomRow = to.y === 0;
         const shouldPromote = 
-          (pieceAtDestination.color === W && to.y === currentBoardSize - 1) ||
-          (pieceAtDestination.color === B && to.y === 0);
+          (isWhitePawn && atTopRow) ||
+          (isBlackPawn && atBottomRow);
         
-        console.log("  Comparison results:");
-        console.log("    pieceAtDestination.color === W:", pieceAtDestination.color === W);
-        console.log("    to.y === currentBoardSize - 1:", to.y === currentBoardSize - 1);
-        console.log("    White condition:", pieceAtDestination.color === W && to.y === currentBoardSize - 1);
-        console.log("    Black condition:", pieceAtDestination.color === B && to.y === 0);
-        console.log("  shouldPromote:", shouldPromote);
+        if (isBlackPawn) {
+          console.log("[BLACK-PAWN-CHECK]", {
+            color: pieceAtDestination.color,
+            toY: to.y,
+            boardSize: currentBoardSize,
+            atBottomRow,
+            shouldPromote
+          });
+        }
+        
         if (shouldPromote) {
-          const promotionType = currentLevelConfig?.pawnPromotionType || "Q";
-          console.log("[PAWN-PROMOTION-NORMAL] Promoting pawn to", promotionType);
+          let promotionType: PieceType = currentLevelConfig?.pawnPromotionType || "Q";
+          // Safeguard: never promote to Pawn or King
+          if (promotionType === "P" || promotionType === "K") promotionType = "Q";
+          console.log("[PAWN-PROMOTED]", { color: pieceAtDestination.color === W ? "white" : "black", to: promotionType });
           B1[to.y][to.x] = { ...pieceAtDestination, type: promotionType };
         }
       }
@@ -5128,6 +5085,29 @@ export default function App() {
       // Check for exhaustion
       if (mv) checkExhaustion(mv.id, from, to, B1);
 
+      // Pawn promotion check after destroying obstacle
+      // White promotes at top (boardSize-1), Black promotes at bottom (0)
+      const pieceAtDestination = B1[to.y]?.[to.x];
+      if (pieceAtDestination && pieceAtDestination.type === "P") {
+        const shouldPromote = 
+          (pieceAtDestination.color === W && to.y === currentBoardSize - 1) ||
+          (pieceAtDestination.color === B && to.y === 0);
+        console.log("[OBSTACLE-PROMOTION-CHECK]", { 
+          color: pieceAtDestination.color, 
+          toY: to.y, 
+          boardSize: currentBoardSize, 
+          shouldPromote,
+          config: currentLevelConfig?.pawnPromotionType 
+        });
+        if (shouldPromote) {
+          let promotionType: PieceType = currentLevelConfig?.pawnPromotionType || "Q";
+          // Safeguard: never promote to Pawn or King
+          if (promotionType === "P" || promotionType === "K") promotionType = "Q";
+          console.log("[PAWN-PROMOTED-OBSTACLE]", { color: pieceAtDestination.color === W ? "white" : "black", to: promotionType });
+          B1[to.y][to.x] = { ...pieceAtDestination, type: promotionType };
+        }
+      }
+
       // Check for King Escaped victory condition
       const victoryConditions = currentLevelConfig?.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"];
       if (victoryConditions.includes("king_escaped") && mv.type === "K" && mv.color === W && to.y === currentBoardSize - 1) {
@@ -5191,34 +5171,18 @@ export default function App() {
         B1[from.y][from.x] = { ...moved, equip: undefined };
         
         // Pawn promotion check after staff conversion (attacker stays at from position)
+        // White promotes at top (boardSize-1), Black promotes at bottom (0)
         const attackerAtFrom = B1[from.y]?.[from.x];
         if (attackerAtFrom && attackerAtFrom.type === "P") {
           const shouldPromote = 
             (attackerAtFrom.color === W && from.y === currentBoardSize - 1) ||
             (attackerAtFrom.color === B && from.y === 0);
-          console.log("[PAWN-PROMOTION-STAFF]", {
-            piece: attackerAtFrom,
-            pieceColor: attackerAtFrom.color,
-            W: W,
-            B: B,
-            colorMatches: {
-              isWhite: attackerAtFrom.color === W,
-              isBlack: attackerAtFrom.color === B,
-              colorValue: attackerAtFrom.color
-            },
-            from: { x: from.x, y: from.y },
-            boardSize: currentBoardSize,
-            expectedWhiteRow: currentBoardSize - 1,
-            expectedBlackRow: 0,
-            shouldPromote,
-            conditionWhite: attackerAtFrom.color === W && from.y === currentBoardSize - 1,
-            conditionBlack: attackerAtFrom.color === B && from.y === 0,
-            whiteCheck: `${attackerAtFrom.color === W} && ${from.y === currentBoardSize - 1}`,
-            blackCheck: `${attackerAtFrom.color === B} && ${from.y === 0}`
-          });
+          console.log("[STAFF-PROMOTION-CHECK]", { color: attackerAtFrom.color, fromY: from.y, boardSize: currentBoardSize, shouldPromote, config: currentLevelConfig?.pawnPromotionType });
           if (shouldPromote) {
-            const promotionType = currentLevelConfig?.pawnPromotionType || "Q";
-            console.log("[PAWN-PROMOTION-STAFF] Promoting pawn to", promotionType);
+            let promotionType: PieceType = currentLevelConfig?.pawnPromotionType || "Q";
+            // Safeguard: never promote to Pawn or King
+            if (promotionType === "P" || promotionType === "K") promotionType = "Q";
+            console.log("[PAWN-PROMOTED-STAFF]", { color: attackerAtFrom.color === W ? "white" : "black", to: promotionType });
             B1[from.y][from.x] = { ...attackerAtFrom, type: promotionType };
           }
         }
@@ -5361,7 +5325,9 @@ export default function App() {
               (pieceAtDestination.color === W && to.y === currentBoardSize - 1) ||
               (pieceAtDestination.color === B && to.y === 0);
             if (shouldPromote) {
-              const promotionType = currentLevelConfig?.pawnPromotionType || "Q";
+              let promotionType: PieceType = currentLevelConfig?.pawnPromotionType || "Q";
+              // Safeguard: never promote to Pawn or King
+              if (promotionType === "P" || promotionType === "K") promotionType = "Q";
               B1[to.y][to.x] = { ...pieceAtDestination, type: promotionType };
             }
           }
@@ -5520,36 +5486,26 @@ export default function App() {
     }
 
     // Pawn promotion (check both positions - winner might be at 'to' or 'from')
-    // Check the final position of the winner
+    // White promotes at top (boardSize-1), Black promotes at bottom (0)
     const winnerFinalPos = out.win ? to : from;
     const winnerFinalPiece = B1[winnerFinalPos.y]?.[winnerFinalPos.x];
     if (winnerFinalPiece?.type === "P") {
       const shouldPromoteWinner = 
         (winnerFinalPiece.color === W && winnerFinalPos.y === currentBoardSize - 1) ||
         (winnerFinalPiece.color === B && winnerFinalPos.y === 0);
-      console.log("[PAWN-PROMOTION-COMBAT-WINNER]", {
-        piece: winnerFinalPiece,
-        pieceColor: winnerFinalPiece.color,
-        W: W,
-        B: B,
-        colorMatches: {
-          isWhite: winnerFinalPiece.color === W,
-          isBlack: winnerFinalPiece.color === B,
-          colorValue: winnerFinalPiece.color
-        },
-        pos: winnerFinalPos,
-        boardSize: currentBoardSize,
-        expectedWhiteRow: currentBoardSize - 1,
-        expectedBlackRow: 0,
+      console.log("[COMBAT-PROMOTION-CHECK]", { 
+        piece: "winner", 
+        color: winnerFinalPiece.color, 
+        posY: winnerFinalPos.y, 
+        boardSize: currentBoardSize, 
         shouldPromote: shouldPromoteWinner,
-        conditionWhite: winnerFinalPiece.color === W && winnerFinalPos.y === currentBoardSize - 1,
-        conditionBlack: winnerFinalPiece.color === B && winnerFinalPos.y === 0,
-        whiteCheck: `${winnerFinalPiece.color === W} && ${winnerFinalPos.y === currentBoardSize - 1}`,
-        blackCheck: `${winnerFinalPiece.color === B} && ${winnerFinalPos.y === 0}`
+        config: currentLevelConfig?.pawnPromotionType
       });
       if (shouldPromoteWinner) {
-        const promotionType = currentLevelConfig?.pawnPromotionType || "Q";
-        console.log("[PAWN-PROMOTION-COMBAT-WINNER] Promoting pawn to", promotionType);
+        let promotionType: PieceType = currentLevelConfig?.pawnPromotionType || "Q";
+        // Safeguard: never promote to Pawn or King
+        if (promotionType === "P" || promotionType === "K") promotionType = "Q";
+        console.log("[PAWN-PROMOTED-COMBAT]", { color: winnerFinalPiece.color === W ? "white" : "black", to: promotionType });
         B1[winnerFinalPos.y][winnerFinalPos.x] = { ...winnerFinalPiece, type: promotionType };
       }
     }
@@ -5561,29 +5517,19 @@ export default function App() {
       const shouldPromoteLoser = 
         (loserFinalPiece.color === W && loserFinalPos.y === currentBoardSize - 1) ||
         (loserFinalPiece.color === B && loserFinalPos.y === 0);
-      console.log("[PAWN-PROMOTION-COMBAT-LOSER]", {
-        piece: loserFinalPiece,
-        pieceColor: loserFinalPiece.color,
-        W: W,
-        B: B,
-        colorMatches: {
-          isWhite: loserFinalPiece.color === W,
-          isBlack: loserFinalPiece.color === B,
-          colorValue: loserFinalPiece.color
-        },
-        pos: loserFinalPos,
-        boardSize: currentBoardSize,
-        expectedWhiteRow: currentBoardSize - 1,
-        expectedBlackRow: 0,
+      console.log("[COMBAT-PROMOTION-CHECK]", { 
+        piece: "loser", 
+        color: loserFinalPiece.color, 
+        posY: loserFinalPos.y, 
+        boardSize: currentBoardSize, 
         shouldPromote: shouldPromoteLoser,
-        conditionWhite: loserFinalPiece.color === W && loserFinalPos.y === currentBoardSize - 1,
-        conditionBlack: loserFinalPiece.color === B && loserFinalPos.y === 0,
-        whiteCheck: `${loserFinalPiece.color === W} && ${loserFinalPos.y === currentBoardSize - 1}`,
-        blackCheck: `${loserFinalPiece.color === B} && ${loserFinalPos.y === 0}`
+        config: currentLevelConfig?.pawnPromotionType
       });
       if (shouldPromoteLoser) {
-        const promotionType = currentLevelConfig?.pawnPromotionType || "Q";
-        console.log("[PAWN-PROMOTION-COMBAT-LOSER] Promoting pawn to", promotionType);
+        let promotionType: PieceType = currentLevelConfig?.pawnPromotionType || "Q";
+        // Safeguard: never promote to Pawn or King
+        if (promotionType === "P" || promotionType === "K") promotionType = "Q";
+        console.log("[PAWN-PROMOTED-COMBAT]", { color: loserFinalPiece.color === W ? "white" : "black", to: promotionType });
         B1[loserFinalPos.y][loserFinalPos.x] = { ...loserFinalPiece, type: promotionType };
       }
     }
