@@ -1301,16 +1301,12 @@ function moves(
   const slide = (dx: number, dy: number) => {
     let nx = x + dx,
       ny = y + dy;
-    while (inBounds(nx, ny, boardSize)) {
+  while (inBounds(nx, ny, boardSize)) {
       const t = b[ny]?.[nx]; // Safe navigation
       const obstacle = O[ny]?.[nx]; // Check for obstacles
-      if (obstacle !== "none" && obstacle !== "column") {
-        // Obstacle blocks movement, can attack it (but not columns)
+      if (obstacle !== "none") {
+        // Obstacle blocks movement and can be attacked
         out.push({ x: nx, y: ny });
-        break;
-      }
-      if (obstacle === "column") {
-        // Column blocks movement but cannot be attacked
         break;
       }
       if (t) {
@@ -1331,8 +1327,8 @@ function moves(
             if (!inBounds(nx, ny, boardSize)) continue;
             const t = b[ny]?.[nx]; // Safe navigation
             const obstacle = O[ny]?.[nx]; // Check for obstacles
-            // Can move to empty squares or attack enemies/obstacles (but not columns)
-            if ((obstacle !== "none" && obstacle !== "column") || !t || t.color !== col) out.push({ x: nx, y: ny });
+            // Can move to empty squares or attack enemies/obstacles
+            if (obstacle !== "none" || !t || t.color !== col) out.push({ x: nx, y: ny });
           }
       break;
     case "Q":
@@ -1373,8 +1369,8 @@ function moves(
         if (!inBounds(nx, ny, boardSize)) return;
         const t = b[ny]?.[nx]; // Safe navigation
         const obstacle = O[ny]?.[nx]; // Check for obstacles
-        // Can move to empty squares or attack enemies/obstacles (but not columns)
-        if ((obstacle !== "none" && obstacle !== "column") || !t || t.color !== col) out.push({ x: nx, y: ny });
+        // Can move to empty squares or attack enemies/obstacles
+        if (obstacle !== "none" || !t || t.color !== col) out.push({ x: nx, y: ny });
       });
       break;
     case "P":
@@ -1389,8 +1385,8 @@ function moves(
           if (!inBounds(cx, cy, boardSize)) continue;
           const t = b[cy]?.[cx]; // Safe navigation
           const diagObstacle = O[cy]?.[cx]; // Check for diagonal obstacle
-          // Pawns can attack diagonally to capture pieces OR obstacles (but not columns)
-          if ((t && t.color !== col) || (diagObstacle !== "none" && diagObstacle !== "column")) out.push({ x: cx, y: cy });
+          // Pawns can attack diagonally to capture pieces OR obstacles
+          if ((t && t.color !== col) || (diagObstacle !== "none")) out.push({ x: cx, y: cy });
         }
       }
       break;
@@ -1407,8 +1403,8 @@ function moves(
       if (inBounds(x, targetY, boardSize)) {
         const targetPiece = b[targetY]?.[x]; // Safe navigation
         const targetObstacle = O[targetY]?.[x]; // Check for obstacle at target
-        // Can attack enemy pieces OR obstacles (but not columns)
-        if ((targetPiece && targetPiece.color !== col) || (targetObstacle !== "none" && targetObstacle !== "column")) {
+        // Can attack enemy pieces OR obstacles
+        if ((targetPiece && targetPiece.color !== col) || (targetObstacle !== "none")) {
           out.push({ x, y: targetY });
         }
       }
@@ -1673,24 +1669,6 @@ function resolveObstacle(
 ) {
   const obstacleType = O[to.y]?.[to.x];
   
-  // Column cannot be destroyed
-  if (obstacleType === "column") {
-    const useAdv = a.type === "K" || adv;
-    const rolls = [d6(r)];
-    if (useAdv) rolls.push(d6(r));
-    const A = useAdv ? Math.max(...rolls) : rolls[0];
-    const am: Mod[] = [];
-    if (a.equip === "sword") am.push({ value: 1, kind: "sword" });
-    const sup = supportCount(b, T, O, a, from, to, boardSize);
-    if (sup > 0) am.push({ value: sup, kind: "support" });
-    const at = A + am.reduce((s, m) => s + m.value, 0);
-    return {
-      a: { base: A, total: at, mods: am, rolls },
-      ok: false, // Column is indestructible
-      adv: useAdv,
-    };
-  }
-  
   // Determine threshold based on obstacle type
   let threshold = 5; // Rock default
   if (obstacleType === "courtier") {
@@ -1699,6 +1677,8 @@ function resolveObstacle(
     threshold = 3; // Gate requires 3+ to break
   } else if (obstacleType === "bell") {
     threshold = 4; // Bell requires 4+ to break
+  } else if (obstacleType === "column") {
+    threshold = 6; // Column requires 6+ to break
   }
   
   const useAdv = a.type === "K" || adv;
@@ -1879,10 +1859,6 @@ function bot(
           }
         } else if (targetObstacle !== "none") {
           // --- OBSTACLE ATTACK SCORING ---
-          // Column cannot be destroyed, so skip attacking it
-          if (targetObstacle === "column") {
-            continue; // Skip column attacks
-          }
           // Black bot should NEVER attack the bell (it protects their king)
           if (targetObstacle === "bell" && c === B) {
             continue; // Skip bell attacks for black
@@ -2266,11 +2242,6 @@ function obstacleWinPercent(
 ) {
   const obstacleType = OD[to.y]?.[to.x];
   
-  // Column cannot be destroyed - return 0% win chance
-  if (obstacleType === "column") {
-    return 0;
-  }
-  
   // Determine threshold based on obstacle type
   let threshold = 5; // Rock default
   if (obstacleType === "courtier") {
@@ -2279,6 +2250,8 @@ function obstacleWinPercent(
     threshold = 3; // Gate requires 3+ to break
   } else if (obstacleType === "bell") {
     threshold = 4; // Bell requires 4+ to break
+  } else if (obstacleType === "column") {
+    threshold = 6; // Column requires 6+ to break
   }
   
   const aSup = supportCount(BD, TD, OD, att, from, to, boardSize);
@@ -2924,7 +2897,7 @@ function BoardComponent({
               const targetObstacle = obstacles[y]?.[x]; // Safe navigation for target obstacle
               const willCap =
                 isMove && !!targetPiece;
-              const isObstacleAttack = isMove && targetObstacle !== "none" && targetObstacle !== "column" && !targetPiece; // Attacking an obstacle (columns can't be attacked)
+              const isObstacleAttack = isMove && targetObstacle !== "none" && !targetPiece; // Attacking an obstacle
               const currentTerrain = T[y]?.[x]; // Safe navigation
               const forest = currentTerrain === "forest";
               const water = currentTerrain === "water"; // Check for water
@@ -3724,6 +3697,7 @@ export default function App() {
   // Story Card state
   const [currentStoryCard, setCurrentStoryCard] =
     useState<StoryCardType | null>(null);
+  const currentStoryCardRef = useRef<StoryCardType | null>(null);
   const [storyCardQueue, setStoryCardQueue] = useState<StoryCardType[]>([]);
   const [storyOutcome, setStoryOutcome] = useState<{
     outcomes: OutcomeData[];
@@ -4066,6 +4040,11 @@ export default function App() {
     }
   }, [seed, campaign.level, unspentGold, currentLevelConfig]);
 
+  // Keep ref in sync with state
+  useEffect(() => {
+    currentStoryCardRef.current = currentStoryCard;
+  }, [currentStoryCard]);
+
   // Show story cards immediately when advancing to next level (skip intro popup)
   useEffect(() => {
     // Only show story cards if:
@@ -4155,6 +4134,23 @@ export default function App() {
             // Continue the game - player still needs to reach the escape row
             // Set turn back to white so player can continue
             setTurn(W);
+            return;
+          }
+          
+          // If NOT king_escaped mode and all enemies are dead, player wins
+          if (!kingEscapedEnabled && allBlackPiecesDead) {
+            sfx.winCheckmate();
+            setWin(W);
+            handleLevelCompletion(W, Bstate);
+            setPhrase("All enemies eliminated!");
+            setMoveHistory((hist) => {
+              const newHistory = [...hist];
+              const lastMove = newHistory[newHistory.length - 1];
+              if (lastMove) {
+                lastMove.notation += " (All enemies eliminated!)";
+              }
+              return newHistory;
+            });
             return;
           }
           
@@ -5103,24 +5099,29 @@ export default function App() {
         setCampaign((prev) => ({ ...prev, ...campaignUpdates }));
       }
 
-      // Store last card before hiding it
-      const lastCard = currentStoryCard;
-
-      // Hide current card
-      setCurrentStoryCard(null);
-
       // If there are outcomes, show them
       if (outcomes.length > 0) {
+        // If there's a nextCard, that's the card we want to display WITH outcomes
+        // We set it as lastCard so it's displayed, and set nextCard to undefined
+        // since we've already "arrived" at that card
+        const cardToDisplay = nextCard || currentStoryCardRef.current;
+        
+        // Hide current card
+        setCurrentStoryCard(null);
+        
         setStoryOutcome({
           outcomes,
-          nextCard,
-          lastCard: lastCard || undefined,
+          nextCard: undefined, // Already showing the destination card, no further transition needed
+          lastCard: cardToDisplay || undefined,
         });
       } else {
         // No outcome to show, proceed immediately
         if (nextCard) {
+          // Directly transition to next card without clearing
           setCurrentStoryCard(nextCard);
         } else if (shouldStartBattle) {
+          // Clear card and go to market
+          setCurrentStoryCard(null);
           setStoryCardQueue([]);
           // Always go to market phase to show victory conditions popup
           // Market component will be hidden if marketEnabled is false
@@ -5133,7 +5134,7 @@ export default function App() {
         setNeedsReinit(true);
       }
     },
-    [campaign.level, currentStoryCard, currentLevelConfig, Bstate, currentBoardSize]
+    [campaign.level, currentLevelConfig, Bstate, currentBoardSize]
   );
   
   // Re-initialize board when pending events need to be processed
@@ -7362,6 +7363,10 @@ export default function App() {
 
   const handleNextLevel = () => {
     // Calculate ransom gold (35% of regular pieces and items, excluding Kings)
+    // Count purses separately (25g each, not subject to ransom %)
+    const purseCount = killedEnemyPieces.filter((kp) => kp.piece.equip === "purse").length;
+    const purseGold = purseCount * 25;
+
     const regularValue = killedEnemyPieces.reduce((sum, killedPiece) => {
       const piece = killedPiece.piece;
 
@@ -7373,10 +7378,7 @@ export default function App() {
 
       let itemValue = 0;
       if (piece.equip) {
-        if (piece.equip === "purse") {
-          // Purse gives 25g directly, not based on its cost (which is 0)
-          itemValue = 25;
-        } else {
+        if (piece.equip !== "purse") {
           itemValue = ITEM_COSTS[piece.equip as keyof typeof ITEM_COSTS] || 0;
         }
       }
@@ -7400,7 +7402,7 @@ export default function App() {
       return sum;
     }, 0);
 
-    const totalGoldEarned = ransomGold + kingGold;
+    const totalGoldEarned = ransomGold + purseGold + kingGold;
 
     // Total gold to carry over = current unspent + ransom + king gold
     const totalGoldToCarry = marketPoints + totalGoldEarned;

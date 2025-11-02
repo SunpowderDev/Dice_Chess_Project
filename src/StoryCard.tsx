@@ -384,8 +384,8 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode, enab
       <div className="story-card-overlay" />
 
       <div className="story-card">
-        {/* Medieval framed miniature: Character + Speech */}
-        {card.character && card.character.name !== "Narrator" && (
+        {/* Medieval framed miniature: Character + Speech - hidden in outcome mode */}
+        {!outcomeMode && card.character && card.character.name !== "Narrator" && (
           <div className="story-miniature">
             <div className="miniature-frame">
               {/* Character portrait on left */}
@@ -400,8 +400,8 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode, enab
           </div>
         )}
 
-        {/* Body text for cards without character or Narrator mode */}
-        {(!card.character || card.character.name === "Narrator") && (
+        {/* Body text for cards without character or Narrator mode - hidden in outcome mode */}
+        {!outcomeMode && (!card.character || card.character.name === "Narrator") && (
           <div className="story-card-text">{parseText(displayedText)}</div>
         )}
 
@@ -495,7 +495,7 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode, enab
             </div>
 
             {/* Hint text */}
-            <div className="story-card-hint">Swipe left or right to choose</div>
+            <div className="story-card-hint">Swipe the card left or right to choose</div>
           </>
         )}
         {/* Continue button - positioned at bottom-right of the card when in outcome mode */}

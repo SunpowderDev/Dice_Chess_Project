@@ -118,7 +118,13 @@ export function VictoryPopup({
             {win === W &&
               killedEnemyPieces.length > 0 &&
               (() => {
-                // Calculate ransom gold (35% of regular pieces and items, excluding Kings)
+                // Count purses separately (25g each, not subject to ransom %)
+                const purseCount = killedEnemyPieces.filter(
+                  (kp) => kp.piece.equip === "purse"
+                ).length;
+                const purseGold = purseCount * 25;
+
+                // Calculate ransom gold (35% of regular pieces and items, excluding Kings and purses)
                 const regularValue = killedEnemyPieces.reduce(
                   (sum, killedPiece) => {
                     const piece = killedPiece.piece;
@@ -131,10 +137,7 @@ export function VictoryPopup({
 
                     let itemValue = 0;
                     if (piece.equip) {
-                      if (piece.equip === "purse") {
-                        // Purse gives 25g directly, not based on its cost (which is 0)
-                        itemValue = 25;
-                      } else {
+                      if (piece.equip !== "purse") {
                         itemValue =
                           ITEM_COSTS[piece.equip as keyof typeof ITEM_COSTS] ||
                           0;
@@ -165,7 +168,7 @@ export function VictoryPopup({
                   0
                 );
 
-                const totalGold = ransomGold + kingGold;
+                const totalGold = ransomGold + purseGold + kingGold;
 
                 return (
                   <div className="mb-4 bg-gradient-to-r from-yellow-600 to-yellow-800 p-3 rounded-xl">
@@ -203,19 +206,11 @@ export function VictoryPopup({
                       )}
                       
                       {/* Show purses collected separately */}
-                      {(() => {
-                        const purseCount = killedEnemyPieces.filter(
-                          (kp) => kp.piece.equip === "purse"
-                        ).length;
-                        if (purseCount > 0) {
-                          return (
-                            <div>
-                              Purses Collected: {purseCount} ({purseCount * 25}g)
-                            </div>
-                          );
-                        }
-                        return null;
-                      })()}
+                      {purseCount > 0 ? (
+                        <div>
+                          Purses Collected: {purseCount} ({purseGold}g)
+                        </div>
+                      ) : null}
                       
                       {/* Show king status if a king was defeated */}
                       {kingGold > 0 && (

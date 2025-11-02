@@ -1098,7 +1098,7 @@
   gap: 8px;
   padding: 0 20px;
   cursor: pointer;
-  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 24px rgba(16, 185, 129, 0.4), 0 0 12px rgba(0, 0, 0, 0.3);
   transition: all 0.3s ease;
   color: white;
   z-index: 1000;
@@ -1113,7 +1113,7 @@
 .story-continue-arrow:hover {
   transform: scale(1.05) translateX(4px);
   background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
-  box-shadow: 0 12px 32px rgba(16, 185, 129, 0.6), 0 6px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 32px rgba(16, 185, 129, 0.6), 0 0 16px rgba(0, 0, 0, 0.4);
 }
 
 .story-continue-arrow:active {
