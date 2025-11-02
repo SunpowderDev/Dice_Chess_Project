@@ -2,13 +2,13 @@
   "level": 5,
   "name": "Chapter 5: Battaglia Campale",
   "boardSize": 8,
-  "startingGold": 0,
+  "startingGold": 100,
   "enemyPieceGold": 300,
   "enemyEquipmentGold": 150,
   "enemyPawnBudget": 0.3,
-  "playerPieceGold": 100,
+  "playerPieceGold": 60,
   "playerEquipmentGold": 60,
-  "playerPawnBudget": 0.35,
+  "playerPawnBudget": 0.25,
   "botBehavior": "aggressive",
   "namedWhitePieces": [
     {

@@ -2,13 +2,13 @@
   "level": 5,
   "name": "Chapter 5: Battaglia Campale",
   "boardSize": 8,
-  "startingGold": 0,
+  "startingGold": 100,
   "enemyPieceGold": 300,
   "enemyEquipmentGold": 150,
   "enemyPawnBudget": 0.3,
-  "playerPieceGold": 100,
+  "playerPieceGold": 60,
   "playerEquipmentGold": 60,
-  "playerPawnBudget": 0.35,
+  "playerPawnBudget": 0.25,
   "botBehavior": "aggressive",
   "namedWhitePieces": [
     {
@@ -50,7 +50,7 @@
         "name": "Narrator"
       },
       "bodyText": "Winter draws near and the light thins, but you are ready. The field darkens with black magi; the air hums like a struck chalice. You fear nothing.",
-      "image": "/level5_BattlefieldWinter.png",
+      "image": "/level5_Battlefield.png",
       "leftChoice": {
         "text": "What are those dark staves?",
         "events": [
@@ -72,7 +72,7 @@
         "name": "Pintus IX"
       },
       "bodyText": "\"I know why Morcant sacked your castle—the Bell of Names in your crypt. His name now stains it, a sacrilege that armors him against death. Break the bell and the man returns; leave it whole and you fight a **shadow** that will not fall.\"",
-      "image": "/level5_Pintus.png",
+      "image": "/level5_BellofNames.png",
       "leftChoice": {
         "text": "His soul is forfeit.",
         "events": [
@@ -135,7 +135,7 @@
     "white": ["P", "B", "N", "R"]
   },
   "guaranteedPieces": {
-    "black": ["K"],
+    "black": [],
     "white": []
   },
   "terrainMatrix": [
@@ -154,7 +154,7 @@
   "fogRows": 4,
   "randomTerrainPool": {
     "rock": 2,
-    "forest": 6,
-    "water": 8
+    "forest": 10,
+    "water": 10
   }
 }

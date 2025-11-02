@@ -401,10 +401,9 @@ function applyStunAround(
       const adj = b[ny]?.[nx]; // Safe navigation
       if (adj) {
         const cur = adj.stunnedForTurns ?? 0;
-        // If stunning a piece of the same color, its stun will decrement at the end of the current turn.
-        // To make it miss its *next* turn, we set its stun to 2.
-        // Opposite-colored pieces will miss their upcoming turn, so stun 1 is correct.
-        const turns = adj.color === currentTurn ? 2 : 1;
+        // Unified stun rule: A stunned piece is stunned from the moment it triggers
+        // until the START of their next-next turn. This is always 2 turns.
+        const turns = 2;
         adj.stunnedForTurns = Math.max(cur, turns);
       }
     }
@@ -1123,34 +1122,92 @@ function placeFeatures(
       const forestCount = randomTerrainPool?.forest ?? 2;
       const waterCount = randomTerrainPool?.water ?? 3;
 
-      // Randomly select cells for obstacles, forests, and water
-      const shuffled = randomCells.sort(() => r() - 0.5);
-      let placedCount = 0;
+      // Track available cells for placement (initially all random cells)
+      const availableCells = new Set<string>();
+      randomCells.forEach(cell => {
+        if (!occupied.has(`${cell.x},${cell.y}`)) {
+          availableCells.add(`${cell.x},${cell.y}`);
+        }
+      });
+
+      // Helper to get a random available cell from the set
+      const getRandomAvailableCell = (): { x: number; y: number } | null => {
+        const cells = Array.from(availableCells).map(key => {
+          const [x, y] = key.split(',').map(Number);
+          return { x, y };
+        });
+        if (cells.length === 0) return null;
+        return cells[Math.floor(r() * cells.length)];
+      };
+
+      // Helper to remove a cell from available cells
+      const removeAvailableCell = (x: number, y: number) => {
+        availableCells.delete(`${x},${y}`);
+      };
 
       // Place rock obstacles
-      for (let i = 0; i < Math.min(rockCount, shuffled.length - placedCount); i++) {
-        const cell = shuffled[placedCount];
-        if (!occupied.has(`${cell.x},${cell.y}`)) {
+      for (let i = 0; i < rockCount && availableCells.size > 0; i++) {
+        const cell = getRandomAvailableCell();
+        if (cell && !occupied.has(`${cell.x},${cell.y}`)) {
           placeFeature("none", "rock", cell.x, cell.y);
-          placedCount++;
+          removeAvailableCell(cell.x, cell.y);
         }
       }
 
       // Place forests
-      for (let i = 0; i < Math.min(forestCount, shuffled.length - placedCount); i++) {
-        const cell = shuffled[placedCount];
-        if (!occupied.has(`${cell.x},${cell.y}`)) {
+      for (let i = 0; i < forestCount && availableCells.size > 0; i++) {
+        const cell = getRandomAvailableCell();
+        if (cell && !occupied.has(`${cell.x},${cell.y}`)) {
           placeFeature("forest", "none", cell.x, cell.y);
-          placedCount++;
+          removeAvailableCell(cell.x, cell.y);
         }
       }
 
-      // Place water tiles
-      for (let i = 0; i < Math.min(waterCount, shuffled.length - placedCount); i++) {
-        const cell = shuffled[placedCount];
-        if (!occupied.has(`${cell.x},${cell.y}`)) {
-          placeFeature("water", "none", cell.x, cell.y);
-          placedCount++;
+      // Place water tiles with clustering behavior
+      const CLUSTER_CHANCE = 0.75;
+      for (let i = 0; i < waterCount && availableCells.size > 0; i++) {
+        let waterPlaced = false;
+
+        // Attempt clustered placement first (if not the first water tile and chance allows)
+        if (waterCoords.length > 0 && r() < CLUSTER_CHANCE) {
+          // Get all neighbors of existing water tiles that are still available in random cells
+          const allNeighbors: { x: number; y: number }[] = [];
+          waterCoords.forEach((coord) => {
+            const neighbors = getValidNeighbors(coord.x, coord.y);
+            neighbors.forEach(neighbor => {
+              const key = `${neighbor.x},${neighbor.y}`;
+              // Check if this neighbor is available (in random cells pool) and doesn't have terrain yet
+              if (availableCells.has(key) && !occupied.has(key) && T[neighbor.y]?.[neighbor.x] === "none") {
+                allNeighbors.push(neighbor);
+              }
+            });
+          });
+
+          // Remove duplicates
+          const uniqueNeighbors = Array.from(
+            new Map(allNeighbors.map(n => [`${n.x},${n.y}`, n])).values()
+          );
+
+          if (uniqueNeighbors.length > 0) {
+            const neighbor = uniqueNeighbors[Math.floor(r() * uniqueNeighbors.length)];
+            placeFeature("water", "none", neighbor.x, neighbor.y);
+            removeAvailableCell(neighbor.x, neighbor.y);
+            waterPlaced = true;
+          }
+        }
+
+        // If clustered placement failed or wasn't attempted, place randomly
+        if (!waterPlaced) {
+          const cell = getRandomAvailableCell();
+          if (cell && !occupied.has(`${cell.x},${cell.y}`)) {
+            placeFeature("water", "none", cell.x, cell.y);
+            removeAvailableCell(cell.x, cell.y);
+            waterPlaced = true;
+          }
+        }
+
+        if (!waterPlaced && availableCells.size > 0) {
+          console.warn("Could not place water tile despite available cells.");
         }
       }
     }
@@ -1745,9 +1802,21 @@ function bot(
               if (winProb >= 0.58) {
                 sc += 5; // Bonus for 58%+ trades
               }
-              // Extra bonus for attacking the enemy King
+              // Extra bonus for attacking the enemy King - prioritize even with lower win%
               if (cap.type === "K") {
-                sc += 50; // Huge bonus - go for the king!
+                // Give huge bonus even for risky king attacks
+                if (winProb >= 0.4) {
+                  sc += 80; // Massive bonus for 40%+ chance to kill king
+                } else if (winProb >= 0.25) {
+                  sc += 40; // Still pursue king even with 25%+ chance
+                } else {
+                  sc += 20; // Consider any king attack
+                }
+                // Extra bonus if the king is already threatened or isolated
+                const kingAllies = supportCount(b, T, O, cap, t, t, boardSize);
+                if (kingAllies === 0) {
+                  sc += 30; // Isolated king is prime target
+                }
               }
               // Slight bonus for any capture
               if (valueGain > 0) {
@@ -1761,6 +1830,37 @@ function bot(
               // Avoid trading valuable pieces
               if (val(p) >= 30 && riskProb > 0.2) {
                 sc -= val(p) * 0.5;
+              }
+              // Extra caution: Check if this capture leaves the king vulnerable
+              const afterCapture = tryMove(b, T, { x, y }, t);
+              if (afterCapture) {
+                const myKingAfter = findK(afterCapture, c, boardSize);
+                if (myKingAfter) {
+                  const kingThreatenedAfterCapture = threatened(
+                    afterCapture,
+                    T,
+                    O,
+                    { x: myKingAfter.x, y: myKingAfter.y },
+                    opp,
+                    boardSize
+                  );
+                  if (kingThreatenedAfterCapture) {
+                    // Major penalty if this capture exposes our king
+                    sc -= 30;
+                  }
+                  // Also check if we're removing a defender of the king
+                  const myKingNow = findK(b, c, boardSize);
+                  if (myKingNow) {
+                    const distToKingBefore =
+                      Math.abs(x - myKingNow.x) + Math.abs(y - myKingNow.y);
+                    const distToKingAfter =
+                      Math.abs(t.x - myKingNow.x) + Math.abs(t.y - myKingNow.y);
+                    // Penalty for moving key defenders away from king
+                    if (distToKingBefore <= 2 && distToKingAfter > 2) {
+                      sc -= 15; // Don't leave king undefended
+                    }
+                  }
+                }
               }
             } else if (isBalanced) {
               // Balanced: Favor good trades but consider position
@@ -1847,6 +1947,38 @@ function bot(
             if (forwardProgress > 0) {
               sc += forwardProgress * 1.5; // Bonus for moving toward enemy
             }
+
+            // Aggressive: Prioritize threatening the enemy king
+            const enemyKing = findK(nb, opp, boardSize);
+            if (enemyKing) {
+              const enemyKingPos = { x: enemyKing.x, y: enemyKing.y };
+              // Check if this move puts the king in check
+              const threateningKing = attacks(
+                nb,
+                T,
+                O,
+                t.x,
+                t.y,
+                enemyKingPos.x,
+                enemyKingPos.y,
+                boardSize
+              );
+              if (threateningKing) {
+                sc += 35; // Big bonus for threatening the king
+              }
+
+              // Bonus for moving closer to the enemy king
+              const distToKing =
+                Math.abs(t.x - enemyKingPos.x) + Math.abs(t.y - enemyKingPos.y);
+              const oldDistToKing =
+                Math.abs(x - enemyKingPos.x) + Math.abs(y - enemyKingPos.y);
+              if (distToKing < oldDistToKing) {
+                sc += 3; // Reward for advancing toward the king
+              }
+              if (distToKing <= 3) {
+                sc += (4 - distToKing) * 2; // Extra bonus for being near the king
+              }
+            }
           }
 
           // Defensive: King safety - keep king in back rank or protected
@@ -1865,6 +1997,107 @@ function bot(
               }
             }
             sc += adjacentAllies * 2;
+          }
+
+          // Defensive: Proactive king defense - foresee opponent attacks
+          if (isDefensive) {
+            const myKing = findK(nb, c, boardSize);
+            const myKingBefore = findK(b, c, boardSize);
+            if (myKing) {
+              const kingPos = { x: myKing.x, y: myKing.y };
+              // Check if king is threatened after this move
+              const kingThreatenedAfter = threatened(
+                nb,
+                T,
+                O,
+                kingPos,
+                opp,
+                boardSize
+              );
+              const kingThreatenedBefore = myKingBefore
+                ? threatened(b, T, O, { x: myKingBefore.x, y: myKingBefore.y }, opp, boardSize)
+                : false;
+
+              if (kingThreatenedAfter && !kingThreatenedBefore) {
+                // Severe penalty for moves that expose the king to attack
+                sc -= 50;
+              } else if (kingThreatenedBefore && !kingThreatenedAfter) {
+                // Big reward for moves that remove king from danger
+                sc += 40;
+              }
+
+              // Count how many enemy pieces can attack the king position after this move
+              let enemyAttackers = 0;
+              for (let yy = 0; yy < boardSize; yy++) {
+                for (let xx = 0; xx < boardSize; xx++) {
+                  const enemy = nb[yy]?.[xx];
+                  if (enemy && enemy.color === opp) {
+                    if (attacks(nb, T, O, xx, yy, kingPos.x, kingPos.y, boardSize)) {
+                      enemyAttackers++;
+                    }
+                  }
+                }
+              }
+
+              // Penalty for each enemy piece that can attack the king
+              sc -= enemyAttackers * 8;
+
+              // Reward for blocking enemy attacks to the king
+              if (p.type !== "K") {
+                // Check if this piece is now between an enemy attacker and the king
+                let blocksAttack = false;
+                for (let yy = 0; yy < boardSize; yy++) {
+                  for (let xx = 0; xx < boardSize; xx++) {
+                    const enemy = b[yy]?.[xx];
+                    if (enemy && enemy.color === opp) {
+                      const couldAttackBefore = attacks(
+                        b,
+                        T,
+                        O,
+                        xx,
+                        yy,
+                        kingPos.x,
+                        kingPos.y,
+                        boardSize
+                      );
+                      const canAttackAfter = attacks(
+                        nb,
+                        T,
+                        O,
+                        xx,
+                        yy,
+                        kingPos.x,
+                        kingPos.y,
+                        boardSize
+                      );
+                      if (couldAttackBefore && !canAttackAfter) {
+                        blocksAttack = true;
+                        break;
+                      }
+                    }
+                  }
+                  if (blocksAttack) break;
+                }
+                if (blocksAttack) {
+                  sc += 25; // Reward for blocking attacks to the king
+                }
+              }
+
+              // Reward for keeping defenders near the king
+              if (p.type !== "K") {
+                const distToKing =
+                  Math.abs(t.x - kingPos.x) + Math.abs(t.y - kingPos.y);
+                const oldDistToKing = myKingBefore
+                  ? Math.abs(x - myKingBefore.x) + Math.abs(y - myKingBefore.y)
+                  : 999;
+                if (distToKing <= 2) {
+                  sc += (3 - distToKing) * 3; // Stay close to king
+                }
+                if (distToKing < oldDistToKing) {
+                  sc += 5; // Moving closer to king
+                }
+              }
+            }
           }
 
           // 3. Item & Positional Synergy
@@ -1920,9 +2153,25 @@ function bot(
   let movePool = ms;
 
   if (isAggressive) {
-    // Aggressive: Consider all moves, even risky ones (score >= -5)
-    movePool = ms.filter((m) => m.score >= -5);
-    if (movePool.length === 0) movePool = ms; // Fallback
+    // Aggressive: Prioritize king attacks, even risky ones
+    const enemyKing = findK(b, opp, boardSize);
+    const kingAttackMoves = enemyKing
+      ? ms.filter((m) => {
+          const target = b[m.to.y]?.[m.to.x];
+          return target && target.type === "K";
+        })
+      : [];
+    
+    if (kingAttackMoves.length > 0) {
+      // If we have any king attack moves, strongly consider them
+      // Include king attacks with score >= -20 (very permissive)
+      movePool = kingAttackMoves.filter((m) => m.score >= -20);
+      if (movePool.length === 0) movePool = kingAttackMoves; // Take any king attack
+    } else {
+      // No king attacks available, consider all moves (score >= -5)
+      movePool = ms.filter((m) => m.score >= -5);
+      if (movePool.length === 0) movePool = ms; // Fallback
+    }
   } else if (isDefensive) {
     // Defensive: Only safe moves (score >= 5)
     const safeMoves = ms.filter((m) => m.score >= 5);
@@ -3112,6 +3361,24 @@ function BoardComponent({
                     </>
                   )}
 
+                  {/* 5.5. Bell of Names Protection Indicator */}
+                  {p && p.type === "K" && p.color === B && p.name === "Morcant" && bellOfNamesExists(obstacles, boardSize) && (
+                    <span
+                      className="bell-glyph"
+                      onMouseEnter={(e) => {
+                        if (showBoardTooltips) {
+                          showTooltip(
+                            "🔔 Protected by the Bell of Names: Morcant cannot die until the Bell of Names is destroyed."
+                          );
+                          e.stopPropagation();
+                        }
+                      }}
+                      onMouseLeave={hideTooltip}
+                    >
+                      🔔
+                    </span>
+                  )}
+
                   {/* 6. Fog Layer */}
                   {inFog && <div className="fog" />}
 
@@ -3582,8 +3849,8 @@ export default function App() {
         recentMoves[3].to.y === recentMoves[5].to.y;
 
       if (isRepetitive) {
-        // Apply exhaustion stun (2 turns because decrementStunFor happens immediately after)
-        // This ensures the piece is stunned until the END of its next turn
+        // Apply exhaustion stun (2 turns - unified stun rule)
+        // This ensures the piece is stunned until the START of its next-next turn
         const piece = board[to.y]?.[to.x];
         if (piece && piece.id === pieceId) {
           piece.stunnedForTurns = 2;

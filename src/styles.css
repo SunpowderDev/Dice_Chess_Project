@@ -564,6 +564,17 @@
   animation: pulse-exhausted 2s ease-in-out infinite;
   cursor: help;
 }
+.bell-glyph {
+  position: absolute;
+  font-size: 1.6rem;
+  top: 2px;
+  left: 2px;
+  z-index: 5;
+  opacity: 0.95;
+  filter: drop-shadow(0 1px 3px rgba(255, 215, 0, 0.6));
+  animation: pulse-bell 2s ease-in-out infinite;
+  cursor: help;
+}
 @keyframes spin {
   from {
     transform: translate(-50%, -50%) rotate(0deg);
@@ -581,6 +592,19 @@
   50% {
     opacity: 0.7;
     transform: scale(0.95);
+  }
+}
+@keyframes pulse-bell {
+  0%,
+  100% {
+    opacity: 0.95;
+    transform: scale(1);
+    filter: drop-shadow(0 1px 3px rgba(255, 215, 0, 0.6));
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+    filter: drop-shadow(0 2px 6px rgba(255, 215, 0, 0.9));
   }
 }
 
