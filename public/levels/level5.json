@@ -107,7 +107,7 @@
         "overlayColor": "rgba(249, 115, 22, 0.8)"
       },
       "rightChoice": {
-        "text": "Use the peasants as meat shield",
+        "text": "Use peasants as a meat shield",
         "events": [
           { "type": "give_free_unit", "pieceType": "P" },
           { "type": "give_free_unit", "pieceType": "P" },

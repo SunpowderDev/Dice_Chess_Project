@@ -4916,11 +4916,57 @@ export default function App() {
               });
               pendingFreeUnit = null;
             }
-            // Attach items to random units on the board
+            
+            // Determine if we're targeting player or enemy
             const targetColor = event.target === "player" ? W : B;
+            
+            // If targeting player and they're not on the board yet (story phase),
+            // attach items to the roster instead
+            if (event.target === "player" && campaign.whiteRoster && campaign.whiteRoster.length > 0) {
+              // Count how many player pieces are currently on the board
+              let playerPiecesOnBoard = 0;
+              for (let y = 0; y < currentBoardSize; y++) {
+                for (let x = 0; x < currentBoardSize; x++) {
+                  if (Bstate[y]?.[x]?.color === W) {
+                    playerPiecesOnBoard++;
+                  }
+                }
+              }
+              
+              // If no player pieces on board, we're in story phase - modify roster
+              if (playerPiecesOnBoard === 0) {
+                const updatedRoster = [...campaign.whiteRoster];
+                // Randomly select pieces from roster to attach items to
+                const indicesToModify = updatedRoster
+                  .map((_, idx) => idx)
+                  .sort(() => rngRef.current() - 0.5)
+                  .slice(0, Math.min(event.count, updatedRoster.length));
+                
+                indicesToModify.forEach((idx) => {
+                  updatedRoster[idx] = { ...updatedRoster[idx], equip: event.item };
+                });
+                
+                campaignUpdates.whiteRoster = updatedRoster;
+                
+                const itemEmoji = equipIcon(event.item);
+                const isNegativeItem = event.item === "curse" || event.item === "skull";
+                const itemName = event.item === "curse" ? "Cursed" : event.item.charAt(0).toUpperCase() + event.item.slice(1);
+                const glyphEmoji = event.item === "curse" ? itemEmoji : (event.item === "skull" ? "💀" : "✨");
+                outcomes.push({
+                  message: `${event.count} of your units are ${itemName}!`,
+                  glyph: glyphEmoji,
+                  color: isNegativeItem ? "text-red-100" : "text-blue-100",
+                  bgColor: isNegativeItem ? "bg-red-900" : "bg-blue-900",
+                  borderColor: isNegativeItem ? "border-red-500" : "border-blue-500",
+                });
+                break;
+              }
+            }
+            
+            // Otherwise, use the existing board-based logic (for enemy or in-battle player targeting)
             const targetPieces: { x: number; y: number; piece: Piece }[] = [];
             
-            // Find all pieces of the target color
+            // Find all pieces of the target color on the board
             for (let y = 0; y < currentBoardSize; y++) {
               for (let x = 0; x < currentBoardSize; x++) {
                 const piece = Bstate[y]?.[x];
@@ -4951,7 +4997,7 @@ export default function App() {
             const glyphEmoji = event.item === "curse" ? itemEmoji : (event.item === "skull" ? "💀" : "✨");
             outcomes.push({
               message: event.target === "player"
-                ? `${itemEmoji} ${event.count} of your units ${itemName}!`
+                ? `${event.count} of your units are ${itemName}!`
                 : `${event.count} enemy units are ${itemName}!`,
               glyph: glyphEmoji,
               color: isNegativeItem ? "text-red-100" : "text-blue-100",

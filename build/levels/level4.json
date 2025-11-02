@@ -31,6 +31,7 @@
       "name": "Pintus IX",
       "speechLines": [
         "A man like you shan't judge me.",
+        "The Pintus **way** of life!",
         "You don't understand **art**!",
         "No, no .. don't **leave me** Delila!.",
         "With your temper, you'll never find a **Queen**.",
@@ -78,7 +79,7 @@
         "events": [
           { "type": "give_free_unit", "pieceType": "Q" },
           { "type": "give_free_unit", "pieceType": "Q" },
-          { "type": "attach_item_to_units", "item": "curse", "target": "enemy", "count": 4 },
+          { "type": "attach_item_to_units", "item": "curse", "target": "player", "count": 5 },
           { "type": "start_battle" }
         ],
         "overlayColor": "rgba(16, 185, 129, 0.8)"
