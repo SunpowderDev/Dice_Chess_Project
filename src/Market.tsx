@@ -15,7 +15,7 @@ const equipIcon = (e: Equip) =>
     : e === "shield"
     ? "🛡️"
     : e === "lance"
-    ? "⚔️"
+    ? "🐎"
     : e === "torch"
     ? "🔥"
     : e === "bow"

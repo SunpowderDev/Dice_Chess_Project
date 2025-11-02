@@ -20,7 +20,7 @@ export const ITEM_COSTS = {
   shield: 10,
   lance: 15,
   torch: 5,
-  bow: 15,
+  bow: 20,
   staff: 20,
   crystal_ball: 5,
   prayer_die: 70,
@@ -247,10 +247,10 @@ export const ITEM_DESCRIPTIONS = {
   sword: "🗡️ Sword: +1 to attack rolls.",
   shield: "🛡️ Shield: +1 to defense rolls.",
   lance:
-    "⚔️ Lance: One-time 2-square forward attack with Advantage; breaks on use.",
-  scythe: "Scythe: Always rolls a 6 against pawns.",
+    "🐎 Mount: This unit rides a horse and can charge forward 2 squares with Advantage; the mount breaks after use.",
+  scythe: "🪓Scythe: Always rolls a 6 against pawns.",
   banner: "⚜️ Banner: Friendly pieces within 1 square gain a Shield bonus.",
-  curse: "🎃 Curse: When this piece dies, stuns adjacent pieces for 1 turn.",
+  curse: "🎃 Curse: When this piece dies, stuns adjacent pieces for 1 turn. Cannot be sold.",
   skull: "💀 Skull: When this piece dies, the attacker dies with it.",
   torch:
     "🔥 Torch: Piece sees 3 squares away (normally 2) and gains Advantage when attacking into a Forest.",

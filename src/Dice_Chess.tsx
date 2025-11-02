@@ -136,7 +136,7 @@ function useGlobalMousePos(enabled: boolean) {
 /* Dice Chess 7×7 — Slim
  * Keeps: brown board, black/white chips (high-contrast black pawns), fog on top rank, hover % odds,
  * support rings, King check aura, dice badges with base+mods then total bump, "King Captured", New Game.
- * Items: 🗡️ Sword, 🛡️ Shield, ⚔️ Lance, 🔥 Torch, 🏹 Bow, 🪄 Staff, 🔮 Crystal Ball, 🎭 Disguise
+ * Items: 🗡️ Sword, 🛡️ Shield, 🐎 Mount, 🔥 Torch, 🏹 Bow, 🪄 Staff, 🔮 Crystal Ball, 🎭 Disguise
  */
 
 // --- Sound Engine ---
@@ -530,7 +530,7 @@ const equipIcon = (e: Equip) =>
     : e === "shield"
     ? "🛡️"
     : e === "lance"
-    ? "⚔️"
+    ? "🐎"
     : e === "torch"
     ? "🔥"
     : e === "bow"
@@ -3504,7 +3504,8 @@ function BoardComponent({
         !marketAction &&
         sellButtonPos &&
         board[sellButtonPos.y]?.[sellButtonPos.x]?.color === W &&
-        board[sellButtonPos.y]?.[sellButtonPos.x]?.type !== "K" && (
+        board[sellButtonPos.y]?.[sellButtonPos.x]?.type !== "K" &&
+        board[sellButtonPos.y]?.[sellButtonPos.x]?.equip !== "curse" && (
           <div
             className="sell-button-overlay"
             style={{
@@ -4554,8 +4555,8 @@ export default function App() {
   // Sell piece function
   function sellPiece(x: number, y: number) {
     const piece = Bstate[y]?.[x];
-    if (!piece || piece.color !== W || phase !== "market" || piece.type === "K" || currentLevelConfig?.marketEnabled === false)
-      return; // Prevent selling King or when market is disabled
+    if (!piece || piece.color !== W || phase !== "market" || piece.type === "K" || piece.equip === "curse" || currentLevelConfig?.marketEnabled === false)
+      return; // Prevent selling King, Curse-equipped units, or when market is disabled
 
     const sellValue = getSellValue(piece);
     setMarketPoints((prev) => prev + sellValue);
@@ -4694,7 +4695,7 @@ export default function App() {
       let shouldStartBattle = false;
       
       // Accumulate all campaign changes to apply in one batch
-      let campaignUpdates: Partial<CampaignState & { pendingEnemyPawns: number; pendingEnemyItemAssignments: Array<{ item: string; count: number }> }> = {};
+      let campaignUpdates: Partial<CampaignState & { pendingEnemyPawns: number; pendingEnemyItemAssignments: Array<{ item: string; count: number }>; pendingEquipmentAssignments: Array<{ pieceName: string; pieceType: PieceType; equip: Exclude<Equip, undefined> }> }> = {};
       
       // Track free units to combine consecutive events of the same type
       let pendingFreeUnit: { pieceType: PieceType; count: number } | null = null;
@@ -4868,8 +4869,9 @@ export default function App() {
               newFreeItems.set(event.item, currentCount + count);
               campaignUpdates.freeItems = newFreeItems;
               const itemIcon = equipIcon(event.item);
+              const capitalizedItemName = event.item.charAt(0).toUpperCase() + event.item.slice(1);
               outcomes.push({
-                message: `x${count} ${itemIcon} Free ${event.item}`,
+                message: `x${count} ${itemIcon} Free ${capitalizedItemName}`,
                 glyph: "🍀",
                 color: "text-green-100",
                 bgColor: "bg-green-900",
@@ -5077,6 +5079,31 @@ export default function App() {
             });
             break;
 
+          case "equip_item_to_named_piece":
+            {
+              // Store equipment assignment to apply during init
+              if (!campaignUpdates.pendingEquipmentAssignments) {
+                campaignUpdates.pendingEquipmentAssignments = [];
+              }
+              campaignUpdates.pendingEquipmentAssignments.push({
+                pieceName: event.pieceName,
+                pieceType: event.pieceType,
+                equip: event.item,
+              });
+              
+              // Show outcome message
+              const itemEmoji = equipIcon(event.item);
+              const capitalizedItemName = event.item.charAt(0).toUpperCase() + event.item.slice(1);
+              outcomes.push({
+                message: `x1 ${itemEmoji} ${event.pieceName} ${capitalizedItemName}`,
+                glyph: "🍀",
+                color: "text-green-100",
+                bgColor: "bg-green-900",
+                borderColor: "border-green-500",
+              });
+            }
+            break;
+
           case "start_battle":
             shouldStartBattle = true;
             break;
@@ -5142,7 +5169,7 @@ export default function App() {
     if (needsReinit && currentLevelConfig) {
       // Only call init if there are actually pending events in the campaign state
       // This ensures we wait for the campaign state to be updated before initializing
-      const hasPendingEvents = (campaign as any).pendingEnemyPawns || (campaign as any).pendingEnemyItemAssignments;
+      const hasPendingEvents = (campaign as any).pendingEnemyPawns || (campaign as any).pendingEnemyItemAssignments || (campaign as any).pendingEquipmentAssignments;
       if (hasPendingEvents) {
         init(seed, campaign.level, unspentGold, currentLevelConfig);
         setNeedsReinit(false);
@@ -5253,6 +5280,26 @@ export default function App() {
                   boardPiece.equip = namedPiece.equip;
                 }
                 foundMatch = true;
+              }
+            }
+          }
+        }
+      }
+      
+      // Step 1.6: Apply pending equipment assignments from story events
+      const pendingEquipmentAssignments = (campaign as any).pendingEquipmentAssignments || [];
+      if (pendingEquipmentAssignments.length > 0) {
+        for (const assignment of pendingEquipmentAssignments) {
+          // Find the target piece on the board
+          for (let y = 0; y < boardSize; y++) {
+            for (let x = 0; x < boardSize; x++) {
+              const boardPiece = B0[y][x];
+              if (boardPiece && 
+                  boardPiece.color === W && 
+                  boardPiece.type === assignment.pieceType && 
+                  boardPiece.name === assignment.pieceName) {
+                // Found the target piece - equip the item
+                boardPiece.equip = assignment.equip;
               }
             }
           }
@@ -5382,6 +5429,7 @@ export default function App() {
       const newCampaign = { ...prev };
       delete (newCampaign as any).pendingEnemyPawns;
       delete (newCampaign as any).pendingEnemyItemAssignments;
+      delete (newCampaign as any).pendingEquipmentAssignments;
       return newCampaign;
     });
     
@@ -6137,7 +6185,7 @@ export default function App() {
           setUnspentGold,
           tg.type === "K" ? "beheaded" : undefined
         );
-        // If defender was a King, the game ends immediately
+        // If defender was a King, check victory conditions
         if (tg.type === "K") {
           // Check for Bell of Names protection (protects black king only)
           if (tg.color === B && bellOfNamesExists(obstacles, currentBoardSize)) {
@@ -6172,27 +6220,61 @@ export default function App() {
             return;
           }
           
-          // No death → no stun
-          if (mv.color === W) {
-            sfx.winCheckmate();
+          // Check victory conditions - only declare victory if king_beheaded is allowed
+          const victoryConditions = currentLevelConfig?.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"];
+          if (victoryConditions.includes("king_beheaded")) {
+            // No death → no stun
+            if (mv.color === W) {
+              sfx.winCheckmate();
+            } else {
+              sfx.loseCheckmate();
+            }
+            setB(B1);
+            setWin(mv.color as Color);
+            handleLevelCompletion(mv.color as Color, B1);
+            const endPhrase = "King beheaded!";
+            setPhrase(endPhrase);
+            setMoveHistory((hist) => {
+              const newHistory = [...hist];
+              const lastMove = newHistory[newHistory.length - 1];
+              if (lastMove) lastMove.notation += ` (${endPhrase})`;
+              return newHistory;
+            });
+            setFx(null);
+            setRerollState(null);
+            setPhase("playing");
+            return;
           } else {
-            sfx.loseCheckmate();
+            // King beheaded but it's not a valid victory condition
+            // If the enemy king died, player loses (can't achieve checkmate anymore)
+            if (tg.color === B) {
+              // Enemy king killed - player loses
+              B1[to.y][to.x] = null;
+              setB(B1);
+              sfx.loseCheckmate();
+              setWin(B);
+              handleLevelCompletion(B, B1);
+              setPhrase("You killed the King! Victory condition failed!");
+              setMoveHistory((hist) => {
+                const newHistory = [...hist];
+                const lastMove = newHistory[newHistory.length - 1];
+                if (lastMove) lastMove.notation += " (Victory condition failed!)";
+                return newHistory;
+              });
+              setFx(null);
+              setRerollState(null);
+              setPhase("playing");
+              return;
+            } else {
+              // Player's own king was converted - this shouldn't happen, but continue
+              B1[to.y][to.x] = null;
+              setB(B1);
+              setFx(null);
+              setRerollState(null);
+              setPhase("playing");
+              return;
+            }
           }
-          setB(B1);
-          setWin(mv.color as Color);
-          handleLevelCompletion(mv.color as Color, B1);
-          const endPhrase = "King beheaded!";
-          setPhrase(endPhrase);
-          setMoveHistory((hist) => {
-            const newHistory = [...hist];
-            const lastMove = newHistory[newHistory.length - 1];
-            if (lastMove) lastMove.notation += ` (${endPhrase})`;
-            return newHistory;
-          });
-          setFx(null);
-          setRerollState(null);
-          setPhase("playing");
-          return;
         }
       } else {
         // Normal capture path
@@ -6258,42 +6340,100 @@ export default function App() {
 
           // Early king checks after stuns
           if (deadAttacker?.type === "K") {
-            if (tg.color === B) sfx.loseCheckmate();
-            else sfx.winCheckmate();
-            setB(B1);
-            setWin(tg.color as Color);
-            handleLevelCompletion(tg.color as Color, B1);
-            const endPhrase = "King's soul is forfeit!";
-            setPhrase(endPhrase);
-            setMoveHistory((hist) => {
-              const newHistory = [...hist];
-              const lastMove = newHistory[newHistory.length - 1];
-              if (lastMove) lastMove.notation += ` (${endPhrase})`;
-              return newHistory;
-            });
-            setFx(null);
-            setRerollState(null);
-            setPhase("playing");
-            return;
+            // Check victory conditions - only declare victory if king_dishonored is allowed (for enemy king)
+            // If player's king dies, it's always a loss regardless of victory conditions
+            const victoryConditions = currentLevelConfig?.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"];
+            const isPlayerKing = deadAttacker.color === W;
+            
+            if (isPlayerKing || victoryConditions.includes("king_dishonored")) {
+              // Player king died (always loss) OR enemy king died dishonored (check victory condition)
+              if (tg.color === B) sfx.loseCheckmate();
+              else sfx.winCheckmate();
+              setB(B1);
+              setWin(tg.color as Color);
+              handleLevelCompletion(tg.color as Color, B1);
+              const endPhrase = isPlayerKing ? "King's soul is forfeit!" : "King dishonored!";
+              setPhrase(endPhrase);
+              setMoveHistory((hist) => {
+                const newHistory = [...hist];
+                const lastMove = newHistory[newHistory.length - 1];
+                if (lastMove) lastMove.notation += ` (${endPhrase})`;
+                return newHistory;
+              });
+              setFx(null);
+              setRerollState(null);
+              setPhase("playing");
+              return;
+            } else {
+              // Enemy king died dishonored but it's not a valid victory condition
+              // Player loses because they can't achieve checkmate anymore
+              setB(B1);
+              sfx.loseCheckmate();
+              setWin(B);
+              handleLevelCompletion(B, B1);
+              setPhrase("You killed the King! Victory condition failed!");
+              setMoveHistory((hist) => {
+                const newHistory = [...hist];
+                const lastMove = newHistory[newHistory.length - 1];
+                if (lastMove) lastMove.notation += " (Victory condition failed!)";
+                return newHistory;
+              });
+              setFx(null);
+              setRerollState(null);
+              setPhase("playing");
+              return;
+            }
           }
           if (deadDefender?.type === "K") {
-            if (mv.color === W) sfx.winCheckmate();
-            else sfx.loseCheckmate();
-            setB(B1);
-            setWin(mv.color as Color);
-            handleLevelCompletion(mv.color as Color, B1);
-            const endPhrase = "King beheaded!";
-            setPhrase(endPhrase);
-            setMoveHistory((hist) => {
-              const newHistory = [...hist];
-              const lastMove = newHistory[newHistory.length - 1];
-              if (lastMove) lastMove.notation += ` (${endPhrase})`;
-              return newHistory;
-            });
-            setFx(null);
-            setRerollState(null);
-            setPhase("playing");
-            return;
+            // Check victory conditions - only declare victory if king_beheaded is allowed
+            const victoryConditions = currentLevelConfig?.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"];
+            if (victoryConditions.includes("king_beheaded")) {
+              if (mv.color === W) sfx.winCheckmate();
+              else sfx.loseCheckmate();
+              setB(B1);
+              setWin(mv.color as Color);
+              handleLevelCompletion(mv.color as Color, B1);
+              const endPhrase = "King beheaded!";
+              setPhrase(endPhrase);
+              setMoveHistory((hist) => {
+                const newHistory = [...hist];
+                const lastMove = newHistory[newHistory.length - 1];
+                if (lastMove) lastMove.notation += ` (${endPhrase})`;
+                return newHistory;
+              });
+              setFx(null);
+              setRerollState(null);
+              setPhase("playing");
+              return;
+            } else {
+              // King beheaded but it's not a valid victory condition
+              // If the enemy king died, player loses (can't achieve checkmate anymore)
+              if (deadDefender?.color === B) {
+                // Enemy king killed - player loses
+                setB(B1);
+                sfx.loseCheckmate();
+                setWin(B);
+                handleLevelCompletion(B, B1);
+                setPhrase("You killed the King! Victory condition failed!");
+                setMoveHistory((hist) => {
+                  const newHistory = [...hist];
+                  const lastMove = newHistory[newHistory.length - 1];
+                  if (lastMove) lastMove.notation += " (Victory condition failed!)";
+                  return newHistory;
+                });
+                setFx(null);
+                setRerollState(null);
+                setPhase("playing");
+                return;
+              } else {
+                // Player's king died - this shouldn't trigger victory condition check
+                setB(B1);
+                setFx(null);
+                setRerollState(null);
+                setPhase("playing");
+                return;
+              }
+            }
           }
         } else {
           // Defender actually dies here
@@ -6373,26 +6513,58 @@ export default function App() {
               return;
             }
             
-            if (moved.color === W) {
-              sfx.winCheckmate();
+            // Check victory conditions - only declare victory if king_beheaded is allowed
+            const victoryConditions = currentLevelConfig?.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"];
+            if (victoryConditions.includes("king_beheaded")) {
+              if (moved.color === W) {
+                sfx.winCheckmate();
+              } else {
+                sfx.loseCheckmate();
+              }
+              setB(B1);
+              setWin(moved.color as Color);
+              handleLevelCompletion(moved.color as Color, B1);
+              const endPhrase = "King beheaded!";
+              setPhrase(endPhrase);
+              setMoveHistory((hist) => {
+                const newHistory = [...hist];
+                const lastMove = newHistory[newHistory.length - 1];
+                if (lastMove) lastMove.notation += ` (${endPhrase})`;
+                return newHistory;
+              });
+              setFx(null);
+              setRerollState(null);
+              setPhase("playing");
+              return;
             } else {
-              sfx.loseCheckmate();
+              // King beheaded but it's not a valid victory condition
+              // If the enemy king died, player loses (can't achieve checkmate anymore)
+              if (tg.color === B) {
+                // Enemy king killed - player loses
+                setB(B1);
+                sfx.loseCheckmate();
+                setWin(B);
+                handleLevelCompletion(B, B1);
+                setPhrase("You killed the King! Victory condition failed!");
+                setMoveHistory((hist) => {
+                  const newHistory = [...hist];
+                  const lastMove = newHistory[newHistory.length - 1];
+                  if (lastMove) lastMove.notation += " (Victory condition failed!)";
+                  return newHistory;
+                });
+                setFx(null);
+                setRerollState(null);
+                setPhase("playing");
+                return;
+              } else {
+                // Player's own king was killed - this is already a loss
+                setB(B1);
+                setFx(null);
+                setRerollState(null);
+                setPhase("playing");
+                return;
+              }
             }
-            setB(B1);
-            setWin(moved.color as Color);
-            handleLevelCompletion(moved.color as Color, B1);
-            const endPhrase = "King beheaded!";
-            setPhrase(endPhrase);
-            setMoveHistory((hist) => {
-              const newHistory = [...hist];
-              const lastMove = newHistory[newHistory.length - 1];
-              if (lastMove) lastMove.notation += ` (${endPhrase})`;
-              return newHistory;
-            });
-            setFx(null);
-            setRerollState(null);
-            setPhase("playing");
-            return;
           }
 
           // Check for King Escaped victory condition
@@ -6492,65 +6664,194 @@ export default function App() {
 
           // Defender died (to skull), award kill to dead attacker's kill count
           // Note: attacker is dead so this won't be visible, but helps with consistency
+          
+          // Check if defender king died - need to check victory conditions
+          if (deadDefender?.type === "K") {
+            const victoryConditions = currentLevelConfig?.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"];
+            if (victoryConditions.includes("king_beheaded")) {
+              if (mv.color === W) {
+                sfx.winCheckmate();
+              } else {
+                sfx.loseCheckmate();
+              }
+              setB(B1);
+              setWin(mv.color as Color); // Attacker's color wins
+              handleLevelCompletion(mv.color as Color, B1);
+              setPhrase("King beheaded!");
+              setMoveHistory((hist) => {
+                const newHistory = [...hist];
+                const lastMove = newHistory[newHistory.length - 1];
+                if (lastMove) lastMove.notation += " (King beheaded!)";
+                return newHistory;
+              });
+              setFx(null);
+              setRerollState(null);
+              setPhase("playing");
+              return;
+            } else {
+              // King beheaded but it's not a valid victory condition
+              // If the enemy king died, player loses (can't achieve checkmate anymore)
+              if (deadDefender?.color === B) {
+                // Enemy king killed - player loses
+                setB(B1);
+                sfx.loseCheckmate();
+                setWin(B);
+                handleLevelCompletion(B, B1);
+                setPhrase("You killed the King! Victory condition failed!");
+                setMoveHistory((hist) => {
+                  const newHistory = [...hist];
+                  const lastMove = newHistory[newHistory.length - 1];
+                  if (lastMove) lastMove.notation += " (Victory condition failed!)";
+                  return newHistory;
+                });
+                setFx(null);
+                setRerollState(null);
+                setPhase("playing");
+                return;
+              } else {
+                // Player's king died - this shouldn't trigger victory condition check
+                setB(B1);
+                setFx(null);
+                setRerollState(null);
+                setPhase("playing");
+                return;
+              }
+            }
+          }
         }
 
         // Early king checks after stuns
         if (tg.type === "K" && B1[to.y]?.[to.x] === null) {
           // Safe navigation
           // if defender also died
-          if (mv.color === W) {
-            sfx.winCheckmate();
+          const victoryConditions = currentLevelConfig?.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"];
+          if (victoryConditions.includes("king_beheaded")) {
+            if (mv.color === W) {
+              sfx.winCheckmate();
+            } else {
+              sfx.loseCheckmate();
+            }
+            setB(B1);
+            setWin(mv.color as Color); // Attacker's color wins
+            handleLevelCompletion(mv.color as Color, B1);
+            setPhrase("King's soul is forfeit!");
+            setMoveHistory((hist) => {
+              const newHistory = [...hist];
+              const lastMove = newHistory[newHistory.length - 1];
+              if (lastMove) lastMove.notation += " (King's soul is forfeit!)";
+              return newHistory;
+            });
+            setFx(null);
+            setRerollState(null);
+            setPhase("playing");
+            return;
           } else {
-            sfx.loseCheckmate();
+            // King beheaded but it's not a valid victory condition
+            // Check if defender king died (enemy king)
+            if (tg.type === "K" && B1[to.y]?.[to.x] === null && tg.color === B) {
+              // Enemy king killed - player loses
+              setB(B1);
+              sfx.loseCheckmate();
+              setWin(B);
+              handleLevelCompletion(B, B1);
+              setPhrase("You killed the King! Victory condition failed!");
+              setMoveHistory((hist) => {
+                const newHistory = [...hist];
+                const lastMove = newHistory[newHistory.length - 1];
+                if (lastMove) lastMove.notation += " (Victory condition failed!)";
+                return newHistory;
+              });
+              setFx(null);
+              setRerollState(null);
+              setPhase("playing");
+              return;
+            } else {
+              // Player's king died or some other scenario
+              setB(B1);
+              setFx(null);
+              setRerollState(null);
+              setPhase("playing");
+              return;
+            }
           }
-          setB(B1);
-          setWin(mv.color as Color); // Attacker's color wins
-          handleLevelCompletion(mv.color as Color, B1);
-          setPhrase("King's soul is forfeit!");
-          setFx(null);
-          setRerollState(null);
-          setPhase("playing");
-          return;
         }
         if (deadAttacker?.type === "K") {
-          // Attacker (player's king) died, defender wins the game
-          const endPhrase = "King dishonored!";
-          const winner = mv.color === W ? B : W;
+          // Attacker king died - check if player's king or enemy king
+          const isPlayerKing = deadAttacker.color === W;
+          const victoryConditions = currentLevelConfig?.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"];
+          
+          // If player's king died, it's always a loss regardless of victory conditions
+          // If enemy king died dishonored, check if king_dishonored is a valid victory condition
+          if (isPlayerKing || victoryConditions.includes("king_dishonored")) {
+            const endPhrase = "King dishonored!";
+            const winner = mv.color === W ? B : W;
 
-          // Track King defeat for ransom if it's the player's king (white) that died
-          if (deadAttacker.color === W) {
-            // Player king died, so black wins - but we don't track white king defeats for ransom
-          } else if (deadAttacker.color === B) {
-            // Black king died attacking, track for ransom
-            trackKingDefeat(deadAttacker, "dishonored", setKilledEnemyPieces);
-          }
-
-          // Set phrase and move history BEFORE handleLevelCompletion
-          setPhrase(endPhrase);
-          setMoveHistory((hist) => {
-            const newHistory = [...hist];
-            const lastMove = newHistory[newHistory.length - 1];
-            if (lastMove && !lastMove.notation.includes(endPhrase)) {
-              lastMove.notation += ` (${endPhrase})`;
+            // Track King defeat for ransom if it's the enemy king (black) that died
+            if (deadAttacker.color === W) {
+              // Player king died, so black wins - but we don't track white king defeats for ransom
+            } else if (deadAttacker.color === B) {
+              // Black king died attacking, track for ransom
+              trackKingDefeat(deadAttacker, "dishonored", setKilledEnemyPieces);
             }
-            return newHistory;
-          });
 
-          if (mv.color === W) {
-            sfx.loseCheckmate();
-            setWin(B);
-            handleLevelCompletion(B, B1);
+            // Set phrase and move history BEFORE handleLevelCompletion
+            setPhrase(endPhrase);
+            setMoveHistory((hist) => {
+              const newHistory = [...hist];
+              const lastMove = newHistory[newHistory.length - 1];
+              if (lastMove && !lastMove.notation.includes(endPhrase)) {
+                lastMove.notation += ` (${endPhrase})`;
+              }
+              return newHistory;
+            });
+
+            if (mv.color === W) {
+              sfx.loseCheckmate();
+              setWin(B);
+              handleLevelCompletion(B, B1);
+            } else {
+              sfx.winCheckmate();
+              setWin(W);
+              handleLevelCompletion(W, B1);
+            }
+
+            setB(B1);
+            setFx(null);
+            setRerollState(null);
+            setPhase("playing");
+            return;
           } else {
-            sfx.winCheckmate();
-            setWin(W);
-            handleLevelCompletion(W, B1);
+            // Enemy king died dishonored but it's not a valid victory condition
+            // Track the defeat for gold purposes even if not a victory
+            if (deadAttacker.color === B) {
+              trackKingDefeat(deadAttacker, "dishonored", setKilledEnemyPieces);
+              // Enemy king killed - player loses (can't achieve checkmate anymore)
+              setB(B1);
+              sfx.loseCheckmate();
+              setWin(B);
+              handleLevelCompletion(B, B1);
+              setPhrase("You killed the King! Victory condition failed!");
+              setMoveHistory((hist) => {
+                const newHistory = [...hist];
+                const lastMove = newHistory[newHistory.length - 1];
+                if (lastMove && !lastMove.notation.includes("Victory condition failed")) {
+                  lastMove.notation += " (Victory condition failed!)";
+                }
+                return newHistory;
+              });
+              setFx(null);
+              setRerollState(null);
+              setPhase("playing");
+              return;
+            } else {
+              // Player's king died - already handled as a loss
+              setB(B1);
+              setFx(null);
+              setRerollState(null);
+              setPhase("playing");
+              return;
+            }
           }
-
-          setB(B1);
-          setFx(null);
-          setRerollState(null);
-          setPhase("playing");
-          return;
         }
         setLastMove(null); // No move occurred visually
       }

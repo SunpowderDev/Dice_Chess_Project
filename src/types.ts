@@ -111,6 +111,7 @@ export type StoryEvent =
   | { type: "attach_item_to_units"; item: Exclude<Equip, undefined>; target: "player" | "enemy"; count: number }
   | { type: "spawn_enemy_pawns"; count: number }
   | { type: "assign_item_to_enemy"; item: Exclude<Equip, undefined>; count: number }
+  | { type: "equip_item_to_named_piece"; item: Exclude<Equip, undefined>; pieceName: string; pieceType: PieceType }
   | { type: "increase_prayer_cost" }
   | { type: "start_battle" };
 
