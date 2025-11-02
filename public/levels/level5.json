@@ -150,5 +150,11 @@
   ],
   "victoryConditions": ["king_beheaded", "king_captured", "king_dishonored"],
   "pawnPromotionType": "Q",
-  "marketEnabled": true
+  "marketEnabled": true,
+  "fogRows": 4,
+  "randomTerrainPool": {
+    "rock": 2,
+    "forest": 10,
+    "water": 10
+  }
 }

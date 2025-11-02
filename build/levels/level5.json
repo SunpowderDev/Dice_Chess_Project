@@ -50,7 +50,7 @@
         "name": "Narrator"
       },
       "bodyText": "Winter draws near and the light thins, but you are ready. The field darkens with black magi; the air hums like a struck chalice. You fear nothing.",
-      "image": "/level5_Battlefield.png",
+      "image": "/level5_BattlefieldWinter.png",
       "leftChoice": {
         "text": "What are those dark staves?",
         "events": [
@@ -72,7 +72,7 @@
         "name": "Pintus IX"
       },
       "bodyText": "\"I know why Morcant sacked your castle—the Bell of Names in your crypt. His name now stains it, a sacrilege that armors him against death. Break the bell and the man returns; leave it whole and you fight a **shadow** that will not fall.\"",
-      "image": "/level5_BellofNames.png",
+      "image": "/level5_Pintus.png",
       "leftChoice": {
         "text": "His soul is forfeit.",
         "events": [
@@ -135,7 +135,7 @@
     "white": ["P", "B", "N", "R"]
   },
   "guaranteedPieces": {
-    "black": [],
+    "black": ["K"],
     "white": []
   },
   "terrainMatrix": [
@@ -150,5 +150,11 @@
   ],
   "victoryConditions": ["king_beheaded", "king_captured", "king_dishonored"],
   "pawnPromotionType": "Q",
-  "marketEnabled": true
+  "marketEnabled": true,
+  "fogRows": 4,
+  "randomTerrainPool": {
+    "rock": 2,
+    "forest": 6,
+    "water": 8
+  }
 }

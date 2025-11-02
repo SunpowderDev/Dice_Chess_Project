@@ -156,5 +156,6 @@
     "Got any food?!",
     "**Absurde**!"
   ],
-  "marketEnabled": true
+  "marketEnabled": true,
+  "fogRows": 2
 }

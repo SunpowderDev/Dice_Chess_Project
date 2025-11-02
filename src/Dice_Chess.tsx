@@ -1024,7 +1024,8 @@ function placeFeatures(
   r: () => number,
   boardSize: number,
   terrainMatrix?: TerrainConfigCell[][],
-  skipTerrainRow?: number // Row index where water/forest should not be placed (for escape row)
+  skipTerrainRow?: number, // Row index where water/forest should not be placed (for escape row)
+  randomTerrainPool?: { rock?: number; forest?: number; water?: number } // Configuration for random terrain placement
 ) {
   const occupied = new Set<string>(); // Keep track of obstacles, forests, and water tiles
   const waterCoords: { x: number; y: number }[] = []; // Store coordinates of placed water tiles
@@ -1117,28 +1118,39 @@ function placeFeatures(
 
     // Now apply random generation to cells marked as "n"
     if (randomCells.length > 0) {
+      // Use custom terrain pool if provided, otherwise use defaults
+      const rockCount = randomTerrainPool?.rock ?? 1;
+      const forestCount = randomTerrainPool?.forest ?? 2;
+      const waterCount = randomTerrainPool?.water ?? 3;
+
       // Randomly select cells for obstacles, forests, and water
       const shuffled = randomCells.sort(() => r() - 0.5);
+      let placedCount = 0;
 
-      // Place 1 rock obstacle in a random cell
-      if (
-        shuffled.length > 0 &&
-        !occupied.has(`${shuffled[0].x},${shuffled[0].y}`)
-      ) {
-        placeFeature("none", "rock", shuffled[0].x, shuffled[0].y);
-      }
-
-      // Place 2 forests in random cells
-      for (let i = 1; i < Math.min(3, shuffled.length); i++) {
-        if (!occupied.has(`${shuffled[i].x},${shuffled[i].y}`)) {
-          placeFeature("forest", "none", shuffled[i].x, shuffled[i].y);
+      // Place rock obstacles
+      for (let i = 0; i < Math.min(rockCount, shuffled.length - placedCount); i++) {
+        const cell = shuffled[placedCount];
+        if (!occupied.has(`${cell.x},${cell.y}`)) {
+          placeFeature("none", "rock", cell.x, cell.y);
+          placedCount++;
         }
       }
 
-      // Place 3 water tiles in random cells
-      for (let i = 3; i < Math.min(6, shuffled.length); i++) {
-        if (!occupied.has(`${shuffled[i].x},${shuffled[i].y}`)) {
-          placeFeature("water", "none", shuffled[i].x, shuffled[i].y);
+      // Place forests
+      for (let i = 0; i < Math.min(forestCount, shuffled.length - placedCount); i++) {
+        const cell = shuffled[placedCount];
+        if (!occupied.has(`${cell.x},${cell.y}`)) {
+          placeFeature("forest", "none", cell.x, cell.y);
+          placedCount++;
+        }
+      }
+
+      // Place water tiles
+      for (let i = 0; i < Math.min(waterCount, shuffled.length - placedCount); i++) {
+        const cell = shuffled[placedCount];
+        if (!occupied.has(`${cell.x},${cell.y}`)) {
+          placeFeature("water", "none", cell.x, cell.y);
+          placedCount++;
         }
       }
     }
@@ -1438,7 +1450,7 @@ const threatened = (
 };
 
 // --- Fog (Torch extends sight) ---
-const visibility = (b: Board, phase: Phase, boardSize: number = S) => {
+const visibility = (b: Board, phase: Phase, boardSize: number = S, fogRows: number = 2) => {
   const v: boolean[][] = Array.from({ length: boardSize }, () =>
     Array(boardSize).fill(true)
   );
@@ -1450,8 +1462,11 @@ const visibility = (b: Board, phase: Phase, boardSize: number = S) => {
     }
     return v;
   }
-  for (let x = 0; x < boardSize; x++) {
-    if (v[boardSize - 1]) v[boardSize - 1][x] = false; // Safe check - hide back row
+  // Hide the last N rows (enemy back ranks) based on fogRows parameter
+  for (let y = boardSize - fogRows; y < boardSize; y++) {
+    for (let x = 0; x < boardSize; x++) {
+      if (v[y]) v[y][x] = false; // Safe check - hide fogged rows
+    }
   }
 
   for (let y = 0; y < boardSize; y++)
@@ -3928,8 +3943,8 @@ export default function App() {
   }, [turn, Bstate, Tstate, win, phase, TMG.botThink, kB, speechBubble]); // Added speechBubble dependency
 
   const vis = useMemo(
-    () => visibility(Bstate, phase, currentBoardSize),
-    [Bstate, phase, currentBoardSize]
+    () => visibility(Bstate, phase, currentBoardSize, currentLevelConfig?.fogRows ?? 2),
+    [Bstate, phase, currentBoardSize, currentLevelConfig]
   );
 
   const startDrag = (e: React.MouseEvent, x: number, y: number) => {
@@ -4844,7 +4859,7 @@ export default function App() {
     const kingEscapedEnabled = victoryConditions.includes("king_escaped");
     const escapeRow = kingEscapedEnabled ? boardSize - 1 : undefined;
 
-    placeFeatures(B0, T0, O0, r, boardSize, levelConfig.terrainMatrix, escapeRow);
+    placeFeatures(B0, T0, O0, r, boardSize, levelConfig.terrainMatrix, escapeRow, levelConfig.randomTerrainPool);
 
     // Use level configuration - separate gold pools if specified
     // If specific gold pools aren't set, fall back to legacy enemyArmyGold/playerArmyGold, or default to 0
@@ -6294,7 +6309,7 @@ export default function App() {
         const text = rand(rngRef.current, SWING_PHRASES[winnerColor]);
         const king = findK(B1, winnerColor);
         const kingVisible =
-          king && visibility(B1, "playing", currentBoardSize)[king.y]?.[king.x]; // Safe navigation
+          king && visibility(B1, "playing", currentBoardSize, currentLevelConfig?.fogRows ?? 2)[king.y]?.[king.x]; // Safe navigation
         const targetId = king && kingVisible ? king.p.id : winnerFinalId;
         return { text, targetId };
       }
@@ -6335,7 +6350,7 @@ export default function App() {
           ).replace("[UnitName]", loser.name!);
           const king = findK(B1, winnerColor);
           const kingVisible =
-            king && visibility(B1, "playing")[king.y]?.[king.x]; // Safe navigation
+            king && visibility(B1, "playing", currentBoardSize, currentLevelConfig?.fogRows ?? 2)[king.y]?.[king.x]; // Safe navigation
           const targetId = king && kingVisible ? king.p.id : winnerFinalId; // Speaker is the winner or their king
           return { text, targetId };
         } else if (winner.name) {
@@ -6351,7 +6366,7 @@ export default function App() {
           // Find the winner's king or the winner piece to speak
           const king = findK(B1, winnerColor);
           const kingVisible =
-            king && visibility(B1, "playing")[king.y]?.[king.x]; // Safe navigation
+            king && visibility(B1, "playing", currentBoardSize, currentLevelConfig?.fogRows ?? 2)[king.y]?.[king.x]; // Safe navigation
           const speakerId = king && kingVisible ? king.p.id : winnerFinalId;
           const text = rand(
             rngRef.current,
@@ -6366,7 +6381,7 @@ export default function App() {
         const text = rand(rngRef.current, PHRASES[winnerColor].win);
         const king = findK(B1, winnerColor);
         const kingVisible =
-          king && visibility(B1, "playing", currentBoardSize)[king.y]?.[king.x]; // Safe navigation
+          king && visibility(B1, "playing", currentBoardSize, currentLevelConfig?.fogRows ?? 2)[king.y]?.[king.x]; // Safe navigation
         const targetId = king && kingVisible ? king.p.id : winnerFinalId;
         return { text, targetId };
       }

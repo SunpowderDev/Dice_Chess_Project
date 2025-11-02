@@ -81,6 +81,17 @@ export interface LevelConfig {
     black?: PieceType[]; // Piece types that can be randomly generated for black army
     white?: PieceType[]; // Piece types that can be randomly generated for white army
   };
+  // Number of enemy rows initially hidden by fog (defaults to 2 if not specified)
+  // Controls how many rows from the enemy back rank are fogged at the start
+  fogRows?: number;
+  // Random terrain pool configuration for cells marked as "n" in terrainMatrix
+  // Specifies how many of each terrain type/obstacle should be randomly placed
+  // Example: { "rock": 2, "forest": 6, "water": 8 }
+  randomTerrainPool?: {
+    rock?: number;    // Number of rock obstacles to place
+    forest?: number;  // Number of forest tiles to place
+    water?: number;   // Number of water tiles to place
+  };
 }
 
 // Define all available equipment (for fallback scaling)

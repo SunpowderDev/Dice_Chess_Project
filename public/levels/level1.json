@@ -130,5 +130,6 @@
     ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"],
     ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"]
   ],
-  "marketEnabled": false
+  "marketEnabled": false,
+  "fogRows": 2
 }
