@@ -46,7 +46,7 @@
   color: #f1f1f1;
 }
 
-/* Golden escape row for King Escaped victory condition - Palace pavement style */
+/* Golden escape row for King Crossing victory condition - Palace pavement style */
 .tile.escape-row.tL {
   background: 
     repeating-linear-gradient(
@@ -142,7 +142,7 @@
   color: #2a2015;
 }
 .chip.stunned-piece {
-  opacity: 0.6;
+  opacity: 0.85;
   filter: grayscale(0.4) brightness(0.8);
   animation: stun-shake 0.8s ease-in-out infinite;
 }
@@ -1336,5 +1336,15 @@
   100% {
     transform: rotate(360deg) scale(1);
     opacity: 1;
+  }
+}
+
+/* Pulsing green glow animation for START BATTLE button */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.5), 0 0 40px rgba(16, 185, 129, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(16, 185, 129, 0.8), 0 0 60px rgba(16, 185, 129, 0.5), 0 0 80px rgba(16, 185, 129, 0.3);
   }
 }

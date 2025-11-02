@@ -1507,15 +1507,8 @@ const visibility = (b: Board, phase: Phase, boardSize: number = S, fogRows: numb
   const v: boolean[][] = Array.from({ length: boardSize }, () =>
     Array(boardSize).fill(true)
   );
-  if (phase === "market") {
-    for (let y = 2; y < boardSize; y++) {
-      for (let x = 0; x < boardSize; x++) {
-        if (v[y]) v[y][x] = false; // Safe check
-      }
-    }
-    return v;
-  }
   // Hide the last N rows (enemy back ranks) based on fogRows parameter
+  // Applies to both market and playing phases
   for (let y = boardSize - fogRows; y < boardSize; y++) {
     for (let x = 0; x < boardSize; x++) {
       if (v[y]) v[y][x] = false; // Safe check - hide fogged rows
@@ -2629,9 +2622,6 @@ function BoardComponent({
   bChk,
   speechBubble,
   marketAction,
-  onStartBattle,
-  startBattleBtnRef,
-  playBattleTrumpet,
   rerollState,
   rerollTarget,
   combatId,
@@ -2669,9 +2659,6 @@ function BoardComponent({
   bChk: boolean;
   speechBubble: { text: string; id: number; targetId: string } | null;
   marketAction: MarketAction;
-  onStartBattle: () => void;
-  startBattleBtnRef: React.RefObject<HTMLButtonElement>;
-  playBattleTrumpet: () => void;
   rerollState: {
     from: { x: number; y: number };
     to: { x: number; y: number };
@@ -2760,13 +2747,13 @@ function BoardComponent({
   const formatVictoryCondition = (condition: string) => {
     switch (condition) {
       case "king_beheaded":
-        return "King Beheaded";
+        return "Regicide";
       case "king_captured":
         return "King Captured (Checkmate)";
       case "king_dishonored":
         return "King Dishonored";
       case "king_escaped":
-        return "King Escaped";
+        return "King Crossing";
       default:
         return condition;
     }
@@ -2788,59 +2775,41 @@ function BoardComponent({
     }
   };
 
+  // Generate quest narration based on victory conditions
+  const getQuestNarration = (conditions: string[]) => {
+    if (conditions.length === 1) {
+      switch (conditions[0]) {
+        case "king_escaped":
+          return "Lead thy King to the far shore, where freedom awaits beyond the enemy's reach.";
+        case "king_beheaded":
+          return "Slay the usurper in single combat. Let steel settle this dispute of crowns.";
+        case "king_captured":
+          return "Corner the false monarch. Prove thy mastery through the art of checkmate.";
+        case "king_dishonored":
+          return "Claim the enemy crown with sorcery's touch. The Staff awaits its purpose.";
+        default:
+          return "Secure victory through cunning and valor.";
+      }
+    }
+    
+    // Multiple conditions - create a combined narrative
+    const hasEscaped = conditions.includes("king_escaped");
+    const hasBeheaded = conditions.includes("king_beheaded");
+    const hasCaptured = conditions.includes("king_captured");
+    const hasDishonored = conditions.includes("king_dishonored");
+    
+    if (hasEscaped && conditions.length > 1) {
+      return "Either break through to the far edge, or end the tyrant by blade, magic, or stratagem.";
+    }
+    
+    return "Vanquish the enemy King through combat, checkmate, or arcane means.";
+  };
+
   // All possible victory conditions
   const allVictoryConditions = ["king_captured", "king_beheaded", "king_dishonored", "king_escaped"];
 
   return (
     <div className="inline-block relative">
-      {phase === "market" && (
-        <div className="absolute inset-0 z-[210] flex items-start justify-center pt-8 pointer-events-none">
-          <div className="flex flex-col items-center gap-4 pointer-events-auto">
-            {/* Victory Conditions Display with Start Battle Button */}
-            <div className="bg-zinc-900 bg-opacity-95 rounded-xl px-6 py-5 shadow-2xl border-2 border-gray-600">
-              <h3 className="text-emerald-600 font-bold text-lg mb-3 text-center">Victory Conditions</h3>
-              <div className="flex flex-col gap-2 text-sm text-white mb-4">
-                {allVictoryConditions.map((condition, idx) => {
-                  const isAvailable = victoryConditions.includes(condition);
-                  const isKingEscaped = condition === "king_escaped";
-                  const description = getVictoryConditionDescription(condition);
-                  return (
-                    <div key={idx} className="flex flex-col gap-0.5">
-                      <div className="flex items-center gap-2">
-                        {isAvailable ? (
-                          <span className="text-emerald-400">✓</span>
-                        ) : (
-                          <span className="text-red-500 text-lg leading-none">✗</span>
-                        )}
-                        <span className={isKingEscaped ? "font-bold" : ""} style={!isAvailable ? { textDecoration: 'line-through', opacity: 0.5 } : {}}>
-                          {formatVictoryCondition(condition)}
-                        </span>
-                      </div>
-                      {description && (
-                        <span className="text-gray-400 italic text-xs ml-6" style={!isAvailable ? { opacity: 0.5 } : {}}>
-                          {description}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              
-              {/* Start Battle Button inside popup */}
-              <button
-                ref={startBattleBtnRef}
-                onClick={() => {
-                  playBattleTrumpet();
-                  onStartBattle();
-                }}
-                className="w-full px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xl shadow-lg"
-              >
-                START BATTLE
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       <div
         className="grid"
         style={{
@@ -3605,6 +3574,127 @@ function NameInputComponent({
       </div>
     </>,
     document.body
+  );
+}
+
+// --- Settings Dropdown Component ---
+function SettingsDropdown({
+  showRules,
+  setShowRules,
+  muted,
+  setMuted,
+  fastMode,
+  setFastMode,
+  showBoardTooltips,
+  setShowBoardTooltips,
+  handleTryAgain,
+  win,
+}: {
+  showRules: boolean;
+  setShowRules: (value: boolean | ((prev: boolean) => boolean)) => void;
+  muted: boolean;
+  setMuted: (value: boolean | ((prev: boolean) => boolean)) => void;
+  fastMode: boolean;
+  setFastMode: (value: boolean | ((prev: boolean) => boolean)) => void;
+  showBoardTooltips: boolean;
+  setShowBoardTooltips: (value: boolean | ((prev: boolean) => boolean)) => void;
+  handleTryAgain: () => void;
+  win: Color | null;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-4 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-lg shadow-lg flex items-center justify-center gap-2"
+        title="Settings"
+      >
+        <span className="text-2xl">⚙️</span>
+        <span>Settings</span>
+      </button>
+      
+      {isOpen && (
+        <>
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={() => setIsOpen(false)}
+          />
+          <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-800 rounded-xl shadow-2xl border-2 border-zinc-700 overflow-hidden z-50">
+            <div className="flex flex-col">
+              <button
+                onClick={() => {
+                  setShowRules((s) => !s);
+                  setIsOpen(false);
+                }}
+                className="px-4 py-3 text-left hover:bg-zinc-700 border-b border-zinc-700"
+              >
+                <span className="text-lg mr-2">📖</span>
+                Game Rules
+              </button>
+              
+              <button
+                onClick={() => {
+                  setMuted((m) => !m);
+                }}
+                className="px-4 py-3 text-left hover:bg-zinc-700 border-b border-zinc-700 flex items-center justify-between"
+              >
+                <span>
+                  <span className="text-lg mr-2">{muted ? "🔇" : "🔊"}</span>
+                  Sound
+                </span>
+                <span className={`px-2 py-1 rounded text-xs ${muted ? "bg-zinc-600" : "bg-emerald-600"}`}>
+                  {muted ? "OFF" : "ON"}
+                </span>
+              </button>
+              
+              <button
+                onClick={() => {
+                  setFastMode((f) => !f);
+                }}
+                className="px-4 py-3 text-left hover:bg-zinc-700 border-b border-zinc-700 flex items-center justify-between"
+              >
+                <span>
+                  <span className="text-lg mr-2">⚡</span>
+                  Speed
+                </span>
+                <span className={`px-2 py-1 rounded text-xs ${fastMode ? "bg-emerald-600" : "bg-zinc-600"}`}>
+                  {fastMode ? "FAST" : "NORMAL"}
+                </span>
+              </button>
+              
+              <button
+                onClick={() => {
+                  setShowBoardTooltips((s) => !s);
+                }}
+                className="px-4 py-3 text-left hover:bg-zinc-700 border-b border-zinc-700 flex items-center justify-between"
+              >
+                <span>
+                  <span className="text-lg mr-2">ℹ️</span>
+                  Tooltips
+                </span>
+                <span className={`px-2 py-1 rounded text-xs ${showBoardTooltips ? "bg-blue-600" : "bg-zinc-600"}`}>
+                  {showBoardTooltips ? "ON" : "OFF"}
+                </span>
+              </button>
+              
+              {!win && (
+                <button
+                  onClick={() => {
+                    handleTryAgain();
+                    setIsOpen(false);
+                  }}
+                  className="px-4 py-3 text-left hover:bg-zinc-700"
+                >
+                  <span className="text-lg mr-2">🔄</span>
+                  Restart Game
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -5975,14 +6065,14 @@ export default function App() {
         }
       }
 
-      // Check for King Escaped victory condition
+      // Check for King Crossing victory condition
       const victoryConditions = currentLevelConfig?.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"];
       if (victoryConditions.includes("king_escaped") && moved.type === "K" && moved.color === W && to.y === currentBoardSize - 1) {
         sfx.winCheckmate();
         setB(B1);
         setWin(W);
         handleLevelCompletion(W, B1);
-        setPhrase("King escaped!");
+        setPhrase("King crossing!");
         setMoveHistory((hist) => {
           const newHistory = [...hist];
           const lastMove = newHistory[newHistory.length - 1];
@@ -6094,14 +6184,14 @@ export default function App() {
         }
       }
 
-      // Check for King Escaped victory condition
+      // Check for King Crossing victory condition
       const victoryConditions = currentLevelConfig?.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"];
       if (victoryConditions.includes("king_escaped") && mv.type === "K" && mv.color === W && to.y === currentBoardSize - 1) {
         sfx.winCheckmate();
         setB(B1);
         setWin(W);
         handleLevelCompletion(W, B1);
-        setPhrase("King escaped!");
+        setPhrase("King crossing!");
         setMoveHistory((hist) => {
           const newHistory = [...hist];
           const lastMove = newHistory[newHistory.length - 1];
@@ -6232,7 +6322,7 @@ export default function App() {
             setB(B1);
             setWin(mv.color as Color);
             handleLevelCompletion(mv.color as Color, B1);
-            const endPhrase = "King beheaded!";
+            const endPhrase = "Regicide!";
             setPhrase(endPhrase);
             setMoveHistory((hist) => {
               const newHistory = [...hist];
@@ -6393,7 +6483,7 @@ export default function App() {
               setB(B1);
               setWin(mv.color as Color);
               handleLevelCompletion(mv.color as Color, B1);
-              const endPhrase = "King beheaded!";
+              const endPhrase = "Regicide!";
               setPhrase(endPhrase);
               setMoveHistory((hist) => {
                 const newHistory = [...hist];
@@ -6524,7 +6614,7 @@ export default function App() {
               setB(B1);
               setWin(moved.color as Color);
               handleLevelCompletion(moved.color as Color, B1);
-              const endPhrase = "King beheaded!";
+              const endPhrase = "Regicide!";
               setPhrase(endPhrase);
               setMoveHistory((hist) => {
                 const newHistory = [...hist];
@@ -6567,14 +6657,14 @@ export default function App() {
             }
           }
 
-          // Check for King Escaped victory condition
+          // Check for King Crossing victory condition
           const victoryConditions = currentLevelConfig?.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"];
           if (victoryConditions.includes("king_escaped") && moved.type === "K" && moved.color === W && to.y === currentBoardSize - 1) {
             sfx.winCheckmate();
             setB(B1);
             setWin(W);
             handleLevelCompletion(W, B1);
-            setPhrase("King escaped!");
+            setPhrase("King crossing!");
             setMoveHistory((hist) => {
               const newHistory = [...hist];
               const lastMove = newHistory[newHistory.length - 1];
@@ -6677,11 +6767,11 @@ export default function App() {
               setB(B1);
               setWin(mv.color as Color); // Attacker's color wins
               handleLevelCompletion(mv.color as Color, B1);
-              setPhrase("King beheaded!");
+              setPhrase("Regicide!");
               setMoveHistory((hist) => {
                 const newHistory = [...hist];
                 const lastMove = newHistory[newHistory.length - 1];
-                if (lastMove) lastMove.notation += " (King beheaded!)";
+                if (lastMove) lastMove.notation += " (Regicide!)";
                 return newHistory;
               });
               setFx(null);
@@ -7174,7 +7264,9 @@ export default function App() {
     const lastBlackMoveIndex = findLastIndex(history, (m) => m.color === "b");
 
     return (
-      <div className="mt-4 bg-zinc-900/70 rounded-2xl p-3">
+      <div className="mt-4 bg-zinc-900/70 rounded-2xl p-3" style={{
+        width: '296px'
+      }}>
         <h2 className="text-2xl font-semibold mb-2 text-white">Move History</h2>
         <div ref={logRef} className="max-h-96 overflow-y-auto pr-2">
           {movePairs.map((pair, index) => {
@@ -7727,62 +7819,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white p-6 flex items-center justify-center relative">
-      {/* Top-left controls - always visible */}
-      <div className="fixed top-4 left-4 flex items-center gap-2 z-50">
-        <button
-          onClick={() => setShowRules((s) => !s)}
-          className={`px-3 py-1 rounded-xl text-sm ${
-            showRules
-              ? "bg-emerald-700"
-              : "bg-zinc-700 hover:bg-zinc-600"
-          }`}
-          title={showRules ? "Hide Game Rules" : "Show Game Rules"}
-        >
-          Game Rules
-        </button>
-      </div>
-      {/* Top-right controls - always visible */}
-      <div className="fixed top-4 right-4 flex items-center gap-2 z-50">
-        <button
-          onClick={() => setMuted((m) => !m)}
-          className={`px-2 py-1 rounded-xl text-sm ${
-            muted ? "bg-zinc-800" : "bg-zinc-700 hover:bg-zinc-600"
-          }`}
-          title={muted ? "Unmute" : "Mute"}
-        >
-          {muted ? "🔇" : "🔊"}
-        </button>
-        <button
-          onClick={() => setFastMode((f) => !f)}
-          className={`px-2 py-1 rounded-xl text-sm ${
-            fastMode ? "bg-emerald-700" : "bg-zinc-700 hover:bg-zinc-600"
-          }`}
-          title={fastMode ? "Fast animations ON" : "Fast animations OFF"}
-        >
-          ⚡
-        </button>
-        <button
-          onClick={() => setShowBoardTooltips((s) => !s)}
-          className={`px-2 py-1 rounded-xl text-sm ${
-            showBoardTooltips
-              ? "bg-blue-700"
-              : "bg-zinc-700 hover:bg-zinc-600"
-          }`}
-          title={showBoardTooltips ? "Tooltips ON" : "Tooltips OFF"}
-        >
-          ℹ️
-        </button>
-        {/* Hide New Game button during play */}
-        {!win && (
-          <button
-            onClick={handleTryAgain}
-            className="px-3 py-1 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-sm"
-          >
-            New Game
-          </button>
-        )}
-      </div>
-
       {showIntro && <IntroPopup onEnter={handleIntroComplete} />}
       {showTransition && (
         <div className="transition-overlay">
@@ -7850,9 +7886,9 @@ export default function App() {
       )}
 
       <div style={{ display: (showIntro || showTransition || currentStoryCard || storyOutcome) ? "none" : "block" }}>
-        <div className="max-w-7xl mx-auto flex gap-8 justify-center flex-wrap md:flex-nowrap">
+        <div className="max-w-[2000px] mx-auto flex gap-8 justify-center flex-wrap md:flex-nowrap">
           <div className="order-1 w-full max-w-lg">
-            {phase === "market" && currentLevelConfig?.marketEnabled !== false ? (
+            {phase === "market" && currentLevelConfig?.marketEnabled !== false && (
               <Market
                 showTooltip={showTooltip}
                 hideTooltip={hideTooltip}
@@ -7865,15 +7901,153 @@ export default function App() {
                 setCampaign={setCampaign}
                 sfx={sfx}
               />
-            ) : (
-              <div className="space-y-4">
-                <GameInfo />
-                <MoveHistoryLog history={moveHistory} phase={phase} />
-              </div>
             )}
           </div>
 
-          <div className="order-2 flex flex-col items-center">
+          {/* Quest Panel Column - Left side of board, always visible */}
+          <div className="order-2 w-80 flex-shrink-0 self-start" style={{ marginTop: '84px' }}>
+            <div className="sticky top-4 flex flex-col gap-4">
+              {/* Quest Panel with perspective - aligned with chessboard */}
+              <div className="stand">
+                <div className="bg-gradient-to-b from-amber-900/40 via-zinc-900/90 to-zinc-950/95 rounded-lg shadow-2xl border-4 border-amber-700/50 backdrop-blur-sm overflow-hidden">
+                {/* Decorative Top Border */}
+                <div className="h-2 bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-600"></div>
+                
+                {/* Quest Header */}
+                <div className="px-6 py-4 bg-gradient-to-r from-amber-800/30 to-amber-900/30 border-b-2 border-amber-700/40">
+                  <h2 className="text-2xl font-bold text-center text-amber-200 tracking-wide" style={{ fontFamily: 'serif', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
+                    ⚔️ QUEST ⚔️
+                  </h2>
+                </div>
+                
+                {/* Quest Narration */}
+                <div className="px-6 py-4 bg-gradient-to-b from-zinc-900/50 to-zinc-900/70">
+                  <p className="text-amber-100 text-sm leading-relaxed text-center italic" style={{ fontFamily: 'serif' }}>
+                    {currentLevelConfig?.victoryConditions && (() => {
+                      const conditions = currentLevelConfig.victoryConditions;
+                      if (conditions.length === 1) {
+                        switch (conditions[0]) {
+                          case "king_escaped":
+                            return "Lead thy King to the far shore, where freedom awaits beyond the enemy's reach.";
+                          case "king_beheaded":
+                            return "Slay the usurper in single combat. Let steel settle this dispute of crowns.";
+                          case "king_captured":
+                            return "Corner the false monarch. Prove thy mastery through the art of checkmate.";
+                          case "king_dishonored":
+                            return "Claim the enemy crown with sorcery's touch. The Staff awaits its purpose.";
+                          default:
+                            return "Secure victory through cunning and valor.";
+                        }
+                      }
+                      const hasEscaped = conditions.includes("king_escaped");
+                      if (hasEscaped && conditions.length > 1) {
+                        return "Either break through to the far edge, or end the tyrant by blade, magic, or stratagem.";
+                      }
+                      return "Vanquish the enemy King through combat, checkmate, or arcane means.";
+                    })()}
+                  </p>
+                </div>
+                
+                {/* Divider */}
+                <div className="h-px bg-gradient-to-r from-transparent via-amber-600 to-transparent mx-6"></div>
+                
+                {/* Victory Conditions */}
+                <div className="px-6 py-4">
+                  <h3 className="text-amber-300 font-bold text-center mb-3 tracking-wider" style={{ fontFamily: 'serif' }}>
+                    Victory Conditions
+                  </h3>
+                  <div className="flex flex-col gap-2 text-sm text-white">
+                    {currentLevelConfig?.victoryConditions?.map((condition: string, idx: number) => {
+                      const formatVictoryCondition = (condition: string) => {
+                        switch (condition) {
+                          case "king_beheaded":
+                            return "Regicide";
+                          case "king_captured":
+                            return "King Captured (Checkmate)";
+                          case "king_dishonored":
+                            return "King Dishonored";
+                          case "king_escaped":
+                            return "King Crossing";
+                          default:
+                            return condition;
+                        }
+                      };
+                      const getDescription = (condition: string) => {
+                        switch (condition) {
+                          case "king_beheaded":
+                            return "Capture the enemy King in combat";
+                          case "king_captured":
+                            return "Checkmate the enemy King";
+                          case "king_dishonored":
+                            return "Capture the enemy King with a Staff";
+                          case "king_escaped":
+                            return "Bring your King to the golden squares";
+                          default:
+                            return "";
+                        }
+                      };
+                      const description = getDescription(condition);
+                      return (
+                        <div key={idx} className="flex flex-col gap-1 bg-black/20 rounded p-2 border border-amber-700/30">
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-400 text-lg">✓</span>
+                            <span className="font-semibold text-amber-100">
+                              {formatVictoryCondition(condition)}
+                            </span>
+                          </div>
+                          {description && (
+                            <span className="text-gray-300 italic text-xs ml-6">
+                              {description}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                
+                {/* Start Battle Button with pulsing glow - Only show during market phase */}
+                {phase === "market" && (
+                  <div className="px-6 pb-6">
+                    <button
+                      ref={startBattleBtnRef}
+                      onClick={() => {
+                        playBattleTrumpet();
+                        handleStartBattle();
+                      }}
+                      className="w-full px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xl shadow-lg relative overflow-hidden"
+                      style={{
+                        animation: 'pulse-glow 2s ease-in-out infinite',
+                        boxShadow: '0 0 20px rgba(16, 185, 129, 0.5), 0 0 40px rgba(16, 185, 129, 0.3)',
+                      }}
+                    >
+                      <span className="relative z-10">START BATTLE</span>
+                    </button>
+                  </div>
+                )}
+                
+                {/* Decorative Bottom Border */}
+                <div className="h-2 bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-600"></div>
+                </div>
+              </div>
+
+              {/* Settings Dropdown - Below Quest Panel */}
+              <SettingsDropdown 
+                showRules={showRules}
+                setShowRules={setShowRules}
+                muted={muted}
+                setMuted={setMuted}
+                fastMode={fastMode}
+                setFastMode={setFastMode}
+                showBoardTooltips={showBoardTooltips}
+                setShowBoardTooltips={setShowBoardTooltips}
+                handleTryAgain={handleTryAgain}
+                win={win}
+              />
+            </div>
+          </div>
+
+          <div className="order-3 flex flex-col items-center">
             {/* Add Level indicator - Updated style */}
             <div className="text-2xl font-bold text-white mb-2">
               {currentLevelConfig?.name || `Level ${campaign.level}`}
@@ -7898,7 +8072,7 @@ export default function App() {
               </div>
               <div className="flex items-center gap-2 font-bold text-2xl">
                 <span>🙏</span>
-                <span className="text-purple-100">x{prayerDice}</span>
+                <span className="text-purple-400">x{prayerDice}</span>
               </div>
             </div>
             <div className="stand" ref={boardRef}>
@@ -7920,9 +8094,6 @@ export default function App() {
                 bChk={bChk}
                 speechBubble={speechBubble}
                 marketAction={marketAction}
-                onStartBattle={handleStartBattle}
-                startBattleBtnRef={startBattleBtnRef}
-                playBattleTrumpet={playBattleTrumpet}
                 rerollState={rerollState}
                 rerollTarget={rerollTarget}
                 combatId={combatIdRef.current}
@@ -7943,6 +8114,16 @@ export default function App() {
                 setSpeechBubble={setSpeechBubble}
                 currentLevelConfig={currentLevelConfig}
               />
+            </div>
+          </div>
+
+          {/* Move History Column - Right side */}
+          <div className="order-4 w-80 flex-shrink-0 self-start" style={{ marginTop: '70px' }}>
+            <div className="sticky top-4" style={{
+              transform: 'perspective(900px) rotateX(3deg)',
+              transformOrigin: 'center top'
+            }}>
+              <MoveHistoryLog history={moveHistory} phase={phase} />
             </div>
           </div>
         </div>

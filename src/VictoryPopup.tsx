@@ -222,7 +222,7 @@ export function VictoryPopup({
                             if (defeatedKing?.defeatType) {
                               const statusText = 
                                 defeatedKing.defeatType === "checkmate" ? "King Captured" :
-                                defeatedKing.defeatType === "beheaded" ? "King Beheaded" :
+                                defeatedKing.defeatType === "beheaded" ? "Regicide" :
                                 "King Dishonored";
                               return `${statusText}: ${kingGold}g`;
                             }
