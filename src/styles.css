@@ -979,6 +979,52 @@
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
+.story-card-image-container.idle-hint {
+  animation: story-card-hint-idle 3s ease-in-out infinite;
+}
+
+@keyframes story-card-hint-idle {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-12px) rotate(-0.5deg);
+  }
+  50% {
+    transform: translateX(0);
+  }
+  75% {
+    transform: translateX(12px) rotate(0.5deg);
+  }
+}
+
+.story-card-drag-hint {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  font-size: 48px;
+  opacity: 0.9;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
+  animation: hand-drag 3s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 10;
+}
+
+@keyframes hand-drag {
+  0%, 100% {
+    transform: translate(0, -50%);
+  }
+  25% {
+    transform: translate(-25px, -50%);
+  }
+  50% {
+    transform: translate(0, -50%);
+  }
+  75% {
+    transform: translate(25px, -50%);
+  }
+}
+
 .story-choice-overlay {
   position: absolute;
   top: 0;

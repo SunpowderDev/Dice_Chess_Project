@@ -259,7 +259,7 @@ export const ITEM_DESCRIPTIONS = {
   crystal_ball:
     "🔮 Crystal Ball: One-time swap with an adjacent friendly piece.",
   prayer_die:
-    "🙏 Prayer Die: Consume to reroll one of your failed attack or defense rolls.",
+    "🙏 Prayer Die: Consume to reroll both dice after a failed attack or defense.",
   disguise:
     "🎭 Disguise: Piece appears and moves as a Pawn. You can break the disguise on your turn to reveal the original piece.",
   purse: "💰 Purse: When killed, grants 25 gold.",

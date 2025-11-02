@@ -44,9 +44,10 @@ interface StoryCardProps {
     outcomes: OutcomeData[];
     onContinue: () => void;
   };
+  enableIdleAnimation?: boolean;
 }
 
-const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode }) => {
+const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode, enableIdleAnimation = false }) => {
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
@@ -433,13 +434,15 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode }) =>
           <>
             {/* Swipeable image area */}
             <div
-              className="story-card-image-container"
+              className={`story-card-image-container ${!isDragging && !isAnimating && enableIdleAnimation ? 'idle-hint' : ''}`}
               onMouseDown={handleMouseDown}
             >
               <div
                 className="story-card-image"
                 style={{
-                  transform: `translateX(${dragX}px) rotate(${dragX * 0.02}deg)`,
+                  transform: !isDragging && !isAnimating && enableIdleAnimation 
+                    ? undefined 
+                    : `translateX(${dragX}px) rotate(${dragX * 0.02}deg)`,
                   transition: isDragging ? "none" : "transform 0.3s ease-out",
                   cursor: isDragging ? "grabbing" : "grab",
                 }}
@@ -480,6 +483,13 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode }) =>
                       </div>
                     </div>
                   </>
+                )}
+
+                {/* Drag hint hand icon */}
+                {!isDragging && !isAnimating && enableIdleAnimation && (
+                  <div className="story-card-drag-hint">
+                    ✋
+                  </div>
                 )}
               </div>
             </div>

@@ -4,9 +4,9 @@
   "boardSize": 7,
   "startingGold": 0,
   "enemyPieceGold": 0,
-  "enemyEquipmentGold": 35,
-  "playerPieceGold": 40,
-  "playerEquipmentGold": 20,
+  "enemyEquipmentGold": 10,
+  "playerPieceGold": 50,
+  "playerEquipmentGold": 30,
   "botBehavior": "aggressive",
   "whiteKingName": "Eohmer",
   "namedWhitePieces": [
@@ -72,8 +72,8 @@
       "leftChoice": {
         "text": "Save the royal regalia!",
         "events": [
-          { "type": "assign_item_to_enemy", "item": "purse", "count": 3 },
-          { "type": "spawn_enemy_pawns", "count": 2 },
+          { "type": "assign_item_to_enemy", "item": "purse", "count": 2 },
+          { "type": "spawn_enemy_pawns", "count": 1 },
           { "type": "start_battle" }
         ]
       },
@@ -88,7 +88,7 @@
     }
   ],
   "availableItems": {
-    "blackRandomization": ["sword", "lance"],
+    "blackRandomization": ["sword"],
     "whiteRandomization": ["shield"]
   },
   "randomizationPieces": {
@@ -97,7 +97,6 @@
   },
   "guaranteedPieces": {
     "black": [
-      { "type": "P" },
       { "type": "P" },
       { "type": "P" }
     ],

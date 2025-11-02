@@ -7134,13 +7134,8 @@ export default function App() {
 
       const isPlayerAttacking = p.color === W;
 
-      if (isPlayerAttacking) {
-        if (fx && fx.kind === "piece") setDispD(fx.d.total);
-        setRerollTarget("attacker");
-      } else {
-        if (fx) setDispA(fx.a.total);
-        setRerollTarget("defender");
-      }
+      // Both dice will be rerolled, so set reroll target to null to animate both
+      setRerollTarget(null);
 
       if (kind === "obstacle") {
         const obstacleType = rerollState?.obstacleType || obstacles[to.y]?.[to.x] || "rock";
@@ -7189,58 +7184,44 @@ export default function App() {
           to.y === from.y + (p.color === W ? 1 : -1) * 2 &&
           to.x === from.x;
 
-        let newA: number, newD: number, newRollsA: number[], newRollsD: number[] | null;
-        if (isPlayerAttacking) {
-          const useAdv = p.type === "K" || lanceLungeUsed;
-          newRollsA = [d6(rngRef.current)];
-          if (useAdv) newRollsA.push(d6(rngRef.current));
-          newA = useAdv ? Math.max(...newRollsA) : newRollsA[0];
-          newD = fx.d.base; // Keep opponent's original roll
-          newRollsD = fx.d.rolls; // Keep opponent's original roll(s)
-        } else {
-          // Player is defending
-          newA = fx.a.base; // Keep opponent's original roll
-          newRollsA = fx.a.rolls; // Keep opponent's original roll(s)
-          newRollsD = [d6(rngRef.current)];
-          newD = newRollsD[0];
-        }
+        // Reroll BOTH attacker and defender dice
+        let newA: number, newD: number, newRollsA: number[], newRollsD: number[];
+        
+        // Reroll attacker's dice
+        const useAdvA = p.type === "K" || lanceLungeUsed;
+        newRollsA = [d6(rngRef.current)];
+        if (useAdvA) newRollsA.push(d6(rngRef.current));
+        newA = useAdvA ? Math.max(...newRollsA) : newRollsA[0];
+        
+        // Reroll defender's dice (defender never has advantage)
+        newRollsD = [d6(rngRef.current)];
+        newD = newRollsD[0];
 
-        // Update history AFTER getting new rolls
+        // Update history AFTER getting new rolls (both attacker and defender rerolled)
         setMoveHistory((hist) => {
           const newHistory = [...hist];
           const lastMove = newHistory[newHistory.length - 1];
           if (lastMove && lastMove.combat) {
-            if (isPlayerAttacking) {
-              lastMove.combat.attackerRolls = newRollsA; // Update with NEW rolls
-              lastMove.rerolledBy = "attacker";
-            } else {
-              if (lastMove.combat.defenderRolls) {
-                lastMove.combat.defenderRolls = newRollsD; // Update with NEW rolls
-              }
-              lastMove.rerolledBy = "defender";
-            }
+            lastMove.combat.attackerRolls = newRollsA; // Update with NEW rolls
+            lastMove.combat.defenderRolls = newRollsD; // Update with NEW rolls
+            lastMove.rerolledBy = isPlayerAttacking ? "attacker" : "defender";
           }
           return newHistory;
         });
 
-        const newFxA = isPlayerAttacking
-          ? {
-              ...fx.a,
-              base: newA,
-              total:
-                newA + fx.a.mods.reduce((s: number, m: any) => s + m.value, 0),
-              rolls: newRollsA,
-            }
-          : fx.a;
-        const newFxD = !isPlayerAttacking
-          ? {
-              ...fx.d,
-              base: newD,
-              total:
-                newD + fx.d.mods.reduce((s: number, m: any) => s + m.value, 0),
-              rolls: newRollsD,
-            }
-          : fx.d;
+        // Update both attacker and defender fx since both are rerolled
+        const newFxA = {
+          ...fx.a,
+          base: newA,
+          total: newA + fx.a.mods.reduce((s: number, m: any) => s + m.value, 0),
+          rolls: newRollsA,
+        };
+        const newFxD = {
+          ...fx.d,
+          base: newD,
+          total: newD + fx.d.mods.reduce((s: number, m: any) => s + m.value, 0),
+          rolls: newRollsD,
+        };
         const newWin = newFxA.total >= newFxD.total;
 
         setFx({ ...fx, a: newFxA, d: newFxD, win: newWin, isReroll: true });
@@ -7561,6 +7542,7 @@ export default function App() {
                 }
               : undefined
           }
+          enableIdleAnimation={campaign.level === 1}
         />
       )}
 
@@ -7724,7 +7706,7 @@ export default function App() {
             >
               <h3 className="text-lg font-bold mb-3">Roll Failed!</h3>
               <p className="mb-4">
-                Use a Prayer Die to reroll? ({prayerDice} left)
+                Use a Prayer Die to reroll both dice? ({prayerDice} left)
               </p>
               <div className="flex justify-center gap-4">
                 <button
