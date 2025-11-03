@@ -63,6 +63,9 @@ export interface LevelConfig {
   };
   // Victory conditions for this level (defaults to all three if not specified)
   victoryConditions?: VictoryCondition[];
+  // Victory conditions to display in the QUEST panel (defaults to all victoryConditions if not specified)
+  // This allows hiding some conditions from the UI while still allowing them in gameplay
+  displayedVictoryConditions?: VictoryCondition[];
   // Pawn promotion type (defaults to "Q" if not specified)
   pawnPromotionType?: PieceType;
   // Speech lines for courtier obstacles
@@ -92,6 +95,11 @@ export interface LevelConfig {
     forest?: number;  // Number of forest tiles to place
     water?: number;   // Number of water tiles to place
   };
+  // Quest narration text displayed in the quest panel
+  questNarration?: string;
+  // Custom descriptions for victory conditions (overrides defaults)
+  // Maps condition name to description text
+  victoryConditionDescriptions?: Partial<Record<VictoryCondition, string>>;
 }
 
 // Define all available equipment (for fallback scaling)

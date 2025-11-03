@@ -49,6 +49,7 @@ interface MarketProps {
   setPrayerDice: (dice: number) => void;
   setCampaign: (updater: (prev: CampaignState) => CampaignState) => void;
   sfx: any;
+  setMarketViewVisible: (visible: boolean) => void;
 }
 
 export function Market({
@@ -62,6 +63,7 @@ export function Market({
   setPrayerDice,
   setCampaign,
   sfx,
+  setMarketViewVisible,
 }: MarketProps) {
   // Get available pieces from level config, default to all except King
   const defaultPieces: Piece["type"][] = ["Q", "R", "B", "N", "P"];
@@ -228,6 +230,16 @@ export function Market({
               {campaign.prayerDiceCost ?? ITEM_COSTS["prayer_die"]}g
             </span>
           </span>
+        </button>
+      </div>
+
+      {/* Battlefield View Button */}
+      <div className="mt-4 pt-4 border-t border-amber-800">
+        <button
+          onClick={() => setMarketViewVisible(false)}
+          className="w-full px-4 py-3 rounded-lg bg-blue-700 hover:bg-blue-600 text-white font-bold text-lg shadow-lg transition-colors"
+        >
+          ⚔️ BATTLEFIELD VIEW
         </button>
       </div>
     </div>

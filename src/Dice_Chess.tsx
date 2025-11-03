@@ -1504,12 +1504,26 @@ const threatened = (
 };
 
 // --- Fog (Torch extends sight) ---
-const visibility = (b: Board, phase: Phase, boardSize: number = S, fogRows: number = 2) => {
+const visibility = (b: Board, phase: Phase, boardSize: number = S, fogRows: number = 2, marketViewVisible: boolean = false, marketEnabled: boolean = true) => {
   const v: boolean[][] = Array.from({ length: boardSize }, () =>
     Array(boardSize).fill(true)
   );
+  
+  // Special fog logic when market is visible during market phase AND market is enabled
+  // If market is disabled, always use normal fog rules
+  if (phase === "market" && marketViewVisible && marketEnabled) {
+    // Hide all rows except the bottom 2 deployment rows
+    for (let y = 0; y < boardSize; y++) {
+      for (let x = 0; x < boardSize; x++) {
+        // Only show the bottom 2 rows (y <= 1)
+        if (v[y]) v[y][x] = y <= 1; // Safe check
+      }
+    }
+    return v;
+  }
+  
+  // Normal fog logic (for playing phase, when market is hidden, or when market is disabled)
   // Hide the last N rows (enemy back ranks) based on fogRows parameter
-  // Applies to both market and playing phases
   for (let y = boardSize - fogRows; y < boardSize; y++) {
     for (let x = 0; x < boardSize; x++) {
       if (v[y]) v[y][x] = false; // Safe check - hide fogged rows
@@ -2762,48 +2776,23 @@ function BoardComponent({
 
   // Get victory condition description
   const getVictoryConditionDescription = (condition: string) => {
+    // Check for level-specific description first
+    if (currentLevelConfig?.victoryConditionDescriptions?.[condition as keyof typeof currentLevelConfig.victoryConditionDescriptions]) {
+      return currentLevelConfig.victoryConditionDescriptions[condition as keyof typeof currentLevelConfig.victoryConditionDescriptions];
+    }
+    // Default descriptions
     switch (condition) {
       case "king_beheaded":
-        return "Capture the enemy King in combat";
+        return "Kill the enemy King in combat";
       case "king_captured":
         return "Checkmate the enemy King";
       case "king_dishonored":
-        return "Capture the enemy King with a Staff";
+        return "Let the enemy King attack you and fail";
       case "king_escaped":
         return "Bring your King to the golden squares";
       default:
         return "";
     }
-  };
-
-  // Generate quest narration based on victory conditions
-  const getQuestNarration = (conditions: string[]) => {
-    if (conditions.length === 1) {
-      switch (conditions[0]) {
-        case "king_escaped":
-          return "Lead thy King to the far shore, where freedom awaits beyond the enemy's reach.";
-        case "king_beheaded":
-          return "Slay the usurper in single combat. Let steel settle this dispute of crowns.";
-        case "king_captured":
-          return "Corner the false monarch. Prove thy mastery through the art of checkmate.";
-        case "king_dishonored":
-          return "Claim the enemy crown with sorcery's touch. The Staff awaits its purpose.";
-        default:
-          return "Secure victory through cunning and valor.";
-      }
-    }
-    
-    // Multiple conditions - create a combined narrative
-    const hasEscaped = conditions.includes("king_escaped");
-    const hasBeheaded = conditions.includes("king_beheaded");
-    const hasCaptured = conditions.includes("king_captured");
-    const hasDishonored = conditions.includes("king_dishonored");
-    
-    if (hasEscaped && conditions.length > 1) {
-      return "Either break through to the far edge, or end the tyrant by blade, magic, or stratagem.";
-    }
-    
-    return "Vanquish the enemy King through combat, checkmate, or arcane means.";
   };
 
   // All possible victory conditions
@@ -3947,6 +3936,9 @@ export default function App() {
   // State for the currently active market action
   const [marketAction, setMarketAction] = useState<MarketAction>(null);
 
+  // Market view visibility state - true = market visible, false = battlefield view
+  const [marketViewVisible, setMarketViewVisible] = useState(true);
+
   // Sell button state
   const [sellButtonPos, setSellButtonPos] = useState<{
     x: number;
@@ -4191,63 +4183,41 @@ export default function App() {
           currentBoardSize,
           botBehavior
         );
+        
+        console.log("=== BOT TURN CHECK ===");
+        console.log("Bot found move:", !!m);
+        
         if (!m) {
           // Check if king_escaped is enabled
           const victoryConditions = currentLevelConfig?.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"];
           const kingEscapedEnabled = victoryConditions.includes("king_escaped");
           
+          console.log("Victory conditions:", victoryConditions);
+          console.log("King escaped enabled:", kingEscapedEnabled);
+          console.log("Black in check:", isBlackInCheck);
+          console.log("Black king exists (kB):", !!kB);
+          
           // Check if all black pieces are dead
           let allBlackPiecesDead = true;
+          let blackPieceCount = 0;
           for (let y = 0; y < currentBoardSize; y++) {
             for (let x = 0; x < currentBoardSize; x++) {
               const piece = Bstate[y]?.[x];
               if (piece && piece.color === B) {
                 allBlackPiecesDead = false;
-                break;
+                blackPieceCount++;
               }
             }
-            if (!allBlackPiecesDead) break;
           }
           
-          // If king_escaped mode and all enemies wiped, give bonus but don't end game
-          if (kingEscapedEnabled && allBlackPiecesDead && !isBlackInCheck) {
-            sfx.purchase(); // Play a nice sound for the bonus
-            setMarketPoints((prev) => prev + 40);
-            setUnspentGold((prev) => prev + 40);
-            setPhrase("Enemy wiped! +40g bonus");
-            setMoveHistory((hist) => {
-              const newHistory = [...hist];
-              const lastMove = newHistory[newHistory.length - 1];
-              if (lastMove) {
-                lastMove.notation += " (Enemy wiped! +40g)";
-              }
-              return newHistory;
-            });
-            // Continue the game - player still needs to reach the escape row
-            // Set turn back to white so player can continue
-            setTurn(W);
-            return;
-          }
+          console.log("All black pieces dead:", allBlackPiecesDead);
+          console.log("Black piece count:", blackPieceCount);
           
-          // If NOT king_escaped mode and all enemies are dead, player wins
-          if (!kingEscapedEnabled && allBlackPiecesDead) {
-            sfx.winCheckmate();
-            setWin(W);
-            handleLevelCompletion(W, Bstate);
-            setPhrase("All enemies eliminated!");
-            setMoveHistory((hist) => {
-              const newHistory = [...hist];
-              const lastMove = newHistory[newHistory.length - 1];
-              if (lastMove) {
-                lastMove.notation += " (All enemies eliminated!)";
-              }
-              return newHistory;
-            });
-            return;
-          }
+          // REMOVED: All enemies wiped bonus logic to see what naturally happens
           
           // If black is in check and has no moves → checkmate (game ends, player wins)
           if (isBlackInCheck) {
+            console.log(">>> TAKING PATH: Black in check with no moves - checkmate");
             sfx.winCheckmate();
             setWin(W); // Player wins if bot has no moves and is in check
             handleLevelCompletion(W, Bstate);
@@ -4274,6 +4244,11 @@ export default function App() {
           }
           
           // If black is NOT in check and has no moves → skip turn (continue game)
+          console.log(">>> TAKING PATH: Black has no moves (not in check) - skipping turn");
+          console.log("This will skip black's turn and continue the game");
+          console.log("Black pieces remaining:", blackPieceCount);
+          console.log("This path should only happen if black has pieces but can't move them");
+          
           setPhrase("Black skipped turn (no moves)");
           setMoveHistory((hist) => {
             const newHistory = [...hist];
@@ -4287,9 +4262,12 @@ export default function App() {
             return newHistory;
           });
           // Skip black's turn and continue with white
+          console.log("Setting turn back to WHITE after skip");
           setTurn(W);
           return;
         }
+        
+        console.log(">>> Bot making move from", m.from, "to", m.to);
         perform(m.from, m.to, true);
       }, totalDelay);
       return () => clearTimeout(t);
@@ -4298,8 +4276,8 @@ export default function App() {
   }, [turn, Bstate, Tstate, win, phase, TMG.botThink, kB, speechBubble]); // Added speechBubble dependency
 
   const vis = useMemo(
-    () => visibility(Bstate, phase, currentBoardSize, currentLevelConfig?.fogRows ?? 2),
-    [Bstate, phase, currentBoardSize, currentLevelConfig]
+    () => visibility(Bstate, phase, currentBoardSize, currentLevelConfig?.fogRows ?? 2, marketViewVisible, currentLevelConfig?.marketEnabled !== false),
+    [Bstate, phase, currentBoardSize, currentLevelConfig, marketViewVisible]
   );
 
   const startDrag = (e: React.MouseEvent, x: number, y: number) => {
@@ -4749,6 +4727,7 @@ export default function App() {
       // Always go to market phase to show victory conditions popup
       // Market component will be hidden if marketEnabled is false
       setPhase("market");
+      setMarketViewVisible(true); // Reset market view to visible when entering market phase
 
       // Medieval transition sound via WebAudio (match 2.5s animation)
       try {
@@ -5244,6 +5223,7 @@ export default function App() {
           // Always go to market phase to show victory conditions popup
           // Market component will be hidden if marketEnabled is false
           setPhase("market");
+          setMarketViewVisible(true); // Reset market view to visible when entering market phase
         }
       }
       
@@ -5541,6 +5521,7 @@ export default function App() {
     // Default phase: market (will show victory conditions popup)
     // Market component will be hidden if marketEnabled is false (will be overridden if story cards exist)
     setPhase("market");
+    setMarketViewVisible(true); // Reset market view to visible when entering market phase
 
     // Set starting gold with carry-over (level-specific starting gold + unspent gold from previous level)
     setMarketPoints(levelConfig.startingGold + currentUnspentGold);
@@ -5719,7 +5700,25 @@ export default function App() {
     isBot: boolean,
     isDragMove = false
   ) {
+    console.log("=== PERFORM CALLED ===");
     console.log("[PERFORM] Move requested:", { from, to, isBot, currentBoardSize });
+    console.log("[PERFORM] Current turn:", turn);
+    console.log("[PERFORM] Win state:", win);
+    console.log("[PERFORM] Phase:", phase);
+    
+    // Count pieces on board
+    let whiteCount = 0, blackCount = 0;
+    for (let y = 0; y < currentBoardSize; y++) {
+      for (let x = 0; x < currentBoardSize; x++) {
+        const piece = Bstate[y]?.[x];
+        if (piece) {
+          if (piece.color === W) whiteCount++;
+          else if (piece.color === B) blackCount++;
+        }
+      }
+    }
+    console.log("[PERFORM] Pieces on board - White:", whiteCount, "Black:", blackCount);
+    
     setDrag(null);
     if (fx || win || moveAnim) return;
     const p = Bstate[from.y]?.[from.x]; // Safe navigation
@@ -6431,12 +6430,20 @@ export default function App() {
 
           // Early king checks after stuns
           if (deadAttacker?.type === "K") {
+            console.log("=== KING DIED IN SKULL COMBAT (ATTACKER) ===");
+            console.log("Dead attacker color:", deadAttacker.color);
+            console.log("Is player king:", deadAttacker.color === W);
+            
             // Check victory conditions - only declare victory if king_dishonored is allowed (for enemy king)
             // If player's king dies, it's always a loss regardless of victory conditions
             const victoryConditions = currentLevelConfig?.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"];
             const isPlayerKing = deadAttacker.color === W;
             
+            console.log("Victory conditions:", victoryConditions);
+            console.log("Should end game:", isPlayerKing || victoryConditions.includes("king_dishonored"));
+            
             if (isPlayerKing || victoryConditions.includes("king_dishonored")) {
+              console.log(">>> ENDING GAME - King died in skull combat");
               // Player king died (always loss) OR enemy king died dishonored (check victory condition)
               if (tg.color === B) sfx.loseCheckmate();
               else sfx.winCheckmate();
@@ -6867,13 +6874,21 @@ export default function App() {
           }
         }
         if (deadAttacker?.type === "K") {
+          console.log("=== KING DIED AS ATTACKER (BOW FAILED) ===");
+          console.log("Dead attacker color:", deadAttacker.color);
+          console.log("Is player king:", deadAttacker.color === W);
+          
           // Attacker king died - check if player's king or enemy king
           const isPlayerKing = deadAttacker.color === W;
           const victoryConditions = currentLevelConfig?.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"];
           
+          console.log("Victory conditions:", victoryConditions);
+          console.log("Should end game:", isPlayerKing || victoryConditions.includes("king_dishonored"));
+          
           // If player's king died, it's always a loss regardless of victory conditions
           // If enemy king died dishonored, check if king_dishonored is a valid victory condition
           if (isPlayerKing || victoryConditions.includes("king_dishonored")) {
+            console.log(">>> ENDING GAME - King died as attacker");
             const endPhrase = "King dishonored!";
             const winner = mv.color === W ? B : W;
 
@@ -7102,6 +7117,11 @@ export default function App() {
 
     setB(B1);
     decrementStunFor(turn, B1, currentBoardSize); // tick down the mover's stun at END of their turn
+    
+    console.log("=== FINISH PIECE COMBAT ===");
+    console.log("Current turn:", turn);
+    console.log("Switching turn to:", turn === W ? "BLACK" : "WHITE");
+    
     setTurn(turn === W ? B : W);
     setFx(null);
     setRerollState(null);
@@ -7116,6 +7136,7 @@ export default function App() {
       setShowMarketConfirm(true);
     } else {
       setPhase("playing");
+      setMarketViewVisible(true); // Reset market view for next market phase
     }
   };
 
@@ -7660,6 +7681,7 @@ export default function App() {
     setStoryCardQueue([]);
     setStoryOutcome(null);
     setPhase("market");
+    setMarketViewVisible(true); // Reset market view to visible when entering market phase
     setWin(null);
     setMarketPoints(0);
     setUnspentGold(0);
@@ -7811,20 +7833,7 @@ export default function App() {
       <div style={{ display: (showIntro || showTransition || currentStoryCard || storyOutcome) ? "none" : "block" }}>
         <div className="max-w-[2000px] mx-auto flex gap-8 justify-center flex-wrap md:flex-nowrap">
           <div className="order-1 w-full max-w-lg">
-            {phase === "market" && currentLevelConfig?.marketEnabled !== false && (
-              <Market
-                showTooltip={showTooltip}
-                hideTooltip={hideTooltip}
-                levelConfig={currentLevelConfig}
-                campaign={campaign}
-                marketPoints={marketPoints}
-                setMarketPoints={setMarketPoints}
-                setMarketAction={setMarketAction}
-                setPrayerDice={setPrayerDice}
-                setCampaign={setCampaign}
-                sfx={sfx}
-              />
-            )}
+            {/* Market removed from here - now positioned over the board */}
           </div>
 
           {/* Quest Panel Column - Left side of board, always visible */}
@@ -7846,28 +7855,7 @@ export default function App() {
                 {/* Quest Narration */}
                 <div className="px-6 py-4 bg-gradient-to-b from-stone-950/50 to-stone-950/70">
                   <p className="text-amber-100 text-sm leading-relaxed text-center italic" style={{ fontFamily: 'serif' }}>
-                    {currentLevelConfig?.victoryConditions && (() => {
-                      const conditions = currentLevelConfig.victoryConditions;
-                      if (conditions.length === 1) {
-                        switch (conditions[0]) {
-                          case "king_escaped":
-                            return "Lead thy King to the far shore, where freedom awaits beyond the enemy's reach.";
-                          case "king_beheaded":
-                            return "Slay the usurper in single combat. Let steel settle this dispute of crowns.";
-                          case "king_captured":
-                            return "Corner the false monarch. Prove thy mastery through the art of checkmate.";
-                          case "king_dishonored":
-                            return "Claim the enemy crown with sorcery's touch. The Staff awaits its purpose.";
-                          default:
-                            return "Secure victory through cunning and valor.";
-                        }
-                      }
-                      const hasEscaped = conditions.includes("king_escaped");
-                      if (hasEscaped && conditions.length > 1) {
-                        return "Either break through to the far edge, or end the tyrant by blade, magic, or stratagem.";
-                      }
-                      return "Vanquish the enemy King through combat, checkmate, or arcane means.";
-                    })()}
+                    {currentLevelConfig?.questNarration || "Secure victory through cunning and valor."}
                   </p>
                 </div>
                 
@@ -7880,7 +7868,7 @@ export default function App() {
                     Victory Conditions
                   </h3>
                   <div className="flex flex-col gap-2 text-sm text-white">
-                    {currentLevelConfig?.victoryConditions?.map((condition: string, idx: number) => {
+                    {(currentLevelConfig?.displayedVictoryConditions || currentLevelConfig?.victoryConditions || []).map((condition: string, idx: number) => {
                       const formatVictoryCondition = (condition: string) => {
                         switch (condition) {
                           case "king_beheaded":
@@ -7896,6 +7884,11 @@ export default function App() {
                         }
                       };
                       const getDescription = (condition: string) => {
+                        // Check for level-specific description first
+                        if (currentLevelConfig?.victoryConditionDescriptions?.[condition as keyof typeof currentLevelConfig.victoryConditionDescriptions]) {
+                          return currentLevelConfig.victoryConditionDescriptions[condition as keyof typeof currentLevelConfig.victoryConditionDescriptions];
+                        }
+                        // Default descriptions
                         switch (condition) {
                           case "king_beheaded":
                             return "Capture the enemy King in combat";
@@ -7998,7 +7991,7 @@ export default function App() {
                 <span className="text-purple-400">x{prayerDice}</span>
               </div>
             </div>
-            <div className="stand" ref={boardRef}>
+            <div className="stand" ref={boardRef} style={{ position: 'relative' }}>
               <BoardComponent
                 board={Bstate}
                 T={Tstate}
@@ -8037,6 +8030,60 @@ export default function App() {
                 setSpeechBubble={setSpeechBubble}
                 currentLevelConfig={currentLevelConfig}
               />
+              
+              {/* Market Overlay - positioned over the board during market phase */}
+              {phase === "market" && currentLevelConfig?.marketEnabled !== false && (
+                <>
+                  {marketViewVisible && (
+                    <div className="market-overlay" style={{
+                      position: 'absolute',
+                      top: '0',
+                      left: '0',
+                      right: '0',
+                      bottom: '176px', // Leave space for bottom 2 rows (2 * 88px)
+                      zIndex: 100,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '20px',
+                      pointerEvents: 'none'
+                    }}>
+                      <div style={{ pointerEvents: 'auto', maxWidth: '500px', width: '100%' }}>
+                        <Market
+                          showTooltip={showTooltip}
+                          hideTooltip={hideTooltip}
+                          levelConfig={currentLevelConfig}
+                          campaign={campaign}
+                          marketPoints={marketPoints}
+                          setMarketPoints={setMarketPoints}
+                          setMarketAction={setMarketAction}
+                          setPrayerDice={setPrayerDice}
+                          setCampaign={setCampaign}
+                          sfx={sfx}
+                          setMarketViewVisible={setMarketViewVisible}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  {!marketViewVisible && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '20px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      zIndex: 100
+                    }}>
+                      <button
+                        onClick={() => setMarketViewVisible(true)}
+                        className="px-6 py-3 rounded-lg bg-amber-700 hover:bg-amber-600 text-white font-bold text-lg shadow-lg transition-colors"
+                      >
+                        🛒 MARKET VIEW
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
 
@@ -8074,6 +8121,7 @@ export default function App() {
                   onClick={() => {
                     setPhase("playing");
                     setShowMarketConfirm(false);
+                    setMarketViewVisible(true); // Reset market view for next market phase
                   }}
                   className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold"
                 >

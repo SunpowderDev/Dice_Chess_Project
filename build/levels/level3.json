@@ -157,5 +157,9 @@
     "**Absurde**!"
   ],
   "marketEnabled": true,
-  "fogRows": 2
+  "fogRows": 2,
+  "questNarration": "Slip Eohmer within the Pontiff's precincts. Cross Pilgrim's Pass and breach the palace by hood or by hammer.",
+  "victoryConditionDescriptions": {
+    "king_escaped": "Lead your King to the golden squares at the board's edge."
+  }
 }

@@ -124,11 +124,15 @@
     ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"],
     ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"],
     ["_(Column)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Column)"],
-    ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"],
+    ["_(Column)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Column)"],
     ["_(Column)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Column)"],
     ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"],
-    ["_(Courtier)", "_(Courtier)", "_", "_", "_", "_(Courtier)", "_(Courtier)"]
+    ["_", "_", "_", "_", "_", "_", "_"]
   ],
   "marketEnabled": false,
-  "fogRows": 0
+  "fogRows": 0,
+  "questNarration": "Flee the burning keep and carry King Eohmer through the postern gate to living ground.",
+  "victoryConditionDescriptions": {
+    "king_escaped": "Lead your King to the golden squares at the board's edge."
+  }
 }

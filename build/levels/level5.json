@@ -126,7 +126,7 @@
     }
   ],
   "availableItems": {
-    "blackRandomization": ["shield", "sword", "bow", "torch", "banner", "curse", "staff", "scythe"],
+    "blackRandomization": ["bow", "torch", "banner", "skull", "staff", "scythe", "lance"],
     "whiteRandomization": [],
     "whitePurchase": ["shield", "sword", "bow", "torch", "banner", "disguise", "crystal_ball", "lance", "staff", "scythe", "curse", "skull"]
   },
@@ -149,12 +149,17 @@
     ["n", "n", "n", "n", "n(Bell)", "n", "n", "n"]
   ],
   "victoryConditions": ["king_beheaded", "king_captured", "king_dishonored"],
-  "pawnPromotionType": "Q",
+  "pawnPromotionType": "R",
   "marketEnabled": true,
-  "fogRows": 4,
+  "fogRows": 5,
   "randomTerrainPool": {
     "rock": 2,
     "forest": 10,
     "water": 10
-  }
+  },
+  "questNarration": "End Morcant's folly by breaking the Bell of Names and slaying the false Prelate in combat.",
+  "victoryConditionDescriptions": {
+    "king_beheaded": "Vanquish Cpt Corvis through combat or checkmate."
+  },
+  "displayedVictoryConditions": ["king_beheaded"]
 }

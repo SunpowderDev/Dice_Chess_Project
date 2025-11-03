@@ -1,6 +1,6 @@
 {
   "level": 4,
-  "name": "Chapter 4: The Gentle Captive",
+  "name": "Chapter 4: The Pintus Way",
   "boardSize": 7,
   "startingGold": 0,
   "enemyPieceGold": 220,
@@ -124,7 +124,7 @@
     "**Ohhh** **Pintus**!",
     "**My** Pontiff!",
     "**Protect** me!",
-    "**Nice sword**, soldier!",
+    "Nice **sword**, soldier!",
     "**Love** me Pintuuus!",
     "The King is **here**!",
     "**Hide** the wine!",
@@ -134,5 +134,10 @@
     "Is this a **play**?"
   ],
   "marketEnabled": true,
-  "fogRows": 2
+  "fogRows": 2,
+  "questNarration": "Capture the Pointiff alive to use him as a bargaining chip. Dead, he becomes a martyr; alive, he grants you an army.",
+  "victoryConditionDescriptions": {
+    "king_captured": "Checkmate Pintus IX."
+  },
+  "displayedVictoryConditions": ["king_captured"]
 }

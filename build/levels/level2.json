@@ -104,7 +104,7 @@
       "rightChoice": {
         "text": "Attack without ceremony.",
         "events": [
-          { "type": "give_free_item", "item": "scythe" },
+          { "type": "equip_item_to_named_piece", "item": "scythe", "pieceName": "Eohmer", "pieceType": "K" },
           { "type": "start_battle" }
         ],
         "overlayColor": "rgba(34, 197, 94, 0.8)"
@@ -137,5 +137,10 @@
   "pawnPromotionType": "N",
   "courtierSpeechChance": 0,
   "marketEnabled": true,
-  "fogRows": 4
+  "fogRows": 4,
+  "questNarration": "Captain Corvis's betrayal must be answered. Slay him as a warning or take him alive for the irons.",
+  "victoryConditionDescriptions": {
+    "king_beheaded": "Vanquish Cpt Corvis through combat or checkmate."
+  },
+  "displayedVictoryConditions": ["king_beheaded"]
 }

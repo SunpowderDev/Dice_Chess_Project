@@ -792,6 +792,17 @@ body {
   z-index: 2;
   border-radius: 8px;
 }
+.market-overlay {
+  animation: fadeIn 0.3s ease-in-out;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
 .market-equip-target .chip {
   box-shadow: 0 0 18px 6px rgba(250, 204, 21, 0.75),
     inset 0 2px 0 rgba(255, 255, 255, 0.25);

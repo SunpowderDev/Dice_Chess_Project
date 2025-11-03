@@ -134,5 +134,10 @@
     "Is this a **play**?"
   ],
   "marketEnabled": true,
-  "fogRows": 2
+  "fogRows": 2,
+  "questNarration": "Capture the Pointiff alive to use him as a bargaining chip. Dead, he becomes a martyr; alive, he grants you an army.",
+  "victoryConditionDescriptions": {
+    "king_captured": "Checkmate Pintus IX."
+  },
+  "displayedVictoryConditions": ["king_captured"]
 }
