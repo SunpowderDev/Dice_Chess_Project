@@ -423,7 +423,7 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode, enab
                       <span className={isCompact ? "text-2xl" : "text-4xl"} style={{ animation: `glyphSpin 0.6s ease-out ${idx * 0.15}s both` }}>
                         {outcome.glyph}
                       </span>
-                      <span className={isCompact ? "text-lg" : "text-2xl"}>{outcome.message}</span>
+                      <span className={isCompact ? "text-lg" : "text-2xl"} style={{ fontFamily: 'serif', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>{outcome.message}</span>
                     </div>
                   </div>
                 );
@@ -507,6 +507,7 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode, enab
             }}
             className="story-continue-arrow"
             aria-label="Continue"
+            style={{ fontFamily: 'serif' }}
           >
             <span className="story-continue-text">Continue</span>
             <svg 

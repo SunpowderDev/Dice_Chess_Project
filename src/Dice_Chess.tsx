@@ -7268,7 +7268,7 @@ export default function App() {
       <div className="mt-4 bg-consistent-dark-brown rounded-2xl p-3" style={{
         width: '296px'
       }}>
-        <h2 className="text-2xl font-semibold mb-2 text-white">Move History</h2>
+        <h2 className="text-2xl font-bold mb-2 text-white" style={{ fontFamily: 'serif', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>Move History</h2>
         <div ref={logRef} className="max-h-96 overflow-y-auto pr-2">
           {movePairs.map((pair, index) => {
             const isLastWhiteAnimating =
@@ -7972,7 +7972,7 @@ export default function App() {
 
           <div className="order-3 flex flex-col items-center">
             {/* Add Level indicator - Updated style */}
-            <div className="text-2xl font-bold text-white mb-2">
+            <div className="text-2xl font-bold text-white mb-2" style={{ fontFamily: 'serif', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
               {currentLevelConfig?.name || `Level ${campaign.level}`}
             </div>
             <div className="mb-2 w-full flex justify-center items-center gap-4 text-base">

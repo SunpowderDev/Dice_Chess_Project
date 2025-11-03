@@ -91,7 +91,7 @@ export function Market({
       }}
       className="bg-consistent-dark-brown rounded-2xl p-4 shadow-lg text-white relative"
     >
-      <h2 className="text-2xl font-bold mb-4 text-center">
+      <h2 className="text-2xl font-bold mb-4 text-center" style={{ fontFamily: 'serif', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
         Men-at-Arms Market
       </h2>
       <div className="flex justify-between items-center mb-4 bg-amber-950 p-3 rounded-lg">
