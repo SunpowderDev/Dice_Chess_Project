@@ -59,7 +59,7 @@ export function VictoryPopup({
   return (
     <div className="fixed inset-0 z-50 bg-black/70">
       <div
-        className="bg-zinc-900/90 backdrop-blur rounded-2xl p-4 text-center space-y-3 border border-zinc-700 absolute"
+        className="bg-stone-950/90 backdrop-blur rounded-2xl p-4 text-center space-y-3 border border-amber-900 absolute"
         style={{
           top: winModalPosition.top,
           left: winModalPosition.left,

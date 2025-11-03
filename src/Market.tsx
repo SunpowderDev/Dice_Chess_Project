@@ -89,12 +89,12 @@ export function Market({
         const overTipBtn = el.closest("[data-tip]");
         if (!overTipBtn) hideTooltip();
       }}
-      className="bg-zinc-800 rounded-2xl p-4 shadow-lg text-white relative"
+      className="bg-consistent-dark-brown rounded-2xl p-4 shadow-lg text-white relative"
     >
       <h2 className="text-2xl font-bold mb-4 text-center">
         Men-at-Arms Market
       </h2>
-      <div className="flex justify-between items-center mb-4 bg-zinc-700 p-3 rounded-lg">
+      <div className="flex justify-between items-center mb-4 bg-amber-950 p-3 rounded-lg">
         <span className="font-bold text-lg">Gold to Spend:</span>
         <span className="font-bold text-2xl text-amber-400">
           {marketPoints}g
@@ -102,7 +102,7 @@ export function Market({
       </div>
 
       <div className="mb-4">
-        <h3 className="font-semibold mb-2 border-b border-zinc-600 pb-1">
+        <h3 className="font-semibold mb-2 border-b border-amber-800 pb-1">
           Buy Pieces
         </h3>
           <div className="grid grid-cols-3 gap-2">
@@ -126,7 +126,7 @@ export function Market({
                     // Set the market action (gold and free units will be deducted when placed on board)
                     setMarketAction({ type: "piece", name, isFree: hasFree });
                   }}
-                  className="disabled:opacity-50 disabled:cursor-not-allowed bg-zinc-700 hover:bg-zinc-600 p-2 rounded-lg flex flex-col items-center text-white"
+                  className="disabled:opacity-50 disabled:cursor-not-allowed bg-stone-800 hover:bg-stone-700 p-2 rounded-lg flex flex-col items-center text-white"
                 >
                   <span
                     className="text-4xl"
@@ -153,7 +153,7 @@ export function Market({
       </div>
 
       <div className="mb-4">
-        <h3 className="font-semibold mb-2 border-b border-zinc-600 pb-1">
+        <h3 className="font-semibold mb-2 border-b border-amber-800 pb-1">
           Buy Items
         </h3>
         <div className="grid grid-cols-4 gap-2">
@@ -181,7 +181,7 @@ export function Market({
                   // Set the market action (gold and free items will be deducted when placed on board)
                   setMarketAction({ type: "item", name, isFree: hasFree });
                 }}
-                className="disabled:opacity-50 disabled:cursor-not-allowed bg-zinc-700 hover:bg-zinc-600 p-2 rounded-lg flex flex-col items-center"
+                className="disabled:opacity-50 disabled:cursor-not-allowed bg-stone-800 hover:bg-stone-700 p-2 rounded-lg flex flex-col items-center"
               >
                 <span className="text-2xl">{equipIcon(name)}</span>
                 <span className="text-xs mt-1">
@@ -198,7 +198,7 @@ export function Market({
       </div>
 
       <div className="mb-2">
-        <h3 className="font-semibold mb-2 border-b border-zinc-600 pb-1">
+        <h3 className="font-semibold mb-2 border-b border-amber-800 pb-1">
           Buy Blessings
         </h3>
         <button
@@ -219,7 +219,7 @@ export function Market({
               prayerDice: prev.prayerDice + 1,
             }));
           }}
-          className="w-full disabled:opacity-50 disabled:cursor-not-allowed bg-zinc-700 hover:bg-zinc-600 p-2 rounded-lg flex items-center justify-center text-white"
+          className="w-full disabled:opacity-50 disabled:cursor-not-allowed bg-stone-800 hover:bg-stone-700 p-2 rounded-lg flex items-center justify-center text-white"
         >
           <span className="text-2xl mr-2">🙏</span>
           <span>

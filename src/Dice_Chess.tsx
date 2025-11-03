@@ -15,6 +15,7 @@ import {
   type LevelConfig,
 } from "./levelConfig";
 import StoryCard from "./StoryCard";
+import { MainMenu } from "./MainMenu";
 import type {
   PieceType,
   Color,
@@ -3552,7 +3553,7 @@ function NameInputComponent({
       >
         <form
           onSubmit={handleSubmit}
-          className="flex items-center gap-2 p-2 bg-zinc-800 rounded-lg shadow-lg"
+          className="flex items-center gap-2 p-2 bg-stone-900 rounded-lg shadow-lg"
           onClick={(e) => e.stopPropagation()}
         >
           <input
@@ -3562,7 +3563,7 @@ function NameInputComponent({
             onChange={(e) => setName(e.target.value)}
             placeholder="Unit Name..."
             maxLength={12}
-            className="bg-zinc-900 text-white rounded px-2 py-1 text-sm w-32"
+            className="bg-stone-950 text-white rounded px-2 py-1 text-sm w-32"
           />
           <button
             type="submit"
@@ -3607,7 +3608,7 @@ function SettingsDropdown({
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-lg shadow-lg flex items-center justify-center gap-2"
+        className="w-full px-4 py-3 rounded-xl bg-consistent-dark-brown hover:bg-amber-950 text-white font-bold text-lg shadow-lg flex items-center justify-center gap-2"
         title="Settings"
       >
         <span className="text-2xl">⚙️</span>
@@ -3620,14 +3621,14 @@ function SettingsDropdown({
             className="fixed inset-0 z-40" 
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-800 rounded-xl shadow-2xl border-2 border-zinc-700 overflow-hidden z-50">
+          <div className="absolute top-full left-0 right-0 mt-2 bg-stone-900 rounded-xl shadow-2xl border-2 border-amber-900 overflow-hidden z-50">
             <div className="flex flex-col">
               <button
                 onClick={() => {
                   setShowRules((s) => !s);
                   setIsOpen(false);
                 }}
-                className="px-4 py-3 text-left hover:bg-zinc-700 border-b border-zinc-700"
+                className="px-4 py-3 text-left hover:bg-amber-950 border-b border-amber-900"
               >
                 <span className="text-lg mr-2">📖</span>
                 Game Rules
@@ -3637,13 +3638,13 @@ function SettingsDropdown({
                 onClick={() => {
                   setMuted((m) => !m);
                 }}
-                className="px-4 py-3 text-left hover:bg-zinc-700 border-b border-zinc-700 flex items-center justify-between"
+                className="px-4 py-3 text-left hover:bg-amber-950 border-b border-amber-900 flex items-center justify-between"
               >
                 <span>
                   <span className="text-lg mr-2">{muted ? "🔇" : "🔊"}</span>
                   Sound
                 </span>
-                <span className={`px-2 py-1 rounded text-xs ${muted ? "bg-zinc-600" : "bg-emerald-600"}`}>
+                <span className={`px-2 py-1 rounded text-xs ${muted ? "bg-amber-900" : "bg-emerald-600"}`}>
                   {muted ? "OFF" : "ON"}
                 </span>
               </button>
@@ -3652,13 +3653,13 @@ function SettingsDropdown({
                 onClick={() => {
                   setFastMode((f) => !f);
                 }}
-                className="px-4 py-3 text-left hover:bg-zinc-700 border-b border-zinc-700 flex items-center justify-between"
+                className="px-4 py-3 text-left hover:bg-amber-950 border-b border-amber-900 flex items-center justify-between"
               >
                 <span>
                   <span className="text-lg mr-2">⚡</span>
                   Speed
                 </span>
-                <span className={`px-2 py-1 rounded text-xs ${fastMode ? "bg-emerald-600" : "bg-zinc-600"}`}>
+                <span className={`px-2 py-1 rounded text-xs ${fastMode ? "bg-emerald-600" : "bg-amber-900"}`}>
                   {fastMode ? "FAST" : "NORMAL"}
                 </span>
               </button>
@@ -3667,13 +3668,13 @@ function SettingsDropdown({
                 onClick={() => {
                   setShowBoardTooltips((s) => !s);
                 }}
-                className="px-4 py-3 text-left hover:bg-zinc-700 border-b border-zinc-700 flex items-center justify-between"
+                className="px-4 py-3 text-left hover:bg-amber-950 border-b border-amber-900 flex items-center justify-between"
               >
                 <span>
                   <span className="text-lg mr-2">ℹ️</span>
                   Tooltips
                 </span>
-                <span className={`px-2 py-1 rounded text-xs ${showBoardTooltips ? "bg-blue-600" : "bg-zinc-600"}`}>
+                <span className={`px-2 py-1 rounded text-xs ${showBoardTooltips ? "bg-blue-600" : "bg-amber-900"}`}>
                   {showBoardTooltips ? "ON" : "OFF"}
                 </span>
               </button>
@@ -7122,7 +7123,7 @@ export default function App() {
   const RulesContent = ({ 
     showItemInfo, 
     setShowItemInfo,
-    className = "bg-zinc-900/95 rounded-2xl p-6 max-h-[80vh] overflow-y-auto",
+    className = "bg-stone-950/95 rounded-2xl p-6 max-h-[80vh] overflow-y-auto",
     headingClass = "text-lg"
   }: { 
     showItemInfo: boolean; 
@@ -7172,7 +7173,7 @@ export default function App() {
           Items
           <button
             onClick={() => setShowItemInfo((s) => !s)}
-            className="px-2 py-1 text-xs bg-zinc-700 hover:bg-zinc-600 rounded"
+            className="px-2 py-1 text-xs bg-amber-950 hover:bg-amber-900 rounded"
           >
             {showItemInfo ? "Hide" : "Show"}
           </button>
@@ -7202,7 +7203,7 @@ export default function App() {
           <RulesContent 
             showItemInfo={showItemInfo} 
             setShowItemInfo={setShowItemInfo}
-            className="bg-zinc-900/70 rounded-2xl p-3"
+            className="bg-stone-950/70 rounded-2xl p-3"
             headingClass=""
           />
         )}
@@ -7264,7 +7265,7 @@ export default function App() {
     const lastBlackMoveIndex = findLastIndex(history, (m) => m.color === "b");
 
     return (
-      <div className="mt-4 bg-zinc-900/70 rounded-2xl p-3" style={{
+      <div className="mt-4 bg-consistent-dark-brown rounded-2xl p-3" style={{
         width: '296px'
       }}>
         <h2 className="text-2xl font-semibold mb-2 text-white">Move History</h2>
@@ -7283,9 +7284,9 @@ export default function App() {
             return (
               <div
                 key={pair.turn}
-                className="grid grid-cols-[2rem_1fr_1fr] gap-x-2 items-start border-b border-zinc-700 py-1.5"
+                className="grid grid-cols-[2rem_1fr_1fr] gap-x-2 items-start border-b border-amber-900 py-1.5"
               >
-                <div className="text-sm text-zinc-400 pt-1">{pair.turn}.</div>
+                <div className="text-sm text-amber-200 pt-1">{pair.turn}.</div>
                 <MoveCell move={pair.w} isAnimating={isLastWhiteAnimating} />
                 <MoveCell move={pair.b} isAnimating={isLastBlackAnimating} />
               </div>
@@ -7357,7 +7358,7 @@ export default function App() {
             {
               move.combat.defenderRolls === null ? ( // Obstacle combat check
                 <div className="flex items-center gap-1">
-                  <span className="text-xs text-zinc-500">vs</span>
+                  <span className="text-xs text-amber-300">vs</span>
                   <span
                     className="text-xl"
                     style={{
@@ -7378,7 +7379,7 @@ export default function App() {
                 </div>
               ) : move.combat.defenderRolls ? ( // Piece combat
                 <>
-                  <span className="text-xs text-zinc-500">vs</span>
+                  <span className="text-xs text-amber-300">vs</span>
                   <div className="flex items-center gap-1 bad px-1.5 py-0.5 rounded-md">
                     {move.combat.defenderRolls.map((roll, i) => (
                       <DiceD6
@@ -7401,85 +7402,7 @@ export default function App() {
     );
   };
 
-  const Changelog = () => {
-    const [showChangelog, setShowChangelog] = useState(true);
 
-    return (
-      <div className="space-y-3 mt-4">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-semibold">Changelog</h1>
-          <button
-            onClick={() => setShowChangelog((s) => !s)}
-            className="px-2 py-1 text-xs bg-zinc-700 hover:bg-zinc-600 rounded"
-          >
-            {showChangelog ? "Hide" : "Show"}
-          </button>
-        </div>
-
-        {showChangelog && (
-          <div className="bg-zinc-900/70 rounded-2xl p-3 text-sm space-y-2">
-            <div className="font-semibold text-base pt-2">
-              v0.5 - Story Cards & Roguelike Progression
-            </div>
-            <ul className="ml-5 list-disc space-y-1">
-              <li>
-                <strong>Story Cards:</strong> Interactive story cards at the
-                start of each level with branching dialogue.
-              </li>
-              <li>
-                <strong>Roguelike Progression:</strong> Level-based campaign
-                system with resource management, gold carryover, and ransom
-                system.
-              </li>
-              <li>
-                <strong>Featured Characters:</strong> Custom preconfigured
-                pieces with names, equipment, golden name plates, and contextual
-                speech bubbles.
-              </li>
-              <li>
-                <strong>Text Animations and Sound Effects</strong>
-              </li>
-            </ul>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // Sound effect helper
-  const playButtonSound = () => {
-    try {
-      const audio = new Audio(
-        "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2W67OeeSwwPUKvl8bVjHAU2jdXxz3ktBSh+zPLaizsKFF+z6OyoVRQKRp/g8r5sIQUrgs/y2Ik2CBlmu+znmksNEE6r5fG2YhwGOI3V8c95LQUofsvw2os4ChRgs+jrqFUUCkWd4O++bSEGKoLN8tmJNggaaLvs6Z5MEA9Nq+XytmMcBjiO1PHPeS0FJ37L8NqLOAoUYLPo66hVFApFneHvvmwhBSmCzvHaiTcIGmi77OmeSwwPTqvl8rVkHAU3"
-      );
-      audio.volume = 0.15;
-      audio.play().catch(() => {});
-    } catch (e) {}
-  };
-
-  const IntroPopup = ({ onEnter }: { onEnter: () => void }) => {
-    return (
-      // Adjusted padding-top for vertical centering
-      <div className="fixed inset-0 bg-neutral-950 z-[1000] flex items-start justify-center p-4 pt-20 md:pt-28">
-        {/* Removed transform style that might interfere */}
-        <div className="bg-zinc-900/90 backdrop-blur rounded-2xl p-8 text-center space-y-6 border border-zinc-700 w-full max-w-md mx-auto">
-          <h1 className="text-5xl font-bold text-white">DiceChess Project</h1>
-          <button
-            onClick={() => {
-              playButtonSound();
-              onEnter();
-            }}
-            className="px-10 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-2xl shadow-lg transition-transform hover:scale-105"
-          >
-            ENTER
-          </button>
-          <div className="text-left max-h-[40vh] overflow-y-auto pr-2 rounded-lg border border-zinc-700 p-2 bg-zinc-800/50">
-            <Changelog />
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   const [modalPosition, setModalPosition] = useState<{
     top: number;
@@ -7819,7 +7742,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen text-white p-6 flex items-center justify-center relative">
-      {showIntro && <IntroPopup onEnter={handleIntroComplete} />}
+      {showIntro && <MainMenu onEnter={handleIntroComplete} />}
       {showTransition && (
         <div className="transition-overlay">
           <div className="transition-banner left" />
@@ -7844,12 +7767,12 @@ export default function App() {
           <div className="relative w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setShowRules(false)}
-              className="absolute top-4 right-4 text-white hover:text-gray-300 text-2xl font-bold bg-zinc-800 rounded-full w-8 h-8 flex items-center justify-center z-10"
+              className="absolute top-4 right-4 text-white hover:text-gray-300 text-2xl font-bold bg-stone-900 rounded-full w-8 h-8 flex items-center justify-center z-10"
               aria-label="Close Game Rules"
             >
               ×
             </button>
-            <div className="bg-zinc-900 rounded-2xl p-6 max-h-[85vh] overflow-y-auto border-2 border-zinc-700">
+            <div className="bg-stone-950 rounded-2xl p-6 max-h-[85vh] overflow-y-auto border-2 border-amber-900">
               <h2 className="text-3xl font-bold mb-6 text-center">Game Rules</h2>
               <RulesContent 
                 showItemInfo={showRulesItemInfo}
@@ -7909,7 +7832,7 @@ export default function App() {
             <div className="sticky top-4 flex flex-col gap-4">
               {/* Quest Panel with perspective - aligned with chessboard */}
               <div className="stand">
-                <div className="bg-gradient-to-b from-amber-900/40 via-zinc-900/90 to-zinc-950/95 rounded-lg shadow-2xl border-4 border-amber-700/50 backdrop-blur-sm overflow-hidden">
+                <div className="bg-gradient-to-b from-amber-900/40 via-stone-950/90 to-stone-950/95 rounded-lg shadow-2xl border-4 border-amber-700/50 backdrop-blur-sm overflow-hidden">
                 {/* Decorative Top Border */}
                 <div className="h-2 bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-600"></div>
                 
@@ -7921,7 +7844,7 @@ export default function App() {
                 </div>
                 
                 {/* Quest Narration */}
-                <div className="px-6 py-4 bg-gradient-to-b from-zinc-900/50 to-zinc-900/70">
+                <div className="px-6 py-4 bg-gradient-to-b from-stone-950/50 to-stone-950/70">
                   <p className="text-amber-100 text-sm leading-relaxed text-center italic" style={{ fontFamily: 'serif' }}>
                     {currentLevelConfig?.victoryConditions && (() => {
                       const conditions = currentLevelConfig.victoryConditions;
@@ -8131,7 +8054,7 @@ export default function App() {
         {showMarketConfirm && modalPosition && (
           <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center">
             <div
-              className="bg-zinc-800 rounded-2xl p-6 shadow-lg text-white text-center absolute"
+              className="bg-stone-900 rounded-2xl p-6 shadow-lg text-white text-center absolute"
               style={{
                 top: modalPosition.top,
                 left: modalPosition.left,
@@ -8143,7 +8066,7 @@ export default function App() {
               <div className="flex justify-center gap-4">
                 <button
                   onClick={() => setShowMarketConfirm(false)}
-                  className="px-6 py-2 rounded-lg bg-zinc-600 hover:bg-zinc-500 font-bold"
+                  className="px-6 py-2 rounded-lg bg-amber-900 hover:bg-amber-800 font-bold"
                 >
                   GO BACK
                 </button>
@@ -8179,7 +8102,7 @@ export default function App() {
             onClick={() => handleReroll(false)}
           >
             <div
-              className="bg-zinc-800 rounded-2xl p-5 shadow-lg text-white text-center absolute"
+              className="bg-stone-900 rounded-2xl p-5 shadow-lg text-white text-center absolute"
               style={{
                 top: `${rerollPopupPosition.top}px`,
                 left: `${rerollPopupPosition.left}px`,
@@ -8195,7 +8118,7 @@ export default function App() {
               <div className="flex justify-center gap-4">
                 <button
                   onClick={() => handleReroll(false)}
-                  className="px-5 py-2 rounded-lg bg-zinc-600 hover:bg-zinc-500 font-bold"
+                  className="px-5 py-2 rounded-lg bg-amber-900 hover:bg-amber-800 font-bold"
                 >
                   No
                 </button>
@@ -8221,7 +8144,7 @@ export default function App() {
               }}
             >
               <div
-                className="bg-zinc-800 rounded-2xl p-5 shadow-lg text-white text-center absolute"
+                className="bg-stone-900 rounded-2xl p-5 shadow-lg text-white text-center absolute"
                 style={{
                   top: `${disguisePopupPosition.top}px`,
                   left: `${disguisePopupPosition.left}px`,
@@ -8234,7 +8157,7 @@ export default function App() {
                 <div className="flex justify-center gap-4 mt-4">
                   <button
                     onClick={() => handleDisguiseChoice(false)}
-                    className="px-5 py-2 rounded-lg bg-zinc-600 hover:bg-zinc-500 font-bold"
+                    className="px-5 py-2 rounded-lg bg-amber-900 hover:bg-amber-800 font-bold"
                   >
                     Move as Pawn
                   </button>
