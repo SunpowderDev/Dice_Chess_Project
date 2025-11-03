@@ -159,7 +159,7 @@
   },
   "questNarration": "End Morcant's folly by breaking the Bell of Names and slaying the false Prelate in combat.",
   "victoryConditionDescriptions": {
-    "king_beheaded": "Vanquish Cpt Corvis through combat or checkmate."
+    "king_beheaded": "Vanquish Morcant through combat or checkmate."
   },
   "displayedVictoryConditions": ["king_beheaded"]
 }

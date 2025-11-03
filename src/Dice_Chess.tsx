@@ -3937,7 +3937,10 @@ export default function App() {
   const [marketAction, setMarketAction] = useState<MarketAction>(null);
 
   // Market view visibility state - true = market visible, false = battlefield view
+  // Start with market visible (true) by default
   const [marketViewVisible, setMarketViewVisible] = useState(true);
+  // Deployment completion state - true when deployment is complete and ready for battle
+  const [deploymentComplete, setDeploymentComplete] = useState(false);
 
   // Sell button state
   const [sellButtonPos, setSellButtonPos] = useState<{
@@ -4727,7 +4730,8 @@ export default function App() {
       // Always go to market phase to show victory conditions popup
       // Market component will be hidden if marketEnabled is false
       setPhase("market");
-      setMarketViewVisible(true); // Reset market view to visible when entering market phase
+      setMarketViewVisible(true); // Start with market visible by default
+      setDeploymentComplete(false); // Reset deployment completion when entering market phase
 
       // Medieval transition sound via WebAudio (match 2.5s animation)
       try {
@@ -5223,7 +5227,8 @@ export default function App() {
           // Always go to market phase to show victory conditions popup
           // Market component will be hidden if marketEnabled is false
           setPhase("market");
-          setMarketViewVisible(true); // Reset market view to visible when entering market phase
+          setMarketViewVisible(true); // Start with market visible by default
+          setDeploymentComplete(false); // Reset deployment completion when entering market phase
         }
       }
       
@@ -5521,7 +5526,8 @@ export default function App() {
     // Default phase: market (will show victory conditions popup)
     // Market component will be hidden if marketEnabled is false (will be overridden if story cards exist)
     setPhase("market");
-    setMarketViewVisible(true); // Reset market view to visible when entering market phase
+    setMarketViewVisible(true); // Start with market visible by default
+    setDeploymentComplete(false); // Reset deployment completion when entering market phase
 
     // Set starting gold with carry-over (level-specific starting gold + unspent gold from previous level)
     setMarketPoints(levelConfig.startingGold + currentUnspentGold);
@@ -7130,14 +7136,9 @@ export default function App() {
   }
 
   const handleStartBattle = () => {
-    // Only ask about unspent gold if market is available and there's unspent gold
-    const marketEnabled = currentLevelConfig?.marketEnabled !== false;
-    if (marketPoints !== 0 && marketEnabled) {
-      setShowMarketConfirm(true);
-    } else {
-      setPhase("playing");
-      setMarketViewVisible(true); // Reset market view for next market phase
-    }
+    // Start battle immediately - no confirmation needed (confirmation happens on COMPLETE DEPLOYMENT)
+    setPhase("playing");
+    setMarketViewVisible(true); // Reset to market visible for next market phase
   };
 
   // Shared rules content component
@@ -7235,9 +7236,15 @@ export default function App() {
   const MoveHistoryLog = ({
     history,
     phase,
+    turn,
+    win,
+    phrase,
   }: {
     history: MoveRecord[];
     phase: Phase;
+    turn: Color;
+    win: Color | null;
+    phrase: string | null;
   }) => {
     const logRef = useRef<HTMLDivElement>(null);
     const prevHistoryLengthRef = useRef<number>(0);
@@ -7289,7 +7296,24 @@ export default function App() {
       <div className="mt-4 bg-consistent-dark-brown rounded-2xl p-3" style={{
         width: '296px'
       }}>
-        <h2 className="text-2xl font-bold mb-2 text-white" style={{ fontFamily: 'serif', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>Move History</h2>
+        {/* Your Turn indicator at top */}
+        <div className="mb-2 w-full flex justify-center">
+          <div
+            className={`px-3 py-1 rounded-full font-semibold text-sm ${
+              win
+                ? "bg-gray-200 text-black"
+                : turn === W
+                ? "bg-white text-black"
+                : "bg-gray-700 text-white"
+            }`}
+          >
+            {win
+              ? `Winner: ${win === W ? "White" : "Black"}${phrase ? " — " + phrase : ""}`
+              : turn === W
+              ? "Your Turn — White"
+              : "Bot Turn — Black"}
+          </div>
+        </div>
         <div ref={logRef} className="max-h-96 overflow-y-auto pr-2">
           {movePairs.map((pair, index) => {
             const isLastWhiteAnimating =
@@ -7681,7 +7705,7 @@ export default function App() {
     setStoryCardQueue([]);
     setStoryOutcome(null);
     setPhase("market");
-    setMarketViewVisible(true); // Reset market view to visible when entering market phase
+    setMarketViewVisible(true); // Reset to market visible when entering market phase
     setWin(null);
     setMarketPoints(0);
     setUnspentGold(0);
@@ -7922,23 +7946,48 @@ export default function App() {
                   </div>
                 </div>
                 
-                {/* Start Battle Button with pulsing glow - Only show during market phase */}
+                {/* Complete Deployment / Start Battle Button */}
                 {phase === "market" && (
                   <div className="px-6 pb-6">
-                    <button
-                      ref={startBattleBtnRef}
-                      onClick={() => {
-                        playBattleTrumpet();
-                        handleStartBattle();
-                      }}
-                      className="w-full px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xl shadow-lg relative overflow-hidden"
-                      style={{
-                        animation: 'pulse-glow 2s ease-in-out infinite',
-                        boxShadow: '0 0 20px rgba(16, 185, 129, 0.5), 0 0 40px rgba(16, 185, 129, 0.3)',
-                      }}
-                    >
-                      <span className="relative z-10">START BATTLE</span>
-                    </button>
+                    {!deploymentComplete ? (
+                      // Complete Deployment button - shown during market phase when market is visible
+                      <button
+                        ref={startBattleBtnRef}
+                        onClick={() => {
+                          // Check for unspent gold and show confirmation if needed
+                          const marketEnabled = currentLevelConfig?.marketEnabled !== false;
+                          if (marketPoints !== 0 && marketEnabled) {
+                            setShowMarketConfirm(true);
+                          } else {
+                            setMarketViewVisible(false);
+                            setDeploymentComplete(true);
+                          }
+                        }}
+                        className="w-full px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xl shadow-lg relative overflow-hidden"
+                        style={{
+                          animation: 'pulse-glow-blue 2s ease-in-out infinite',
+                          boxShadow: '0 0 20px rgba(37, 99, 235, 0.5), 0 0 40px rgba(37, 99, 235, 0.3)',
+                        }}
+                      >
+                        <span className="relative z-10">COMPLETE DEPLOYMENT</span>
+                      </button>
+                    ) : (
+                      // Start Battle button - shown after deployment is complete
+                      <button
+                        ref={startBattleBtnRef}
+                        onClick={() => {
+                          playBattleTrumpet();
+                          handleStartBattle();
+                        }}
+                        className="w-full px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xl shadow-lg relative overflow-hidden"
+                        style={{
+                          animation: 'pulse-glow 2s ease-in-out infinite',
+                          boxShadow: '0 0 20px rgba(16, 185, 129, 0.5), 0 0 40px rgba(16, 185, 129, 0.3)',
+                        }}
+                      >
+                        <span className="relative z-10">START BATTLE</span>
+                      </button>
+                    )}
                   </div>
                 )}
                 
@@ -7964,31 +8013,18 @@ export default function App() {
           </div>
 
           <div className="order-3 flex flex-col items-center">
-            {/* Add Level indicator - Updated style */}
-            <div className="text-2xl font-bold text-white mb-2" style={{ fontFamily: 'serif', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
-              {currentLevelConfig?.name || `Level ${campaign.level}`}
-            </div>
-            <div className="mb-2 w-full flex justify-center items-center gap-4 text-base">
-              <div
-                className={`px-3 py-1 rounded-full font-semibold ${
-                  win
-                    ? "bg-gray-200 text-black"
-                    : turn === W
-                    ? "bg-white text-black"
-                    : "bg-gray-700 text-white"
-                }`}
-              >
-                {win
-                  ? `Winner: ${win === W ? "White" : "Black"}${
-                      phrase ? " — " + phrase : ""
-                    }`
-                  : turn === W
-                  ? "Your Turn — White"
-                  : "Bot Turn — Black"}
+            {/* Chapter title and player resources above chessboard */}
+            <div className="w-full flex justify-between items-center mb-2 px-4" style={{ maxWidth: '100%' }}>
+              {/* Chapter title - left aligned */}
+              <div className="text-2xl font-bold text-white" style={{ fontFamily: 'serif', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
+                {currentLevelConfig?.name || `Level ${campaign.level}`}
               </div>
-              <div className="flex items-center gap-2 font-bold text-2xl">
+              {/* Player resources - right aligned */}
+              <div className="flex items-center gap-3 font-bold text-2xl">
                 <span>🙏</span>
                 <span className="text-purple-400">x{prayerDice}</span>
+                <span>💰</span>
+                <span className="text-amber-400">{marketPoints}g</span>
               </div>
             </div>
             <div className="stand" ref={boardRef} style={{ position: 'relative' }}>
@@ -8032,7 +8068,7 @@ export default function App() {
               />
               
               {/* Market Overlay - positioned over the board during market phase */}
-              {phase === "market" && currentLevelConfig?.marketEnabled !== false && (
+              {phase === "market" && currentLevelConfig?.marketEnabled !== false && !deploymentComplete && (
                 <>
                   {marketViewVisible && (
                     <div className="market-overlay" style={{
@@ -8066,36 +8102,43 @@ export default function App() {
                     </div>
                   )}
                   
-                  {!marketViewVisible && (
-                    <div style={{
-                      position: 'absolute',
-                      top: '20px',
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      zIndex: 100
-                    }}>
-                      <button
-                        onClick={() => setMarketViewVisible(true)}
-                        className="px-6 py-3 rounded-lg bg-amber-700 hover:bg-amber-600 text-white font-bold text-lg shadow-lg transition-colors"
-                      >
-                        🛒 MARKET VIEW
-                      </button>
-                    </div>
-                  )}
                 </>
               )}
             </div>
+            
+            {/* Market View / Battlefield View Buttons - Under chessboard */}
+            {phase === "market" && currentLevelConfig?.marketEnabled !== false && !deploymentComplete && (
+              <div className="mt-4 flex justify-center w-full">
+                {marketViewVisible ? (
+                  <button
+                    onClick={() => setMarketViewVisible(false)}
+                    className="px-4 py-3 rounded-lg bg-blue-700 hover:bg-blue-600 text-white font-bold text-lg shadow-lg transition-colors"
+                  >
+                    👁️ BATTLEFIELD VIEW
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setMarketViewVisible(true)}
+                    className="px-4 py-3 rounded-lg bg-amber-700 hover:bg-amber-600 text-white font-bold text-lg shadow-lg transition-colors"
+                  >
+                    👁️ MARKET VIEW
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Move History Column - Right side */}
-          <div className="order-4 w-80 flex-shrink-0 self-start" style={{ marginTop: '70px' }}>
-            <div className="sticky top-4" style={{
-              transform: 'perspective(900px) rotateX(3deg)',
-              transformOrigin: 'center top'
-            }}>
-              <MoveHistoryLog history={moveHistory} phase={phase} />
+          {phase !== "market" && (
+            <div className="order-4 w-80 flex-shrink-0 self-start" style={{ marginTop: '70px' }}>
+              <div className="sticky top-4" style={{
+                transform: 'perspective(900px) rotateX(3deg)',
+                transformOrigin: 'center top'
+              }}>
+                <MoveHistoryLog history={moveHistory} phase={phase} turn={turn} win={win} phrase={phrase} />
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {showMarketConfirm && modalPosition && (
@@ -8109,7 +8152,7 @@ export default function App() {
               }}
             >
               <h3 className="text-xl font-bold mb-4">You have unspent gold!</h3>
-              <p className="mb-6">Are you sure you want to start the battle?</p>
+              <p className="mb-6">Are you sure you want to complete deployment?</p>
               <div className="flex justify-center gap-4">
                 <button
                   onClick={() => setShowMarketConfirm(false)}
@@ -8119,9 +8162,9 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => {
-                    setPhase("playing");
                     setShowMarketConfirm(false);
-                    setMarketViewVisible(true); // Reset market view for next market phase
+                    setMarketViewVisible(false);
+                    setDeploymentComplete(true);
                   }}
                   className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold"
                 >

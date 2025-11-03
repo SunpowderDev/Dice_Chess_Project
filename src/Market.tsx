@@ -93,155 +93,144 @@ export function Market({
       }}
       className="bg-consistent-dark-brown rounded-2xl p-4 shadow-lg text-white relative"
     >
-      <h2 className="text-2xl font-bold mb-4 text-center" style={{ fontFamily: 'serif', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
-        Men-at-Arms Market
-      </h2>
-      <div className="flex justify-between items-center mb-4 bg-amber-950 p-3 rounded-lg">
-        <span className="font-bold text-lg">Gold to Spend:</span>
-        <span className="font-bold text-2xl text-amber-400">
-          {marketPoints}g
-        </span>
-      </div>
-
-      <div className="mb-4">
-        <h3 className="font-semibold mb-2 border-b border-amber-800 pb-1">
-          Buy Pieces
-        </h3>
-          <div className="grid grid-cols-3 gap-2">
-            {pieces.map((name) => {
-              const cost = PIECE_COSTS[name];
-              const freeCount = campaign.freeUnits.get(name) || 0;
-              const hasFree = freeCount > 0;
-              const canAfford = marketPoints >= cost || hasFree;
-              
-              return (
-                <button
-                  key={name}
-                  data-tip
-                  onMouseEnter={() => showTooltip(PIECE_DESCRIPTIONS[name])}
-                  onMouseLeave={hideTooltip}
-                  disabled={!canAfford}
-                  onMouseDown={(e) => {
-                    e.preventDefault(); // Prevent button from taking focus and causing a scroll jump
-                    sfx.purchase();
-                    
-                    // Set the market action (gold and free units will be deducted when placed on board)
-                    setMarketAction({ type: "piece", name, isFree: hasFree });
-                  }}
-                  className="disabled:opacity-50 disabled:cursor-not-allowed bg-stone-800 hover:bg-stone-700 p-2 rounded-lg flex flex-col items-center text-white"
-                >
-                  <span
-                    className="text-4xl"
-                    style={{ textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}
+      <div className="grid grid-cols-2 gap-4">
+        {/* Left Column: Buy Units and Buy Blessings */}
+        <div className="flex flex-col">
+          <div className="mb-4">
+            <h3 className="font-semibold mb-2 border-b border-amber-800 pb-1">
+              Buy Men-at-Arms
+            </h3>
+            <div className="grid grid-cols-3 gap-2">
+              {pieces.map((name) => {
+                const cost = PIECE_COSTS[name];
+                const freeCount = campaign.freeUnits.get(name) || 0;
+                const hasFree = freeCount > 0;
+                const canAfford = marketPoints >= cost || hasFree;
+                
+                return (
+                  <button
+                    key={name}
+                    data-tip
+                    onMouseEnter={() => showTooltip(PIECE_DESCRIPTIONS[name])}
+                    onMouseLeave={hideTooltip}
+                    disabled={!canAfford}
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // Prevent button from taking focus and causing a scroll jump
+                      sfx.purchase();
+                      
+                      // Set the market action (gold and free units will be deducted when placed on board)
+                      setMarketAction({ type: "piece", name, isFree: hasFree });
+                    }}
+                    className="disabled:opacity-50 disabled:cursor-not-allowed bg-stone-800 hover:bg-stone-700 p-2 rounded-lg flex flex-col items-center text-white"
                   >
-                    {/* Safe access to GL */}
-                    {(() => {
-                      const glyphSet = GL[name as keyof typeof GL];
-                      return glyphSet && "w" in glyphSet ? glyphSet["w" as keyof typeof glyphSet] : "?";
-                    })()}
-                  </span>
-                  <span>
-                    {name}{" "}
-                    {hasFree ? (
-                      <span className="text-green-400 font-bold">{freeCount}x</span>
-                    ) : (
-                      <span className="text-amber-400">{cost}g</span>
-                    )}
-                  </span>
-                </button>
-              );
-            })}
+                    <span
+                      className="text-4xl"
+                      style={{ textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}
+                    >
+                      {/* Safe access to GL */}
+                      {(() => {
+                        const glyphSet = GL[name as keyof typeof GL];
+                        return glyphSet && "w" in glyphSet ? glyphSet["w" as keyof typeof glyphSet] : "?";
+                      })()}
+                    </span>
+                    <span>
+                      {name}{" "}
+                      {hasFree ? (
+                        <span className="text-green-400 font-bold">{freeCount}x</span>
+                      ) : (
+                        <span className="text-amber-400">{cost}g</span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-      </div>
 
-      <div className="mb-4">
-        <h3 className="font-semibold mb-2 border-b border-amber-800 pb-1">
-          Buy Items
-        </h3>
-        <div className="grid grid-cols-4 gap-2">
-          {items.map(({ name }) => {
-            const cost = ITEM_COSTS[name as keyof typeof ITEM_COSTS];
-            const freeCount = campaign.freeItems.get(name) || 0;
-            const hasFree = freeCount > 0;
-            const canAfford = marketPoints >= cost || hasFree;
-            
-            return (
-              <button
-                key={name}
-                data-tip
-                onMouseEnter={() =>
-                  showTooltip(
-                    ITEM_DESCRIPTIONS[name as keyof typeof ITEM_DESCRIPTIONS]
-                  )
-                }
-                onMouseLeave={hideTooltip}
-                disabled={!canAfford}
-                onMouseDown={(e) => {
-                  e.preventDefault(); // Prevent button from taking focus and causing a scroll jump
-                  sfx.purchase();
-                  
-                  // Set the market action (gold and free items will be deducted when placed on board)
-                  setMarketAction({ type: "item", name, isFree: hasFree });
-                }}
-                className="disabled:opacity-50 disabled:cursor-not-allowed bg-stone-800 hover:bg-stone-700 p-2 rounded-lg flex flex-col items-center"
-              >
-                <span className="text-2xl">{equipIcon(name)}</span>
-                <span className="text-xs mt-1">
-                  {hasFree ? (
-                    <span className="text-green-400 font-bold">{freeCount}x</span>
-                  ) : (
-                    <span className="text-amber-400">{cost}g</span>
-                  )}
+          <div className="mb-2">
+            <h3 className="font-semibold mb-2 border-b border-amber-800 pb-1">
+              Buy Blessings
+            </h3>
+            <button
+              data-tip
+              onMouseEnter={() => showTooltip(ITEM_DESCRIPTIONS["prayer_die"])}
+              onMouseLeave={hideTooltip}
+              disabled={marketPoints < (campaign.prayerDiceCost ?? ITEM_COSTS["prayer_die"])}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                sfx.purchase();
+                // Prayer die is purchased immediately, so deduct gold here
+                const prayerCost = campaign.prayerDiceCost ?? ITEM_COSTS["prayer_die"];
+                setMarketPoints(prev => prev - prayerCost);
+                setPrayerDice(campaign.prayerDice + 1);
+                // Update campaign state
+                setCampaign((prev) => ({
+                  ...prev,
+                  prayerDice: prev.prayerDice + 1,
+                }));
+              }}
+              className="w-full disabled:opacity-50 disabled:cursor-not-allowed bg-stone-800 hover:bg-stone-700 p-2 rounded-lg flex items-center justify-center text-white"
+            >
+              <span className="text-2xl mr-2">🙏</span>
+              <span>
+                Prayer Die{" "}
+                <span className="text-amber-400">
+                  {campaign.prayerDiceCost ?? ITEM_COSTS["prayer_die"]}g
                 </span>
-              </button>
-            );
-          })}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Right Column: Buy Items */}
+        <div>
+          <div className="mb-4">
+            <h3 className="font-semibold mb-2 border-b border-amber-800 pb-1">
+              Buy Equipment
+            </h3>
+            <div className="grid grid-cols-4 gap-2">
+              {items.map(({ name }) => {
+                const cost = ITEM_COSTS[name as keyof typeof ITEM_COSTS];
+                const freeCount = campaign.freeItems.get(name) || 0;
+                const hasFree = freeCount > 0;
+                const canAfford = marketPoints >= cost || hasFree;
+                
+                return (
+                  <button
+                    key={name}
+                    data-tip
+                    onMouseEnter={() =>
+                      showTooltip(
+                        ITEM_DESCRIPTIONS[name as keyof typeof ITEM_DESCRIPTIONS]
+                      )
+                    }
+                    onMouseLeave={hideTooltip}
+                    disabled={!canAfford}
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // Prevent button from taking focus and causing a scroll jump
+                      sfx.purchase();
+                      
+                      // Set the market action (gold and free items will be deducted when placed on board)
+                      setMarketAction({ type: "item", name, isFree: hasFree });
+                    }}
+                    className="disabled:opacity-50 disabled:cursor-not-allowed bg-stone-800 hover:bg-stone-700 p-2 rounded-lg flex flex-col items-center"
+                  >
+                    <span className="text-2xl">{equipIcon(name)}</span>
+                    <span className="mt-1">
+                      {hasFree ? (
+                        <span className="text-green-400 font-bold">{freeCount}x</span>
+                      ) : (
+                        <span className="text-amber-400">{cost}g</span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="mb-2">
-        <h3 className="font-semibold mb-2 border-b border-amber-800 pb-1">
-          Buy Blessings
-        </h3>
-        <button
-          data-tip
-          onMouseEnter={() => showTooltip(ITEM_DESCRIPTIONS["prayer_die"])}
-          onMouseLeave={hideTooltip}
-          disabled={marketPoints < (campaign.prayerDiceCost ?? ITEM_COSTS["prayer_die"])}
-          onMouseDown={(e) => {
-            e.preventDefault();
-            sfx.purchase();
-            // Prayer die is purchased immediately, so deduct gold here
-            const prayerCost = campaign.prayerDiceCost ?? ITEM_COSTS["prayer_die"];
-            setMarketPoints(prev => prev - prayerCost);
-            setPrayerDice(campaign.prayerDice + 1);
-            // Update campaign state
-            setCampaign((prev) => ({
-              ...prev,
-              prayerDice: prev.prayerDice + 1,
-            }));
-          }}
-          className="w-full disabled:opacity-50 disabled:cursor-not-allowed bg-stone-800 hover:bg-stone-700 p-2 rounded-lg flex items-center justify-center text-white"
-        >
-          <span className="text-2xl mr-2">🙏</span>
-          <span>
-            Prayer Die{" "}
-            <span className="text-amber-400">
-              {campaign.prayerDiceCost ?? ITEM_COSTS["prayer_die"]}g
-            </span>
-          </span>
-        </button>
-      </div>
-
-      {/* Battlefield View Button */}
-      <div className="mt-4 pt-4 border-t border-amber-800">
-        <button
-          onClick={() => setMarketViewVisible(false)}
-          className="w-full px-4 py-3 rounded-lg bg-blue-700 hover:bg-blue-600 text-white font-bold text-lg shadow-lg transition-colors"
-        >
-          ⚔️ BATTLEFIELD VIEW
-        </button>
-      </div>
     </div>
   );
 }
