@@ -4001,6 +4001,9 @@ export default function App() {
   // Track enemy pieces killed this level for ransom
   const [killedEnemyPieces, setKilledEnemyPieces] = useState<KilledPiece[]>([]);
 
+  // Track Courtiers destroyed this level
+  const [destroyedCourtiers, setDestroyedCourtiers] = useState<number>(0);
+
   // Track if we should show the initial victory message or main content
   const [showVictoryDetails, setShowVictoryDetails] = useState(false);
 
@@ -4727,10 +4730,10 @@ export default function App() {
 
       // Since banners start covering the screen, we can change phase immediately
       // The transition will reveal it when banners slide out
-      // Always go to market phase to show victory conditions popup
-      // Market component will be hidden if marketEnabled is false
-      setPhase("market");
-      setMarketViewVisible(true); // Start with market visible by default
+      // Go to market phase or skip to playing if market disabled
+      const marketEnabled = currentLevelConfig?.marketEnabled !== false;
+      setPhase(marketEnabled ? "market" : "playing");
+      setMarketViewVisible(marketEnabled); // Start with market visible by default only if enabled
       setDeploymentComplete(false); // Reset deployment completion when entering market phase
 
       // Medieval transition sound via WebAudio (match 2.5s animation)
@@ -5221,13 +5224,13 @@ export default function App() {
           // Directly transition to next card without clearing
           setCurrentStoryCard(nextCard);
         } else if (shouldStartBattle) {
-          // Clear card and go to market
+          // Clear card and go to market or skip to playing if market disabled
           setCurrentStoryCard(null);
           setStoryCardQueue([]);
-          // Always go to market phase to show victory conditions popup
-          // Market component will be hidden if marketEnabled is false
-          setPhase("market");
-          setMarketViewVisible(true); // Start with market visible by default
+          // Go to market phase or skip to playing if market disabled
+          const marketEnabled = currentLevelConfig?.marketEnabled !== false;
+          setPhase(marketEnabled ? "market" : "playing");
+          setMarketViewVisible(marketEnabled); // Start with market visible by default only if enabled
           setDeploymentComplete(false); // Reset deployment completion when entering market phase
         }
       }
@@ -5523,10 +5526,10 @@ export default function App() {
     // Story cards will be shown after intro via handleIntroComplete
     setCurrentStoryCard(null);
     setStoryCardQueue(levelConfig.storyCards || []);
-    // Default phase: market (will show victory conditions popup)
-    // Market component will be hidden if marketEnabled is false (will be overridden if story cards exist)
-    setPhase("market");
-    setMarketViewVisible(true); // Start with market visible by default
+    // Default phase: market or playing (skip market if disabled)
+    const marketEnabled = levelConfig.marketEnabled !== false;
+    setPhase(marketEnabled ? "market" : "playing");
+    setMarketViewVisible(marketEnabled); // Start with market visible by default only if enabled
     setDeploymentComplete(false); // Reset deployment completion when entering market phase
 
     // Set starting gold with carry-over (level-specific starting gold + unspent gold from previous level)
@@ -5542,6 +5545,7 @@ export default function App() {
     setMoveHistory([]);
     setThisLevelUnlockedItems([]); // Reset unlocked items for new level
     setKilledEnemyPieces([]); // Reset killed enemies for new level
+    setDestroyedCourtiers(0); // Reset Courtiers counter for new level
     setShowVictoryDetails(false); // Reset victory details for new level
   }
 
@@ -6149,6 +6153,12 @@ export default function App() {
       // Check if we're destroying the Bell of Names
       const wasBellDestroyed = O1[to.y][to.x] === "bell";
       
+      // Track Courtiers destroyed by player
+      const destroyedType = O1[to.y][to.x];
+      if (destroyedType === "courtier" && mv.color === W) {
+        setDestroyedCourtiers((prev) => prev + 1);
+      }
+      
       B1[to.y][to.x] = attackerState;
       B1[from.y][from.x] = null;
       O1[to.y][to.x] = "none"; // Remove the obstacle
@@ -6386,6 +6396,25 @@ export default function App() {
             B1[from.y][from.x] = null;
             onPieceDeath(B1, deadAttacker, from, turn); // 🎃 attacker's death
             
+            // Check if the attacker that died is the white King - always a loss
+            if (deadAttacker?.type === "K" && deadAttacker.color === W) {
+              setB(B1);
+              sfx.loseCheckmate();
+              setWin(B);
+              handleLevelCompletion(B, B1);
+              setPhrase("Your King has fallen!");
+              setMoveHistory((hist) => {
+                const newHistory = [...hist];
+                const lastMove = newHistory[newHistory.length - 1];
+                if (lastMove) lastMove.notation += " (Your King has fallen!)";
+                return newHistory;
+              });
+              setFx(null);
+              setRerollState(null);
+              setPhase("playing");
+              return;
+            }
+            
             const bellPhrase = "The Bell of Names shields Morcant!";
             setPhrase(bellPhrase);
             setSpeechBubble({ 
@@ -6530,8 +6559,18 @@ export default function App() {
                 setPhase("playing");
                 return;
               } else {
-                // Player's king died - this shouldn't trigger victory condition check
+                // Player's king died - this is ALWAYS a loss regardless of victory conditions
                 setB(B1);
+                sfx.loseCheckmate();
+                setWin(B);
+                handleLevelCompletion(B, B1);
+                setPhrase("Your King has fallen!");
+                setMoveHistory((hist) => {
+                  const newHistory = [...hist];
+                  const lastMove = newHistory[newHistory.length - 1];
+                  if (lastMove) lastMove.notation += " (Your King has fallen!)";
+                  return newHistory;
+                });
                 setFx(null);
                 setRerollState(null);
                 setPhase("playing");
@@ -6661,8 +6700,18 @@ export default function App() {
                 setPhase("playing");
                 return;
               } else {
-                // Player's own king was killed - this is already a loss
+                // Player's own king was killed - this is ALWAYS a loss regardless of victory conditions
                 setB(B1);
+                sfx.loseCheckmate();
+                setWin(B);
+                handleLevelCompletion(B, B1);
+                setPhrase("Your King has fallen!");
+                setMoveHistory((hist) => {
+                  const newHistory = [...hist];
+                  const lastMove = newHistory[newHistory.length - 1];
+                  if (lastMove) lastMove.notation += " (Your King has fallen!)";
+                  return newHistory;
+                });
                 setFx(null);
                 setRerollState(null);
                 setPhase("playing");
@@ -6722,6 +6771,26 @@ export default function App() {
           // Check for Bell of Names protection (protects black king only)
           if (deadDefender?.type === "K" && deadDefender.color === B && bellOfNamesExists(obstacles, currentBoardSize)) {
             // Black king is protected by the Bell of Names - skull fails to kill him
+            
+            // Check if the attacker that died is the white King - always a loss
+            if (deadAttacker?.type === "K" && deadAttacker.color === W) {
+              setB(B1);
+              sfx.loseCheckmate();
+              setWin(B);
+              handleLevelCompletion(B, B1);
+              setPhrase("Your King has fallen!");
+              setMoveHistory((hist) => {
+                const newHistory = [...hist];
+                const lastMove = newHistory[newHistory.length - 1];
+                if (lastMove) lastMove.notation += " (Your King has fallen!)";
+                return newHistory;
+              });
+              setFx(null);
+              setRerollState(null);
+              setPhase("playing");
+              return;
+            }
+            
             const bellPhrase = "The Bell of Names shields Morcant!";
             setPhrase(bellPhrase);
             setSpeechBubble({ 
@@ -6813,8 +6882,18 @@ export default function App() {
                 setPhase("playing");
                 return;
               } else {
-                // Player's king died - this shouldn't trigger victory condition check
+                // Player's king died - this is ALWAYS a loss regardless of victory conditions
                 setB(B1);
+                sfx.loseCheckmate();
+                setWin(B);
+                handleLevelCompletion(B, B1);
+                setPhrase("Your King has fallen!");
+                setMoveHistory((hist) => {
+                  const newHistory = [...hist];
+                  const lastMove = newHistory[newHistory.length - 1];
+                  if (lastMove) lastMove.notation += " (Your King has fallen!)";
+                  return newHistory;
+                });
                 setFx(null);
                 setRerollState(null);
                 setPhase("playing");
@@ -6870,8 +6949,18 @@ export default function App() {
               setPhase("playing");
               return;
             } else {
-              // Player's king died or some other scenario
+              // Player's king died - this is ALWAYS a loss regardless of victory conditions
               setB(B1);
+              sfx.loseCheckmate();
+              setWin(B);
+              handleLevelCompletion(B, B1);
+              setPhrase("Your King has fallen!");
+              setMoveHistory((hist) => {
+                const newHistory = [...hist];
+                const lastMove = newHistory[newHistory.length - 1];
+                if (lastMove) lastMove.notation += " (Your King has fallen!)";
+                return newHistory;
+              });
               setFx(null);
               setRerollState(null);
               setPhase("playing");
@@ -6956,8 +7045,18 @@ export default function App() {
               setPhase("playing");
               return;
             } else {
-              // Player's king died - already handled as a loss
+              // Player's king died - this is ALWAYS a loss regardless of victory conditions
               setB(B1);
+              sfx.loseCheckmate();
+              setWin(B);
+              handleLevelCompletion(B, B1);
+              setPhrase("Your King has fallen!");
+              setMoveHistory((hist) => {
+                const newHistory = [...hist];
+                const lastMove = newHistory[newHistory.length - 1];
+                if (lastMove) lastMove.notation += " (Your King has fallen!)";
+                return newHistory;
+              });
               setFx(null);
               setRerollState(null);
               setPhase("playing");
@@ -7947,7 +8046,7 @@ export default function App() {
                 </div>
                 
                 {/* Complete Deployment / Start Battle Button */}
-                {phase === "market" && (
+                {phase === "market" && currentLevelConfig?.marketEnabled !== false && (
                   <div className="px-6 pb-6">
                     {!deploymentComplete ? (
                       // Complete Deployment button - shown during market phase when market is visible
@@ -7956,6 +8055,7 @@ export default function App() {
                         onClick={() => {
                           // Check for unspent gold and show confirmation if needed
                           const marketEnabled = currentLevelConfig?.marketEnabled !== false;
+                          // Only show popup if market is enabled AND there's unspent gold
                           if (marketPoints !== 0 && marketEnabled) {
                             setShowMarketConfirm(true);
                           } else {
@@ -8182,6 +8282,7 @@ export default function App() {
           phrase={phrase}
           thisLevelUnlockedItems={thisLevelUnlockedItems}
           killedEnemyPieces={killedEnemyPieces}
+          destroyedCourtiers={destroyedCourtiers}
           handleNextLevel={handleNextLevel}
           handleTryAgain={handleTryAgain}
           winModalPosition={winModalPosition}

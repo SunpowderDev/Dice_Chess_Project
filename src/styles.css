@@ -184,6 +184,9 @@ body {
   background: linear-gradient(180deg, #8b5a2b, #6a553b);
   color: #2a2015;
 }
+.chip.courtier-chip {
+  color: #6b4423; /* Brown color for courtier glyph (black pawn symbol) */
+}
 .chip.stunned-piece {
   opacity: 0.85;
   filter: grayscale(0.4) brightness(0.8);

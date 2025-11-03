@@ -1,5 +1,5 @@
 import React from "react";
-import type { Piece, Equip, Color, KilledPiece } from "./types";
+import type { Equip, Color, KilledPiece } from "./types";
 import { VAL, ITEM_COSTS, GL, ITEM_DESCRIPTIONS } from "./constants";
 
 const equipIcon = (e: Equip) =>
@@ -37,6 +37,7 @@ interface VictoryPopupProps {
   phrase: string | null;
   thisLevelUnlockedItems: Exclude<Equip, undefined>[];
   killedEnemyPieces: KilledPiece[];
+  destroyedCourtiers: number;
   handleNextLevel: () => void;
   handleTryAgain: () => void;
   winModalPosition: { top: number; left: number } | null;
@@ -48,6 +49,7 @@ export function VictoryPopup({
   phrase,
   thisLevelUnlockedItems,
   killedEnemyPieces,
+  destroyedCourtiers,
   handleNextLevel,
   handleTryAgain,
   winModalPosition,
@@ -168,7 +170,8 @@ export function VictoryPopup({
                   0
                 );
 
-                const totalGold = ransomGold + purseGold + kingGold;
+                const casualtiesPenalty = destroyedCourtiers * 5;
+                const totalGold = ransomGold + purseGold + kingGold - casualtiesPenalty;
 
                 return (
                   <div className="mb-4 bg-gradient-to-r from-yellow-600 to-yellow-800 p-3 rounded-xl">
@@ -196,12 +199,26 @@ export function VictoryPopup({
                           )}
                         </span>
                       ))}
+                      {Array.from({ length: destroyedCourtiers }).map((_, index) => (
+                        <span
+                          key={`courtier-${index}`}
+                          style={{ animationDelay: `${(killedEnemyPieces.length + index) * 100}ms` }}
+                          className="animate-fade-in relative"
+                        >
+                          <span 
+                            className="chip pb courtier-chip"
+                            style={{ width: '48px', height: '48px', fontSize: '40px' }}
+                          >
+                            {GL.COURTIER.n}
+                          </span>
+                        </span>
+                      ))}
                     </div>
                     <div className="text-sm text-yellow-200 mt-2 space-y-1">
-                      {/* Show pieces ransom if any regular pieces were killed */}
+                      {/* Show units ransom if any regular pieces were killed */}
                       {ransomGold > 0 && (
                         <div>
-                          Pieces Ransom: {ransomGold}g
+                          Units Ransom: {ransomGold}g
                         </div>
                       )}
                       
@@ -228,6 +245,13 @@ export function VictoryPopup({
                             }
                             return `King: ${kingGold}g`;
                           })()}
+                        </div>
+                      )}
+                      
+                      {/* Show peasants casualties if any Courtiers were destroyed */}
+                      {destroyedCourtiers > 0 && (
+                        <div className="text-red-300">
+                          Peasants Casualties: {destroyedCourtiers} (-{casualtiesPenalty}g)
                         </div>
                       )}
                     </div>
