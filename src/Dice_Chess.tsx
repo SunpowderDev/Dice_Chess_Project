@@ -3304,7 +3304,7 @@ function BoardComponent({
                   )}
 
                   {/* 5.5. Bell of Names Protection Indicator */}
-                  {p && p.type === "K" && p.color === B && p.name === "Morcant" && bellOfNamesExists(obstacles, boardSize) && (
+                  {p && p.type === "K" && p.color === B && p.name === "Morcant" && bellOfNamesExists(obstacles, boardSize) && !inFog && (
                     <span
                       className="bell-glyph"
                       onMouseEnter={(e) => {
@@ -3684,7 +3684,7 @@ function SettingsDropdown({
                     handleTryAgain();
                     setIsOpen(false);
                   }}
-                  className="px-4 py-3 text-left hover:bg-zinc-700"
+                  className="px-4 py-3 text-left bg-red-600 hover:bg-red-700"
                 >
                   <span className="text-lg mr-2">🔄</span>
                   Restart Game
@@ -6072,7 +6072,7 @@ export default function App() {
         setB(B1);
         setWin(W);
         handleLevelCompletion(W, B1);
-        setPhrase("King crossing!");
+        setPhrase("King Crossing!");
         setMoveHistory((hist) => {
           const newHistory = [...hist];
           const lastMove = newHistory[newHistory.length - 1];
@@ -6191,7 +6191,7 @@ export default function App() {
         setB(B1);
         setWin(W);
         handleLevelCompletion(W, B1);
-        setPhrase("King crossing!");
+        setPhrase("King Crossing!");
         setMoveHistory((hist) => {
           const newHistory = [...hist];
           const lastMove = newHistory[newHistory.length - 1];
@@ -6664,7 +6664,7 @@ export default function App() {
             setB(B1);
             setWin(W);
             handleLevelCompletion(W, B1);
-            setPhrase("King crossing!");
+            setPhrase("King Crossing!");
             setMoveHistory((hist) => {
               const newHistory = [...hist];
               const lastMove = newHistory[newHistory.length - 1];
@@ -7818,7 +7818,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white p-6 flex items-center justify-center relative">
+    <div className="min-h-screen text-white p-6 flex items-center justify-center relative">
       {showIntro && <IntroPopup onEnter={handleIntroComplete} />}
       {showTransition && (
         <div className="transition-overlay">

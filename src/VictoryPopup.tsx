@@ -172,7 +172,7 @@ export function VictoryPopup({
 
                 return (
                   <div className="mb-4 bg-gradient-to-r from-yellow-600 to-yellow-800 p-3 rounded-xl">
-                    <div className="font-bold text-white mb-2">Ransom</div>
+                    <div className="font-bold text-white mb-2">Gold Earned</div>
                     <div className="flex flex-wrap justify-center gap-2 mb-2">
                       {killedEnemyPieces.map((killedPiece, index) => (
                         <span
