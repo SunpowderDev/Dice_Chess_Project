@@ -1,5 +1,6 @@
 import React from "react";
 import type { Equip, Color, KilledPiece } from "./types";
+import type { LevelConfig } from "./levelConfig";
 import { VAL, ITEM_COSTS, GL, ITEM_DESCRIPTIONS } from "./constants";
 
 const equipIcon = (e: Equip) =>
@@ -41,6 +42,7 @@ interface VictoryPopupProps {
   handleNextLevel: () => void;
   handleTryAgain: () => void;
   winModalPosition: { top: number; left: number } | null;
+  currentLevelConfig: LevelConfig | null;
 }
 
 export function VictoryPopup({
@@ -53,10 +55,51 @@ export function VictoryPopup({
   handleNextLevel,
   handleTryAgain,
   winModalPosition,
+  currentLevelConfig,
 }: VictoryPopupProps) {
   const W = "w" as const;
 
   if (!win || !winModalPosition) return null;
+
+  // Format victory condition names (same as quest component)
+  const formatVictoryCondition = (condition: string) => {
+    switch (condition) {
+      case "king_beheaded":
+        return "Regicide";
+      case "king_captured":
+        return "King Captured (Checkmate)";
+      case "king_dishonored":
+        return "King Dishonored";
+      case "king_escaped":
+        return "King Crossing";
+      default:
+        return condition;
+    }
+  };
+
+  // Get victory condition description (same as quest component)
+  const getVictoryConditionDescription = (condition: string) => {
+    // Check for level-specific description first
+    if (currentLevelConfig?.victoryConditionDescriptions?.[condition as keyof typeof currentLevelConfig.victoryConditionDescriptions]) {
+      return currentLevelConfig.victoryConditionDescriptions[condition as keyof typeof currentLevelConfig.victoryConditionDescriptions];
+    }
+    // Default descriptions
+    switch (condition) {
+      case "king_beheaded":
+        return "Capture the enemy King in combat";
+      case "king_captured":
+        return "Checkmate the enemy King";
+      case "king_dishonored":
+        return "Capture the enemy King with a Staff";
+      case "king_escaped":
+        return "Bring your King to the golden squares";
+      default:
+        return "";
+    }
+  };
+
+  // Get victory conditions to display (same logic as quest component)
+  const victoryConditions = currentLevelConfig?.displayedVictoryConditions || currentLevelConfig?.victoryConditions || [];
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70">
@@ -82,9 +125,36 @@ export function VictoryPopup({
         {(showVictoryDetails || win !== W) && (
           <>
             {win !== W && (
-              <h2 className="text-2xl font-bold text-red-500 mb-2">
-                RUN ENDED
-              </h2>
+              <>
+                {/* Show victory condition above RUN ENDED */}
+                {victoryConditions.length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex flex-col gap-2 text-sm">
+                      {victoryConditions.map((condition: string, idx: number) => {
+                        const description = getVictoryConditionDescription(condition);
+                        return (
+                          <div key={idx} className="flex flex-col gap-1 bg-black/20 rounded p-2 border border-red-700/30">
+                            <div className="flex items-center gap-2">
+                              <span className="text-red-500 text-lg">✗</span>
+                              <span className="font-semibold text-red-400">
+                                {formatVictoryCondition(condition)}
+                              </span>
+                            </div>
+                            {description && (
+                              <span className="text-gray-300 italic text-xs ml-6">
+                                {description}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                <h2 className="text-2xl font-bold text-red-500 mb-2">
+                  RUN ENDED
+                </h2>
+              </>
             )}
             {win === W && (
               <h2 className="text-2xl font-bold text-green-400 mb-2">
@@ -206,7 +276,7 @@ export function VictoryPopup({
                           className="animate-fade-in relative"
                         >
                           <span 
-                            className="chip pb courtier-chip"
+                            className="obstacle-chip"
                             style={{ width: '48px', height: '48px', fontSize: '40px' }}
                           >
                             {GL.COURTIER.n}
@@ -250,8 +320,8 @@ export function VictoryPopup({
                       
                       {/* Show peasants casualties if any Courtiers were destroyed */}
                       {destroyedCourtiers > 0 && (
-                        <div className="text-red-300">
-                          Peasants Casualties: {destroyedCourtiers} (-{casualtiesPenalty}g)
+                        <div className="text-red-950">
+                          Peasants Casualties: -{casualtiesPenalty}g
                         </div>
                       )}
                     </div>

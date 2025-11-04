@@ -104,7 +104,7 @@
     "white": ["P", "B", "N", "R"]
   },
   "guaranteedPieces": {
-    "black": ["K"],
+    "black": [],
     "white": []
   },
   "terrainMatrix": [

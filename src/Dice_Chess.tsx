@@ -731,6 +731,11 @@ function build(
   
   if (guaranteedPieces && guaranteedPieces.length > 0) {
     for (const gp of guaranteedPieces) {
+      // Skip creating a King if one was already created (from namedPieces or regular king creation)
+      if (gp.type === "K" && kingCreated) {
+        continue; // Skip this guaranteed King since we already have one
+      }
+      
       const piece: Piece = {
         id: id(gp.type),
         type: gp.type,
@@ -1426,6 +1431,39 @@ function moves(
           ) {
             out.push({ x: nx, y: ny });
           }
+        }
+      }
+    }
+  }
+  return out;
+}
+
+// Helper function to get King moves ignoring stun status (for checkmate detection)
+function kingMovesIgnoringStun(
+  b: Board,
+  T: Terrain,
+  O: Obstacle,
+  x: number,
+  y: number,
+  boardSize: number = S
+) {
+  const p = b[y]?.[x]; // Safe navigation
+  if (!p || p.type !== "K") return [];
+  const col = p.color;
+  const out: { x: number; y: number }[] = [];
+  
+  // Get all adjacent squares (King can move one square in any direction)
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      if (dx || dy) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (!inBounds(nx, ny, boardSize)) continue;
+        const t = b[ny]?.[nx]; // Safe navigation
+        const obstacle = O[ny]?.[nx]; // Check for obstacles
+        // Can move to empty squares or attack enemies/obstacles
+        if (obstacle !== "none" || !t || t.color !== col) {
+          out.push({ x: nx, y: ny });
         }
       }
     }
@@ -2129,6 +2167,24 @@ function bot(
         ev.filter((m) => m.score >= best - 0.5)
       );
     } else {
+      // Before declaring checkmate, check if the King has any escape squares available
+      // (ignoring stun status, since stun is temporary and doesn't mean checkmate)
+      if (k) {
+        const kingEscapeSquares = kingMovesIgnoringStun(b, T, O, k.x, k.y, boardSize);
+        for (const escapeSquare of kingEscapeSquares) {
+          const nb = tryMove(b, T, { x: k.x, y: k.y }, escapeSquare);
+          if (!nb) continue;
+          const k2 = findK(nb, c, boardSize);
+          if (!k2) continue; // This move gets king captured, not an evasion
+          if (!threatened(nb, T, O, { x: k2.x, y: k2.y }, opp, boardSize)) {
+            // King has an escape square available, so it's not checkmate
+            // Return null to indicate no moves can be made this turn (due to stun),
+            // but don't declare checkmate
+            return null;
+          }
+        }
+      }
+      // No escape squares available - this is truly checkmate
       return null; // This is checkmate
     }
   }
@@ -3749,6 +3805,8 @@ export default function App() {
 
   const rngRef = useRef<() => number>(() => Math.random());
   const combatIdRef = useRef(0);
+  // Track recently said sentences per piece to avoid repetition
+  const recentSpeechRef = useRef<Map<string, string[]>>(new Map());
   const [Bstate, setB] = useState<Board>(
     () => Array.from({ length: 5 }, () => Array(5).fill(null)) as Board // Start with 5x5 for level 1
   );
@@ -4221,32 +4279,79 @@ export default function App() {
           
           // REMOVED: All enemies wiped bonus logic to see what naturally happens
           
-          // If black is in check and has no moves → checkmate (game ends, player wins)
+          // If black is in check and has no moves → check if it's checkmate
           if (isBlackInCheck) {
-            console.log(">>> TAKING PATH: Black in check with no moves - checkmate");
-            sfx.winCheckmate();
-            setWin(W); // Player wins if bot has no moves and is in check
-            handleLevelCompletion(W, Bstate);
-            setPhrase("King captured! Checkmate!");
-            
-            // Track King defeat for ransom
+            // Before declaring checkmate, check if the King has any escape squares available
+            // (ignoring stun status, since stun is temporary and doesn't mean checkmate)
+            let hasEscapeSquare = false;
             if (kB) {
-              setKilledEnemyPieces((prev) => [
-                ...prev,
-                { piece: kB.p, defeatType: "checkmate" },
-              ]);
-            }
-
-            // Add '#' for checkmate
-            setMoveHistory((hist) => {
-              const newHistory = [...hist];
-              const lastMove = newHistory[newHistory.length - 1];
-              if (lastMove) {
-                lastMove.notation += "#";
+              const kingEscapeSquares = kingMovesIgnoringStun(
+                Bstate,
+                Tstate,
+                obstacles,
+                kB.x,
+                kB.y,
+                currentBoardSize
+              );
+              for (const escapeSquare of kingEscapeSquares) {
+                const nb = tryMove(Bstate, Tstate, { x: kB.x, y: kB.y }, escapeSquare);
+                if (!nb) continue;
+                const k2 = findK(nb, B, currentBoardSize);
+                if (!k2) continue; // This move gets king captured, not an evasion
+                if (!threatened(nb, Tstate, obstacles, { x: k2.x, y: k2.y }, W, currentBoardSize)) {
+                  // King has an escape square available, so it's not checkmate
+                  hasEscapeSquare = true;
+                  break;
+                }
               }
-              return newHistory;
-            });
-            return;
+            }
+            
+            if (!hasEscapeSquare) {
+              // No escape squares available - this is truly checkmate
+              console.log(">>> TAKING PATH: Black in check with no moves - checkmate");
+              sfx.winCheckmate();
+              setWin(W); // Player wins if bot has no moves and is in check
+              handleLevelCompletion(W, Bstate);
+              setPhrase("King captured! Checkmate!");
+              
+              // Track King defeat for ransom
+              if (kB) {
+                setKilledEnemyPieces((prev) => [
+                  ...prev,
+                  { piece: kB.p, defeatType: "checkmate" },
+                ]);
+              }
+
+              // Add '#' for checkmate
+              setMoveHistory((hist) => {
+                const newHistory = [...hist];
+                const lastMove = newHistory[newHistory.length - 1];
+                if (lastMove) {
+                  lastMove.notation += "#";
+                }
+                return newHistory;
+              });
+              return;
+            } else {
+              // King has escape squares but is stunned - skip turn, not checkmate
+              console.log(">>> TAKING PATH: Black in check but King has escape squares (stunned) - skipping turn");
+              setPhrase("Black skipped turn (King stunned)");
+              setMoveHistory((hist) => {
+                const newHistory = [...hist];
+                const lastMove = newHistory[newHistory.length - 1];
+                if (lastMove) {
+                  // Only add skip notation if it's not already there
+                  if (!lastMove.notation.includes("(skip)")) {
+                    lastMove.notation += " (skip)";
+                  }
+                }
+                return newHistory;
+              });
+              // Switch turn back to white after skipping
+              console.log("Setting turn back to WHITE after skip (King stunned in check)");
+              setTurn(W);
+              return;
+            }
           }
           
           // If black is NOT in check and has no moves → skip turn (continue game)
@@ -7118,6 +7223,37 @@ export default function App() {
       }
     }
 
+    // Helper function to select a random sentence avoiding recently used ones
+    const randWithoutRecent = <T extends string>(
+      r: () => number,
+      array: T[],
+      pieceId: string
+    ): T => {
+      const recent = recentSpeechRef.current.get(pieceId) || [];
+      const available = array.filter((item) => !recent.includes(item));
+      
+      // If all sentences have been used, reset and use all of them
+      const candidates = available.length > 0 ? available : array;
+      const selected = candidates[Math.floor(r() * candidates.length)];
+      
+      // Track this sentence as recently used
+      // If we've used all sentences, keep only the last (array.length - 1) to ensure we can still avoid repeats
+      // Otherwise, just add to the list
+      let newRecent: string[];
+      if (recent.length >= array.length - 1) {
+        // We've used most/all sentences, keep only the last (array.length - 1) unique sentences
+        // Remove the selected one if it's already in recent, then add it at the end
+        const filtered = recent.filter((item) => item !== selected);
+        newRecent = [...filtered, selected].slice(-(array.length - 1));
+      } else {
+        // Still have unused sentences, just add to the list
+        newRecent = [...recent, selected];
+      }
+      recentSpeechRef.current.set(pieceId, newRecent);
+      
+      return selected;
+    };
+
     // Flavor text: Decide on the speech bubble content in one atomic step to prevent potential flickering.
     const getSpeechBubbleContent = () => {
       const winner = out.win ? mv : tg;
@@ -7132,11 +7268,11 @@ export default function App() {
 
       // Priority 1: High-impact swing move
       if (swingValue >= 40 && rngRef.current() < 0.75) {
-        const text = rand(rngRef.current, SWING_PHRASES[winnerColor]);
         const king = findK(B1, winnerColor);
         const kingVisible =
           king && visibility(B1, "playing", currentBoardSize, currentLevelConfig?.fogRows ?? 2)[king.y]?.[king.x]; // Safe navigation
         const targetId = king && kingVisible ? king.p.id : winnerFinalId;
+        const text = randWithoutRecent(rngRef.current, SWING_PHRASES[winnerColor], targetId);
         return { text, targetId };
       }
 
@@ -7148,7 +7284,7 @@ export default function App() {
           winner.speechLines &&
           winner.speechLines.length > 0
         ) {
-          const text = rand(rngRef.current, winner.speechLines);
+          const text = randWithoutRecent(rngRef.current, winner.speechLines, winnerFinalId);
           return { text, targetId: winnerFinalId };
         }
 
@@ -7159,10 +7295,10 @@ export default function App() {
           loser.speechLines &&
           loser.speechLines.length > 0
         ) {
-          const text = rand(rngRef.current, loser.speechLines);
           const loserFinalPiece =
             B1[loser === mv ? from.y : to.y]?.[loser === mv ? from.x : to.x];
           const loserFinalId = loserFinalPiece?.id ?? loser.id;
+          const text = randWithoutRecent(rngRef.current, loser.speechLines, loserFinalId);
           return { text, targetId: loserFinalId };
         }
 
@@ -7170,20 +7306,22 @@ export default function App() {
 
         if (shouldTaunt) {
           // Winner taunts the named loser
-          const text = rand(
-            rngRef.current,
-            NAMED_PHRASES[winnerColor].taunt
-          ).replace("[UnitName]", loser.name!);
           const king = findK(B1, winnerColor);
           const kingVisible =
             king && visibility(B1, "playing", currentBoardSize, currentLevelConfig?.fogRows ?? 2)[king.y]?.[king.x]; // Safe navigation
           const targetId = king && kingVisible ? king.p.id : winnerFinalId; // Speaker is the winner or their king
+          const text = randWithoutRecent(
+            rngRef.current,
+            NAMED_PHRASES[winnerColor].taunt,
+            targetId
+          ).replace("[UnitName]", loser.name!);
           return { text, targetId };
         } else if (winner.name) {
           // Winner praises themself
-          const text = rand(
+          const text = randWithoutRecent(
             rngRef.current,
-            NAMED_PHRASES[winnerColor].win
+            NAMED_PHRASES[winnerColor].win,
+            winnerFinalId
           ).replace("[UnitName]", winner.name);
           return { text, targetId: winnerFinalId }; // Speaker is the winner (final piece)
         } else if (loser.name) {
@@ -7194,9 +7332,10 @@ export default function App() {
           const kingVisible =
             king && visibility(B1, "playing", currentBoardSize, currentLevelConfig?.fogRows ?? 2)[king.y]?.[king.x]; // Safe navigation
           const speakerId = king && kingVisible ? king.p.id : winnerFinalId;
-          const text = rand(
+          const text = randWithoutRecent(
             rngRef.current,
-            NAMED_PHRASES[loserColor].lose // Use loser's lament phrase
+            NAMED_PHRASES[loserColor].lose, // Use loser's lament phrase
+            speakerId
           ).replace("[UnitName]", loser.name!); // Referencing the loser by name
           return { text, targetId: speakerId }; // Winner/King speaks the lament
         }
@@ -7204,11 +7343,11 @@ export default function App() {
 
       // Priority 3: Generic phrase (50% chance if no swing and no named units)
       if (rngRef.current() < 0.5) {
-        const text = rand(rngRef.current, PHRASES[winnerColor].win);
         const king = findK(B1, winnerColor);
         const kingVisible =
           king && visibility(B1, "playing", currentBoardSize, currentLevelConfig?.fogRows ?? 2)[king.y]?.[king.x]; // Safe navigation
         const targetId = king && kingVisible ? king.p.id : winnerFinalId;
+        const text = randWithoutRecent(rngRef.current, PHRASES[winnerColor].win, targetId);
         return { text, targetId };
       }
 
@@ -8286,6 +8425,7 @@ export default function App() {
           handleNextLevel={handleNextLevel}
           handleTryAgain={handleTryAgain}
           winModalPosition={winModalPosition}
+          currentLevelConfig={currentLevelConfig}
         />
 
         {phase === "awaiting_reroll" && rerollState && rerollPopupPosition && (
