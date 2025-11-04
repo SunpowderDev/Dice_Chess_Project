@@ -94,7 +94,8 @@ export type TutorialType =
   | "exhausted_units"
   | "veterans"
   | "market_buy_pawn"
-  | "market_view_battlefield";
+  | "market_view_battlefield"
+  | "prayer_dice";
 
 export type CampaignState = {
   level: number;

@@ -63,6 +63,11 @@ export const TUTORIAL_CONTENT: Record<TutorialType, {
     body: "Gain information on the battlefield. To avoid ambushes, equip some units with 🔥 Torches to scout ahead and dispel the dark.",
     imageBanner: "/tutorial_ViewBattlefield.png",
   },
+  prayer_dice: {
+    title: "🙏 Pray to the Eye",
+    body: "When a combat fails, you can use a Prayer Die to reroll the dice. This gives you a second chance to turn the tide of battle.",
+    imageBanner: "/tutorial_PrayerDice.png",
+  },
 };
 
 // Helper to get tutorial content by type

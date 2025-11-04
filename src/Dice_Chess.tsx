@@ -4321,6 +4321,23 @@ export default function App() {
     }
   }, [Bstate, campaign.tutorialsSeen, pausedForTutorial, phase, currentBoardSize, showTutorial, enableTutorialPopups]);
 
+  // Tutorial: Prayer Die - trigger when Prayer Die popup first appears
+  useEffect(() => {
+    if (enableTutorialPopups && 
+        phase === "awaiting_reroll" && 
+        rerollState &&
+        !campaign.tutorialsSeen.includes("prayer_dice") && 
+        !pausedForTutorial &&
+        !currentTutorial) {
+      // Small delay to ensure reroll popup position is calculated
+      const timer = setTimeout(() => {
+        // Center the popup (similar to market tutorials)
+        showTutorial("prayer_dice");
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [phase, rerollState, campaign.tutorialsSeen, pausedForTutorial, currentTutorial, enableTutorialPopups, showTutorial]);
+
   // Tutorial: Market Buy Pawn - trigger when Market first opens in level 2
   useEffect(() => {
     if (enableTutorialPopups && 
@@ -5070,6 +5087,30 @@ export default function App() {
     let availableSlots = 0;
     for (let x = 0; x < boardSize; x++) {
       if (board[row]?.[x] === null && obstacles[row]?.[x] === "none") availableSlots++;
+    }
+
+    // If we have preconfigured pieces that need placement but not enough slots,
+    // make room by temporarily removing non-preconfigured pieces from the board
+    const preconfiguredToPlace = unplacedPieces.filter(p => p.isPreconfigured || p.type === "K");
+    if (preconfiguredToPlace.length > 0 && availableSlots < preconfiguredToPlace.length) {
+      // Collect non-preconfigured pieces that we can temporarily remove
+      const removablePieces: { piece: Piece; x: number }[] = [];
+      for (let x = 0; x < boardSize; x++) {
+        const piece = board[row]?.[x];
+        if (piece && !piece.isPreconfigured && piece.type !== "K" && obstacles[row]?.[x] === "none") {
+          removablePieces.push({ piece, x });
+        }
+      }
+      
+      // Remove enough pieces to make room for all preconfigured pieces
+      const piecesToRemove = Math.min(
+        removablePieces.length,
+        preconfiguredToPlace.length - availableSlots
+      );
+      for (let i = 0; i < piecesToRemove; i++) {
+        board[row][removablePieces[i].x] = null;
+        availableSlots++;
+      }
     }
 
     // If we have more unplaced pieces than slots, we need to sacrifice lower-priority pieces
@@ -8733,8 +8774,10 @@ export default function App() {
         {/* Mechanic Tutorial Popups */}
         {currentTutorial && tutorialPosition && (() => {
           const content = getTutorialContent(currentTutorial);
-          // Market tutorials should be centered (no arrow)
+          // Market tutorials and prayer dice tutorial should be centered (no arrow)
           const isMarketTutorial = currentTutorial === "market_buy_pawn" || currentTutorial === "market_view_battlefield";
+          const isPrayerDiceTutorial = currentTutorial === "prayer_dice";
+          const shouldCenter = isMarketTutorial || isPrayerDiceTutorial;
           return (
             <TutorialPopup
               message={content.title}
@@ -8742,9 +8785,9 @@ export default function App() {
               onConfirm={closeTutorial}
               confirmText="ONWARD"
               imageBanner={content.imageBanner}
-              position={isMarketTutorial ? undefined : tutorialPosition}
-              centered={isMarketTutorial}
-              arrowTarget={isMarketTutorial ? undefined : tutorialArrowTarget}
+              position={shouldCenter ? undefined : tutorialPosition}
+              centered={shouldCenter}
+              arrowTarget={shouldCenter ? undefined : tutorialArrowTarget}
             />
           );
         })()}
@@ -8763,7 +8806,7 @@ export default function App() {
           currentLevelConfig={currentLevelConfig}
         />
 
-        {phase === "awaiting_reroll" && rerollState && rerollPopupPosition && (
+        {phase === "awaiting_reroll" && rerollState && rerollPopupPosition && !pausedForTutorial && (
           <div
             className="fixed inset-0 bg-black/60 z-[2000]"
             onClick={() => handleReroll(false)}
