@@ -111,6 +111,7 @@ export function Market({
                   <button
                     key={name}
                     data-tip
+                    data-buy-pawn={name === "P" ? "true" : undefined}
                     onMouseEnter={() => showTooltip(PIECE_DESCRIPTIONS[name])}
                     onMouseLeave={hideTooltip}
                     disabled={!canAfford}

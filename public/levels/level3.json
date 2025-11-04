@@ -2,11 +2,11 @@
   "level": 3,
   "name": "Chapter 3: Pilgrim's Pass",
   "boardSize": 7,
-  "startingGold": 100,
-  "enemyPieceGold": 220,
+  "startingGold": 0,
+  "enemyPieceGold": 200,
   "enemyEquipmentGold": 140,
   "enemyPawnBudget": 0.25,
-  "playerPieceGold": 30,
+  "playerPieceGold": 0,
   "playerEquipmentGold": 0,
   "playerPawnBudget": 0.4,
   "botBehavior": "aggressive",
@@ -96,8 +96,8 @@
         "events": [
           { "type": "remove_prayer_die" },
           { "type": "increase_prayer_cost" },
-          { "type": "give_free_unit", "pieceType": "R", "equip": "bow" },
-          { "type": "give_free_unit", "pieceType": "R", "equip": "bow" },
+          { "type": "give_free_unit", "pieceType": "R"},
+          { "type": "give_free_unit", "pieceType": "R"},
           { "type": "start_battle" }
         ],
         "overlayColor": "rgba(147, 51, 234, 0.8)"
@@ -106,16 +106,17 @@
         "text": "Disguised entry as pilgrims.",
         "events": [
           { "type": "give_free_item", "item": "disguise", "count": 5 },
+          { "type": "give_gold", "amount": 40 },
           { "type": "start_battle" }
         ],
-        "overlayColor": "rgba(34, 197, 94, 0.8)"
+        "overlayColor": "rgba(234, 179, 8, 0.8)"
       }
     }
   ],
   "availableItems": {
-    "blackRandomization": ["shield", "sword", "bow", "torch", "crystal_ball", "banner"],
-    "whiteRandomization": ["shield", "sword"],
-    "whitePurchase": ["shield", "sword", "bow", "torch", "disguise", "crystal_ball"]
+    "blackRandomization": ["sword", "bow", "crystal_ball", "banner"],
+    "whiteRandomization": [],
+    "whitePurchase": ["disguise", "crystal_ball"]
   },
   "randomizationPieces": {
     "black": ["R", "B", "N", "P"],
@@ -127,7 +128,7 @@
   },
   "terrainMatrix": [
     ["f", "f", "f", "f", "f", "f", "f"],
-    ["W", "W", "_(Courtier)", "_", "_", "W", "W"],
+    ["W", "W", "_", "_", "_", "W", "W"],
     ["W", "W", "_", "_(Courtier)", "_(Courtier)", "W", "W"],
     ["W", "W", "_(Courtier)", "_(Courtier)", "_(Courtier)", "W", "W"],
     ["W(Rock)", "W(Rock)", "_(Gate)", "_(Gate)", "_(Gate)", "W(Rock)", "W(Rock)"],

@@ -6,10 +6,10 @@
   "enemyPieceGold": 220,
   "enemyEquipmentGold": 110,
   "enemyPawnBudget": 0.25,
-  "playerPieceGold": 60,
-  "playerEquipmentGold": 40,
+  "playerPieceGold": 0,
+  "playerEquipmentGold": 0,
   "playerPawnBudget": 0.3,
-  "botBehavior": "balanced",
+  "botBehavior": "defensive",
   "namedWhitePieces": [
     {
       "type": "K",
@@ -87,7 +87,7 @@
       "rightChoice": {
         "text": "Censure and seize tithes",
         "events": [
-          { "type": "give_gold", "amount": 150 },
+          { "type": "give_gold", "amount": 110 },
           { "type": "start_battle" }
         ],
         "overlayColor": "rgba(234, 179, 8, 0.8)"
@@ -95,9 +95,9 @@
     }
   ],
   "availableItems": {
-    "blackRandomization": ["crystal_ball", "disguise", "curse"],
-    "whiteRandomization": ["shield", "sword"],
-    "whitePurchase": ["shield", "sword", "bow", "torch", "banner", "disguise", "crystal_ball"]
+    "blackRandomization": ["crystal_ball", "disguise", "curse", "purse"],
+    "whiteRandomization": [],
+    "whitePurchase": []
   },
   "randomizationPieces": {
     "black": ["B", "Q", "P"],

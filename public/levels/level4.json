@@ -6,8 +6,8 @@
   "enemyPieceGold": 220,
   "enemyEquipmentGold": 110,
   "enemyPawnBudget": 0.25,
-  "playerPieceGold": 60,
-  "playerEquipmentGold": 40,
+  "playerPieceGold": 0,
+  "playerEquipmentGold": 0,
   "playerPawnBudget": 0.3,
   "botBehavior": "defensive",
   "namedWhitePieces": [
@@ -95,9 +95,9 @@
     }
   ],
   "availableItems": {
-    "blackRandomization": ["crystal_ball", "disguise", "curse"],
-    "whiteRandomization": ["shield", "sword"],
-    "whitePurchase": ["shield", "sword", "bow", "torch", "banner", "disguise", "crystal_ball"]
+    "blackRandomization": ["crystal_ball", "disguise", "curse", "purse"],
+    "whiteRandomization": [],
+    "whitePurchase": []
   },
   "randomizationPieces": {
     "black": ["B", "Q", "P"],

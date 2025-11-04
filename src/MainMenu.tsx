@@ -136,15 +136,6 @@ export function MainMenu({ onEnter }: MainMenuProps) {
           >
             <Changelog />
           </div>
-
-          {/* Medieval footer decoration */}
-          <div className="flex items-center justify-center gap-2 text-amber-600 text-2xl opacity-50">
-            <span>⚔</span>
-            <span>🛡</span>
-            <span>👑</span>
-            <span>🛡</span>
-            <span>⚔</span>
-          </div>
         </div>
       </div>
     </div>

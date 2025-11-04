@@ -36,6 +36,7 @@ import type {
   KilledPiece,
   KingDefeatType,
   OutcomeData,
+  TutorialType,
 } from "./types";
 import {
   S,
@@ -56,6 +57,7 @@ import {
 } from "./constants";
 import { Market } from "./Market";
 import { VictoryPopup } from "./VictoryPopup";
+import { TutorialPopup, getTutorialContent } from "./TutorialPopup";
 import "./styles.css";
 
 // --- Error Boundary & Tooltip Components ---
@@ -1912,6 +1914,11 @@ function bot(
           const winProb =
             obstacleWinPercent(b, T, O, p, { x, y }, t, boardSize) / 100;
           sc = winProb * 1 - (1 - winProb) * 0.1; // Small penalty for failure
+          
+          // Defensive bots should avoid attacking rock obstacles
+          if (isDefensive && targetObstacle === "rock") {
+            sc -= 15; // Heavy penalty for defensive bots attacking rocks
+          }
         } else {
           // --- QUIET MOVE SCORING (AI LOGIC UPGRADE) ---
           const nb = tryMove(b, T, { x, y }, t);
@@ -3633,6 +3640,9 @@ function SettingsDropdown({
   setFastMode,
   showBoardTooltips,
   setShowBoardTooltips,
+  enableTutorialPopups,
+  setEnableTutorialPopups,
+  setCampaign,
   handleTryAgain,
   win,
 }: {
@@ -3644,6 +3654,9 @@ function SettingsDropdown({
   setFastMode: (value: boolean | ((prev: boolean) => boolean)) => void;
   showBoardTooltips: boolean;
   setShowBoardTooltips: (value: boolean | ((prev: boolean) => boolean)) => void;
+  enableTutorialPopups: boolean;
+  setEnableTutorialPopups: (value: boolean | ((prev: boolean) => boolean)) => void;
+  setCampaign: React.Dispatch<React.SetStateAction<CampaignState>>;
   handleTryAgain: () => void;
   win: Color | null;
 }) {
@@ -3724,6 +3737,31 @@ function SettingsDropdown({
                 </span>
               </button>
               
+              <button
+                onClick={() => {
+                  const newValue = !enableTutorialPopups;
+                  setEnableTutorialPopups(newValue);
+                  // Save to localStorage
+                  localStorage.setItem("dicechess_tutorial_popups_enabled", String(newValue));
+                  // If enabling, clear tutorialsSeen so they trigger again
+                  if (newValue) {
+                    setCampaign(prev => ({
+                      ...prev,
+                      tutorialsSeen: [],
+                    }));
+                  }
+                }}
+                className="px-4 py-3 text-left hover:bg-amber-950 border-b border-amber-900 flex items-center justify-between"
+              >
+                <span>
+                  <span className="text-lg mr-2">📚</span>
+                  Tutorial Popups
+                </span>
+                <span className={`px-2 py-1 rounded text-xs ${enableTutorialPopups ? "bg-emerald-600" : "bg-amber-900"}`}>
+                  {enableTutorialPopups ? "ON" : "OFF"}
+                </span>
+              </button>
+              
               {!win && (
                 <button
                   onClick={() => {
@@ -3751,6 +3789,10 @@ export default function App() {
   const [muted, setMuted] = useState(false);
   const [fastMode, setFastMode] = useState(false);
   const [showBoardTooltips, setShowBoardTooltips] = useState(true);
+  const [enableTutorialPopups, setEnableTutorialPopups] = useState(() => {
+    const saved = localStorage.getItem("dicechess_tutorial_popups_enabled");
+    return saved !== null ? saved === "true" : true; // Default to enabled
+  });
   const [needsReinit, setNeedsReinit] = useState(false); // Track when board needs re-initialization
   
   // ========== DEV TOOLS - COMMENT OUT BEFORE RELEASE ==========
@@ -3997,8 +4039,6 @@ export default function App() {
   // Market view visibility state - true = market visible, false = battlefield view
   // Start with market visible (true) by default
   const [marketViewVisible, setMarketViewVisible] = useState(true);
-  // Deployment completion state - true when deployment is complete and ready for battle
-  const [deploymentComplete, setDeploymentComplete] = useState(false);
 
   // Sell button state
   const [sellButtonPos, setSellButtonPos] = useState<{
@@ -4022,6 +4062,10 @@ export default function App() {
               : [],
           freeUnits: new Map(parsed.freeUnits || []),
           freeItems: new Map(parsed.freeItems || []),
+          tutorialsSeen:
+            parsed.tutorialsSeen && Array.isArray(parsed.tutorialsSeen)
+              ? parsed.tutorialsSeen
+              : [],
         };
       } catch (e) {
         console.warn("Failed to parse saved campaign state:", e);
@@ -4034,6 +4078,7 @@ export default function App() {
       unlockedItems: [],
       freeUnits: new Map(),
       freeItems: new Map(),
+      tutorialsSeen: [],
     };
   });
 
@@ -4061,6 +4106,238 @@ export default function App() {
 
   // Track Courtiers destroyed this level
   const [destroyedCourtiers, setDestroyedCourtiers] = useState<number>(0);
+
+  // Tutorial state - just track which tutorial is showing
+  const [currentTutorial, setCurrentTutorial] = useState<TutorialType | null>(null);
+  const [tutorialPosition, setTutorialPosition] = useState<{ top: number; left: number } | null>(null);
+  const [tutorialArrowTarget, setTutorialArrowTarget] = useState<string | undefined>(undefined);
+  const [pausedForTutorial, setPausedForTutorial] = useState(false);
+  // Use ref to track pause state for setTimeout checks
+  const pausedForTutorialRef = useRef(false);
+  // Store pending move history to add after tutorial closes
+  const pendingMoveHistoryRef = useRef<MoveRecord | null>(null);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    pausedForTutorialRef.current = pausedForTutorial;
+  }, [pausedForTutorial]);
+
+  // Close tutorial if tutorials are disabled
+  useEffect(() => {
+    if (!enableTutorialPopups && currentTutorial) {
+      setCurrentTutorial(null);
+      setTutorialPosition(null);
+      setPausedForTutorial(false);
+    }
+  }, [enableTutorialPopups, currentTutorial]);
+
+  // Helper function to calculate position above a board square
+  const getBoardSquarePosition = useCallback((x: number, y: number): { top: number; left: number } | null => {
+    if (!boardRef.current) return null;
+    
+    const boardRect = boardRef.current.getBoundingClientRect();
+    // Board square size (88px based on CSS)
+    const tileSize = 88;
+    // Calculate position of the square's center
+    const squareLeft = boardRect.left + (x * tileSize) + (tileSize / 2);
+    const squareTop = boardRect.top + (y * tileSize);
+    
+    // Position popup above the square (offset by popup height)
+    const popupHeight = 400; // Approximate height of tutorial popup
+    const top = squareTop - popupHeight - 20; // 20px gap above square
+    
+    return {
+      left: squareLeft,
+      top: Math.max(20, top), // Ensure popup doesn't go off top of screen
+    };
+  }, []);
+
+  // Helper function to get button position for tutorial popup
+  const getButtonPosition = useCallback((selector: string): { top: number; left: number } | null => {
+    const button = document.querySelector(`[${selector}]`);
+    if (!button) return null;
+    
+    const rect = button.getBoundingClientRect();
+    return {
+      top: rect.top + rect.height / 2,
+      left: rect.left + rect.width / 2,
+    };
+  }, []);
+
+  // Helper function to get position above a button (for popups that should appear above)
+  const getButtonPositionAbove = useCallback((selector: string): { top: number; left: number } | null => {
+    const button = document.querySelector(`[${selector}]`);
+    if (!button) return null;
+    
+    const rect = button.getBoundingClientRect();
+    const popupHeight = 400; // Approximate height of tutorial popup
+    return {
+      top: rect.top - popupHeight - 20, // Position above button with 20px gap
+      left: rect.left + rect.width / 2,
+    };
+  }, []);
+
+  // Helper function to get Market component center position
+  const getMarketCenterPosition = useCallback((): { top: number; left: number } | null => {
+    const marketRoot = document.querySelector('[data-market-root]');
+    if (!marketRoot) return null;
+    
+    const rect = marketRoot.getBoundingClientRect();
+    return {
+      top: rect.top + rect.height / 2,
+      left: rect.left + rect.width / 2,
+    };
+  }, []);
+
+  // Helper function to show a tutorial if not already seen
+  // Returns true if tutorial was shown, false otherwise
+  // skipSeenCheck: if true, shows tutorial even if already seen (for chaining tutorials)
+  // positionAbove: if true, positions popup above the target element instead of at its center
+  const showTutorial = useCallback((type: TutorialType, triggerSquare?: { x: number; y: number }, arrowTarget?: string, skipSeenCheck: boolean = false, positionAbove: boolean = false): boolean => {
+    // Only show if tutorials are enabled
+    if (!enableTutorialPopups) return false;
+    if (!skipSeenCheck && campaign.tutorialsSeen.includes(type)) {
+      return false;
+    }
+    
+    // Calculate position based on tutorial type and parameters
+    let position: { top: number; left: number } | null = null;
+    
+    // Special handling for market tutorials
+    if (type === "market_buy_pawn") {
+      // Center the popup in the Market component
+      position = getMarketCenterPosition();
+    } else if (type === "market_view_battlefield") {
+      // Position above the VIEW BATTLEFIELD button
+      if (arrowTarget) {
+        position = positionAbove ? getButtonPositionAbove(arrowTarget) : getButtonPosition(arrowTarget);
+      }
+    } else if (triggerSquare) {
+      // For board square tutorials
+      position = getBoardSquarePosition(triggerSquare.x, triggerSquare.y);
+    } else if (arrowTarget) {
+      // For other button-targeted tutorials
+      position = positionAbove ? getButtonPositionAbove(arrowTarget) : getButtonPosition(arrowTarget);
+    }
+    
+    // Fallback to center of screen if position calculation fails
+    if (!position) {
+      position = {
+        top: window.innerHeight / 2,
+        left: window.innerWidth / 2,
+      };
+    }
+    
+    setTutorialPosition(position);
+    setCurrentTutorial(type);
+    // Only set arrow target if provided (market_buy_pawn doesn't use arrow)
+    setTutorialArrowTarget(arrowTarget);
+    setPausedForTutorial(true);
+    pausedForTutorialRef.current = true;
+    
+    return true;
+  }, [campaign.tutorialsSeen, enableTutorialPopups, getBoardSquarePosition, getButtonPosition, getButtonPositionAbove, getMarketCenterPosition]);
+
+  // Helper function to close tutorial and mark as seen
+  const closeTutorial = useCallback(() => {
+    if (currentTutorial) {
+      const closedTutorial = currentTutorial;
+      const updatedTutorialsSeen = [...campaign.tutorialsSeen, closedTutorial];
+      
+      setCampaign(prev => ({
+        ...prev,
+        tutorialsSeen: updatedTutorialsSeen,
+      }));
+      setCurrentTutorial(null);
+      setTutorialPosition(null);
+      setTutorialArrowTarget(undefined);
+      setPausedForTutorial(false);
+      pausedForTutorialRef.current = false;
+      
+      // Add any pending move history after tutorial closes
+      if (pendingMoveHistoryRef.current) {
+        const pendingMove = pendingMoveHistoryRef.current;
+        pendingMoveHistoryRef.current = null;
+        setMoveHistory((hist) => [...hist, pendingMove]);
+      }
+      
+      // If we just closed the first market tutorial, show the second one
+      if (closedTutorial === "market_buy_pawn" && 
+          enableTutorialPopups &&
+          !updatedTutorialsSeen.includes("market_view_battlefield") &&
+          phase === "market") {
+        // Small delay to ensure DOM is ready
+        setTimeout(() => {
+          // Position above the VIEW BATTLEFIELD button with arrow pointing at it
+          showTutorial("market_view_battlefield", undefined, "data-view-battlefield", true, true);
+        }, 300);
+      }
+    }
+  }, [currentTutorial, campaign.tutorialsSeen, enableTutorialPopups, phase, showTutorial]);
+
+  // Tutorial: Exhausted Units - trigger when first exhausted piece detected
+  useEffect(() => {
+    if (enableTutorialPopups && !campaign.tutorialsSeen.includes("exhausted_units") && !pausedForTutorial && phase === "playing") {
+      for (let y = 0; y < currentBoardSize; y++) {
+        for (let x = 0; x < currentBoardSize; x++) {
+          const piece = Bstate[y]?.[x];
+          if (piece && piece.isExhausted && piece.stunnedForTurns && piece.stunnedForTurns > 0) {
+            showTutorial("exhausted_units", { x, y });
+            return;
+          }
+        }
+      }
+    }
+  }, [Bstate, campaign.tutorialsSeen, pausedForTutorial, phase, currentBoardSize, showTutorial, enableTutorialPopups]);
+
+  // Tutorial: Stunned Units - trigger when first stunned piece detected (non-exhausted)
+  useEffect(() => {
+    if (enableTutorialPopups && !campaign.tutorialsSeen.includes("stunned_units") && !pausedForTutorial && phase === "playing") {
+      for (let y = 0; y < currentBoardSize; y++) {
+        for (let x = 0; x < currentBoardSize; x++) {
+          const piece = Bstate[y]?.[x];
+          // Only show stunned tutorial if not exhausted (exhausted has its own tutorial)
+          if (piece && piece.stunnedForTurns && piece.stunnedForTurns > 0 && !piece.isExhausted) {
+            showTutorial("stunned_units", { x, y });
+            return;
+          }
+        }
+      }
+    }
+  }, [Bstate, campaign.tutorialsSeen, pausedForTutorial, phase, currentBoardSize, showTutorial, enableTutorialPopups]);
+
+  // Tutorial: Veterans - trigger when first veteran is created
+  useEffect(() => {
+    if (enableTutorialPopups && !campaign.tutorialsSeen.includes("veterans") && !pausedForTutorial && phase === "playing") {
+      for (let y = 0; y < currentBoardSize; y++) {
+        for (let x = 0; x < currentBoardSize; x++) {
+          const piece = Bstate[y]?.[x];
+          if (piece && (piece.kills || 0) >= 5) {
+            showTutorial("veterans", { x, y });
+            return;
+          }
+        }
+      }
+    }
+  }, [Bstate, campaign.tutorialsSeen, pausedForTutorial, phase, currentBoardSize, showTutorial, enableTutorialPopups]);
+
+  // Tutorial: Market Buy Pawn - trigger when Market first opens in level 2
+  useEffect(() => {
+    if (enableTutorialPopups && 
+        campaign.level === 2 && 
+        phase === "market" && 
+        marketViewVisible &&
+        !campaign.tutorialsSeen.includes("market_buy_pawn") && 
+        !pausedForTutorial &&
+        !currentTutorial) {
+      // Small delay to ensure Market UI is rendered
+      const timer = setTimeout(() => {
+        // Center the popup in the Market component (no arrow)
+        showTutorial("market_buy_pawn");
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [campaign.level, phase, marketViewVisible, campaign.tutorialsSeen, pausedForTutorial, currentTutorial, enableTutorialPopups, showTutorial]);
 
   // Track if we should show the initial victory message or main content
   const [showVictoryDetails, setShowVictoryDetails] = useState(false);
@@ -4727,6 +5004,7 @@ export default function App() {
         unlockedItems: prev.unlockedItems || [], // Preserve unlocked items
         freeUnits: prev.freeUnits || new Map(), // Preserve free units
         freeItems: prev.freeItems || new Map(), // Preserve free items
+        tutorialsSeen: prev.tutorialsSeen || [],
       }));
     }
     // If player lost, don't update campaign state (they'll restart from current level)
@@ -4839,7 +5117,6 @@ export default function App() {
       const marketEnabled = currentLevelConfig?.marketEnabled !== false;
       setPhase(marketEnabled ? "market" : "playing");
       setMarketViewVisible(marketEnabled); // Start with market visible by default only if enabled
-      setDeploymentComplete(false); // Reset deployment completion when entering market phase
 
       // Medieval transition sound via WebAudio (match 2.5s animation)
       try {
@@ -5336,7 +5613,6 @@ export default function App() {
           const marketEnabled = currentLevelConfig?.marketEnabled !== false;
           setPhase(marketEnabled ? "market" : "playing");
           setMarketViewVisible(marketEnabled); // Start with market visible by default only if enabled
-          setDeploymentComplete(false); // Reset deployment completion when entering market phase
         }
       }
       
@@ -5635,7 +5911,6 @@ export default function App() {
     const marketEnabled = levelConfig.marketEnabled !== false;
     setPhase(marketEnabled ? "market" : "playing");
     setMarketViewVisible(marketEnabled); // Start with market visible by default only if enabled
-    setDeploymentComplete(false); // Reset deployment completion when entering market phase
 
     // Set starting gold with carry-over (level-specific starting gold + unspent gold from previous level)
     setMarketPoints(levelConfig.startingGold + currentUnspentGold);
@@ -5655,7 +5930,6 @@ export default function App() {
   }
 
   function click(x: number, y: number) {
-    console.log("[CLICK] Clicked at coordinates:", { x, y, boardSize: currentBoardSize });
     if (drag) return;
     if (phase === "market") {
       const B1 = cloneB(Bstate);
@@ -5836,6 +6110,8 @@ export default function App() {
     
     setDrag(null);
     if (fx || win || moveAnim) return;
+    // Block new actions while tutorial is showing (but allow bot moves to complete)
+    if (!isBot && pausedForTutorial) return;
     const p = Bstate[from.y]?.[from.x]; // Safe navigation
     console.log("[PERFORM] Piece at from:", p);
     if (!p) return;
@@ -5991,9 +6267,29 @@ export default function App() {
 
     // Piece vs piece
     if (t) {
+      // Tutorial: Single Combat (first attack - any unit attacking any other unit)
+      let tutorialShown = false;
+      if (!pausedForTutorial && t.color !== p.color) {
+        tutorialShown = showTutorial("single_combat", to) || tutorialShown;
+      }
+
       const dir = p.color === W ? 1 : -1;
       const lanceLungeUsed =
         p.equip === "lance" && to.y === from.y + 2 * dir && to.x === from.x;
+      
+      // Tutorial: King Advantage (first King attack)
+      if (!pausedForTutorial && p.type === "K" && t.color !== p.color) {
+        tutorialShown = showTutorial("king_advantage", to) || tutorialShown;
+      }
+
+      // Tutorial: Supporting Units (first supported attack)
+      if (!pausedForTutorial && t.color !== p.color) {
+        const sup = supportCount(Bstate, Tstate, obstacles, p, from, to, currentBoardSize);
+        if (sup > 0) {
+          tutorialShown = showTutorial("supporting_units", to) || tutorialShown;
+        }
+      }
+      
       if (lanceLungeUsed) sfx.spear();
       const out = resolve(
         rngRef.current,
@@ -6042,7 +6338,12 @@ export default function App() {
         },
         inFog: !vis[to.y]?.[to.x], // Safe navigation
       };
-      setMoveHistory((hist) => [...hist, moveRec]);
+      // If tutorial is showing, defer move history update to prevent flickering
+      if (pausedForTutorialRef.current) {
+        pendingMoveHistoryRef.current = moveRec;
+      } else {
+        setMoveHistory((hist) => [...hist, moveRec]);
+      }
 
       const delay =
         TMG.roll +
@@ -6051,8 +6352,13 @@ export default function App() {
         TMG.total +
         TMG.winnerHold;
 
-      setTimeout(() => {
+      const continueCombat = () => {
         if (combatIdRef.current !== currentCombatId) return;
+        // Check if still paused - if so, wait and check again
+        if (pausedForTutorialRef.current) {
+          setTimeout(continueCombat, 100);
+          return;
+        }
 
         const playerLost =
           (p.color === W && !out.win) || (t.color === W && out.win);
@@ -6121,7 +6427,9 @@ export default function App() {
         } else {
           postAnimation();
         }
-      }, delay);
+      };
+      
+      setTimeout(continueCombat, delay);
       return;
     }
 
@@ -6501,6 +6809,19 @@ export default function App() {
             B1[from.y][from.x] = null;
             onPieceDeath(B1, deadAttacker, from, turn); // 🎃 attacker's death
             
+            // Track killed attacker for ransom (defender's color is the killer)
+            checkUnlockItem(
+              deadAttacker,
+              deadDefender.color as Color,
+              setThisLevelUnlockedItems,
+              setCampaign,
+              campaign,
+              setKilledEnemyPieces,
+              setMarketPoints,
+              setUnspentGold,
+              deadAttacker?.type === "K" ? "beheaded" : undefined
+            );
+            
             // Check if the attacker that died is the white King - always a loss
             if (deadAttacker?.type === "K" && deadAttacker.color === W) {
               setB(B1);
@@ -6563,6 +6884,19 @@ export default function App() {
             setMarketPoints,
             setUnspentGold,
             deadDefender?.type === "K" ? "beheaded" : undefined
+          );
+          
+          // Check if we unlocked an item from attacker (when both die)
+          checkUnlockItem(
+            deadAttacker,
+            tg.color as Color,
+            setThisLevelUnlockedItems,
+            setCampaign,
+            campaign,
+            setKilledEnemyPieces,
+            setMarketPoints,
+            setUnspentGold,
+            deadAttacker?.type === "K" ? "beheaded" : undefined
           );
 
           // Both pieces die, so award a "kill" to both if they had any kills
@@ -6868,6 +7202,19 @@ export default function App() {
         const deadAttacker = B1[from.y][from.x];
         B1[from.y][from.x] = null;
         onPieceDeath(B1, deadAttacker, from, turn); // 🎃 attacker's death
+        
+        // Track killed attacker for ransom (defender's color is the killer)
+        checkUnlockItem(
+          deadAttacker,
+          tg.color as Color,
+          setThisLevelUnlockedItems,
+          setCampaign,
+          campaign,
+          setKilledEnemyPieces,
+          setMarketPoints,
+          setUnspentGold,
+          deadAttacker?.type === "K" ? "beheaded" : undefined
+        );
 
         if (attackerState.equip === "skull") {
           // Kill defender too
@@ -7503,7 +7850,8 @@ export default function App() {
     }, [history]);
 
     const movePairs: { turn: number; w?: MoveRecord; b?: MoveRecord }[] = [];
-    history.forEach((move) => {
+    // Filter out any null/undefined entries before processing
+    history.filter((move): move is MoveRecord => move != null).forEach((move) => {
       let pair = movePairs.find((p) => p.turn === move.turnNumber);
       if (!pair) {
         pair = { turn: move.turnNumber };
@@ -7527,8 +7875,8 @@ export default function App() {
       return -1;
     }
 
-    const lastWhiteMoveIndex = findLastIndex(history, (m) => m.color === "w");
-    const lastBlackMoveIndex = findLastIndex(history, (m) => m.color === "b");
+    const lastWhiteMoveIndex = findLastIndex(history, (m) => m != null && m.color === "w");
+    const lastBlackMoveIndex = findLastIndex(history, (m) => m != null && m.color === "b");
 
     return (
       <div className="mt-4 bg-consistent-dark-brown rounded-2xl p-3" style={{
@@ -7956,6 +8304,7 @@ export default function App() {
       unlockedItems: [],
       freeUnits: new Map(),
       freeItems: new Map(),
+      tutorialsSeen: [],
     });
     // Trigger fresh init
     setSeed(new Date().toISOString() + "-newgame");
@@ -8184,49 +8533,30 @@ export default function App() {
                   </div>
                 </div>
                 
-                {/* Complete Deployment / Start Battle Button */}
+                {/* Start Battle Button */}
                 {phase === "market" && currentLevelConfig?.marketEnabled !== false && (
                   <div className="px-6 pb-6">
-                    {!deploymentComplete ? (
-                      // Complete Deployment button - shown during market phase when market is visible
-                      <button
-                        ref={startBattleBtnRef}
-                        onClick={() => {
-                          // Check for unspent gold and show confirmation if needed
-                          const marketEnabled = currentLevelConfig?.marketEnabled !== false;
-                          // Only show popup if market is enabled AND there's unspent gold
-                          if (marketPoints !== 0 && marketEnabled) {
-                            setShowMarketConfirm(true);
-                          } else {
-                            setMarketViewVisible(false);
-                            setDeploymentComplete(true);
-                          }
-                        }}
-                        className="w-full px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xl shadow-lg relative overflow-hidden"
-                        style={{
-                          animation: 'pulse-glow-blue 2s ease-in-out infinite',
-                          boxShadow: '0 0 20px rgba(37, 99, 235, 0.5), 0 0 40px rgba(37, 99, 235, 0.3)',
-                        }}
-                      >
-                        <span className="relative z-10">COMPLETE DEPLOYMENT</span>
-                      </button>
-                    ) : (
-                      // Start Battle button - shown after deployment is complete
-                      <button
-                        ref={startBattleBtnRef}
-                        onClick={() => {
+                    <button
+                      ref={startBattleBtnRef}
+                      onClick={() => {
+                        // Check for unspent gold and show confirmation if needed
+                        const marketEnabled = currentLevelConfig?.marketEnabled !== false;
+                        // Only show popup if market is enabled AND there's more than 20g unspent
+                        if (marketPoints > 20 && marketEnabled) {
+                          setShowMarketConfirm(true);
+                        } else {
                           playBattleTrumpet();
                           handleStartBattle();
-                        }}
-                        className="w-full px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xl shadow-lg relative overflow-hidden"
-                        style={{
-                          animation: 'pulse-glow 2s ease-in-out infinite',
-                          boxShadow: '0 0 20px rgba(16, 185, 129, 0.5), 0 0 40px rgba(16, 185, 129, 0.3)',
-                        }}
-                      >
-                        <span className="relative z-10">START BATTLE</span>
-                      </button>
-                    )}
+                        }
+                      }}
+                      className="w-full px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xl shadow-lg relative overflow-hidden"
+                      style={{
+                        animation: 'pulse-glow 2s ease-in-out infinite',
+                        boxShadow: '0 0 20px rgba(16, 185, 129, 0.5), 0 0 40px rgba(16, 185, 129, 0.3)',
+                      }}
+                    >
+                      <span className="relative z-10">START BATTLE</span>
+                    </button>
                   </div>
                 )}
                 
@@ -8245,6 +8575,9 @@ export default function App() {
                 setFastMode={setFastMode}
                 showBoardTooltips={showBoardTooltips}
                 setShowBoardTooltips={setShowBoardTooltips}
+                enableTutorialPopups={enableTutorialPopups}
+                setEnableTutorialPopups={setEnableTutorialPopups}
+                setCampaign={setCampaign}
                 handleTryAgain={handleTryAgain}
                 win={win}
               />
@@ -8307,7 +8640,7 @@ export default function App() {
               />
               
               {/* Market Overlay - positioned over the board during market phase */}
-              {phase === "market" && currentLevelConfig?.marketEnabled !== false && !deploymentComplete && (
+              {phase === "market" && currentLevelConfig?.marketEnabled !== false && (
                 <>
                   {marketViewVisible && (
                     <div className="market-overlay" style={{
@@ -8346,14 +8679,15 @@ export default function App() {
             </div>
             
             {/* Market View / Battlefield View Buttons - Under chessboard */}
-            {phase === "market" && currentLevelConfig?.marketEnabled !== false && !deploymentComplete && (
+            {phase === "market" && currentLevelConfig?.marketEnabled !== false && (
               <div className="mt-4 flex justify-center w-full">
                 {marketViewVisible ? (
                   <button
+                    data-view-battlefield="true"
                     onClick={() => setMarketViewVisible(false)}
                     className="px-4 py-3 rounded-lg bg-blue-700 hover:bg-blue-600 text-white font-bold text-lg shadow-lg transition-colors"
                   >
-                    👁️ BATTLEFIELD VIEW
+                    👁️ VIEW BATTLEFIELD
                   </button>
                 ) : (
                   <button
@@ -8369,7 +8703,7 @@ export default function App() {
 
           {/* Move History Column - Right side */}
           {phase !== "market" && (
-            <div className="order-4 w-80 flex-shrink-0 self-start" style={{ marginTop: '70px' }}>
+            <div className="order-4 w-96 flex-shrink-0 self-start" style={{ marginTop: '70px' }}>
               <div className="sticky top-4" style={{
                 transform: 'perspective(900px) rotateX(3deg)',
                 transformOrigin: 'center top'
@@ -8381,38 +8715,39 @@ export default function App() {
         </div>
 
         {showMarketConfirm && modalPosition && (
-          <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center">
-            <div
-              className="bg-stone-900 rounded-2xl p-6 shadow-lg text-white text-center absolute"
-              style={{
-                top: modalPosition.top,
-                left: modalPosition.left,
-                transform: "translate(-50%, -50%)", // Center it based on its own size
-              }}
-            >
-              <h3 className="text-xl font-bold mb-4">You have unspent gold!</h3>
-              <p className="mb-6">Are you sure you want to complete deployment?</p>
-              <div className="flex justify-center gap-4">
-                <button
-                  onClick={() => setShowMarketConfirm(false)}
-                  className="px-6 py-2 rounded-lg bg-amber-900 hover:bg-amber-800 font-bold"
-                >
-                  GO BACK
-                </button>
-                <button
-                  onClick={() => {
-                    setShowMarketConfirm(false);
-                    setMarketViewVisible(false);
-                    setDeploymentComplete(true);
-                  }}
-                  className="px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold"
-                >
-                  BATTLE
-                </button>
-              </div>
-            </div>
-          </div>
+          <TutorialPopup
+            message="You have unspent gold!"
+            subMessage="Are you sure you want to start the battle?"
+            onCancel={() => setShowMarketConfirm(false)}
+            onConfirm={() => {
+              setShowMarketConfirm(false);
+              playBattleTrumpet();
+              handleStartBattle();
+            }}
+            cancelText="GO BACK"
+            confirmText="START BATTLE"
+            position={modalPosition}
+          />
         )}
+
+        {/* Mechanic Tutorial Popups */}
+        {currentTutorial && tutorialPosition && (() => {
+          const content = getTutorialContent(currentTutorial);
+          // Market tutorials should be centered (no arrow)
+          const isMarketTutorial = currentTutorial === "market_buy_pawn" || currentTutorial === "market_view_battlefield";
+          return (
+            <TutorialPopup
+              message={content.title}
+              subMessage={content.body}
+              onConfirm={closeTutorial}
+              confirmText="ONWARD"
+              imageBanner={content.imageBanner}
+              position={isMarketTutorial ? undefined : tutorialPosition}
+              centered={isMarketTutorial}
+              arrowTarget={isMarketTutorial ? undefined : tutorialArrowTarget}
+            />
+          );
+        })()}
 
         {/* Updated Win/Loss Modal */}
         <VictoryPopup

@@ -5,8 +5,8 @@
   "startingGold": 0,
   "enemyPieceGold": 0,
   "enemyEquipmentGold": 10,
-  "playerPieceGold": 50,
-  "playerEquipmentGold": 30,
+  "playerPieceGold": 30,
+  "playerEquipmentGold": 20,
   "botBehavior": "aggressive",
   "whiteKingName": "Eohmer",
   "namedWhitePieces": [
@@ -15,7 +15,7 @@
       "name": "Sir Galahad",
       "equip": "sword",
       "speechLines": [
-        "Protect the king!", "Betrayer!", "Your word is my **command**!", "**Damn** you Ivo!", "Follow me!", "Make space!", "For **Eohmer**!"
+        "Protect the king!", "Betrayer!", "Your word is my **command**!", "**Damn** you knaves!", "Follow me!", "Make space!", "For **Eohmer**!", "**Chaaarge**"
       ]
     }
   ],
@@ -100,7 +100,7 @@
       { "type": "P" },
       { "type": "P" }
     ],
-    "white": []
+    "white": [{ "type": "N" }]
   },
   "victoryConditions": ["king_escaped"],
   "pawnPromotionType": "N",

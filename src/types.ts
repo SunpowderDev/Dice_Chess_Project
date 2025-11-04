@@ -86,6 +86,16 @@ export type KilledPiece = {
   defeatType?: KingDefeatType; // Only for Kings
 };
 
+export type TutorialType =
+  | "single_combat"
+  | "supporting_units"
+  | "king_advantage"
+  | "stunned_units"
+  | "exhausted_units"
+  | "veterans"
+  | "market_buy_pawn"
+  | "market_view_battlefield";
+
 export type CampaignState = {
   level: number;
   whiteRoster: Piece[]; // persisted across levels
@@ -94,6 +104,7 @@ export type CampaignState = {
   freeUnits: Map<PieceType, number>; // free units available to deploy (pieceType -> count)
   freeItems: Map<Exclude<Equip, undefined>, number>; // free items available to deploy (item -> count)
   prayerDiceCost?: number; // custom prayer dice cost (if increased by story event)
+  tutorialsSeen: TutorialType[]; // tutorials shown during campaign
 };
 
 // Story Card System Types
