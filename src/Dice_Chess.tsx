@@ -3020,10 +3020,10 @@ function BoardComponent({
               let terrainTooltip = "";
               if (p && currentTerrain === "water") {
                 terrainGlyph = "💦";
-                terrainTooltip = "💧 -1 Defense";
+                terrainTooltip = "💧 -1 to defense rolls";
               } else if (p && currentTerrain === "forest") {
                 terrainGlyph = "🌲";
-                terrainTooltip = "🌲 +1 Defense";
+                terrainTooltip = "🌲 +1 to defense rolls";
               }
 
               return (

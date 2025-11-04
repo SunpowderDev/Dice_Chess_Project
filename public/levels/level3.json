@@ -9,7 +9,7 @@
   "playerPieceGold": 30,
   "playerEquipmentGold": 0,
   "playerPawnBudget": 0.4,
-  "botBehavior": "balanced",
+  "botBehavior": "aggressive",
   "namedWhitePieces": [
     {
       "type": "K",

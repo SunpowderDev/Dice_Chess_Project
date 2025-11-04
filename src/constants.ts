@@ -247,7 +247,7 @@ export const ITEM_DESCRIPTIONS = {
   sword: "🗡️ Sword: +1 to attack rolls.",
   shield: "🛡️ Shield: +1 to defense rolls.",
   lance:
-    "🐎 Mount: This unit rides a horse and can charge forward 2 squares with Advantage; the mount breaks after use.",
+    "🐎 Mount: Charge forward 2 squares with Advantage; the mount breaks after use.",
   scythe: "🪓Scythe: Always rolls a 6 against pawns.",
   banner: "⚜️ Banner: Friendly pieces within 1 square gain a Shield bonus.",
   curse: "🎃 Curse: When this piece dies, stuns adjacent pieces for 1 turn. Cannot be sold.",
