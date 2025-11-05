@@ -5470,7 +5470,7 @@ export default function App() {
       let shouldStartBattle = false;
       
       // Accumulate all campaign changes to apply in one batch
-      let campaignUpdates: Partial<CampaignState & { pendingEnemyPawns: number; pendingEnemyItemAssignments: Array<{ item: string; count: number }>; pendingEquipmentAssignments: Array<{ pieceName: string; pieceType: PieceType; equip: Exclude<Equip, undefined> }> }> = {};
+      let campaignUpdates: Partial<CampaignState & { pendingEnemyPawns: number; pendingEnemyItemAssignments: Array<{ item: string; count: number }>; pendingEquipmentAssignments: Array<{ pieceName: string; pieceType: PieceType; equip: Exclude<Equip, undefined> }>; pendingPieceSpawns: Array<{ pieceType: PieceType; color: "w" | "b"; x: number; y: number; equip?: Equip }> }> = {};
       
       // Track free units to combine consecutive events of the same type
       let pendingFreeUnit: { pieceType: PieceType; count: number } | null = null;
@@ -5879,6 +5879,34 @@ export default function App() {
             }
             break;
 
+          case "spawn_piece_at_position":
+            {
+              // Store piece spawn to apply during battle initialization
+              if (!campaignUpdates.pendingPieceSpawns) {
+                campaignUpdates.pendingPieceSpawns = [];
+              }
+              campaignUpdates.pendingPieceSpawns.push({
+                pieceType: event.pieceType,
+                color: event.color,
+                x: event.x,
+                y: event.y,
+                equip: event.equip,
+              });
+              
+              // Show outcome message
+              const equipEmoji = event.equip ? equipIcon(event.equip) : "";
+              const equipName = event.equip ? event.equip.charAt(0).toUpperCase() + event.equip.slice(1) : "";
+              const equipText = event.equip ? ` with ${equipEmoji} ${equipName}` : "";
+              outcomes.push({
+                message: `x1 Scout${equipText}`,
+                glyph: "🍀",
+                color: "text-green-100",
+                bgColor: "bg-green-900",
+                borderColor: "border-green-500",
+              });
+            }
+            break;
+
           case "start_battle":
             shouldStartBattle = true;
             break;
@@ -5945,7 +5973,7 @@ export default function App() {
     if (needsReinit && currentLevelConfig) {
       // Only call init if there are actually pending events in the campaign state
       // This ensures we wait for the campaign state to be updated before initializing
-      const hasPendingEvents = (campaign as any).pendingEnemyPawns || (campaign as any).pendingEnemyItemAssignments || (campaign as any).pendingEquipmentAssignments;
+      const hasPendingEvents = (campaign as any).pendingEnemyPawns || (campaign as any).pendingEnemyItemAssignments || (campaign as any).pendingEquipmentAssignments || (campaign as any).pendingPieceSpawns;
       if (hasPendingEvents) {
         init(seed, campaign.level, unspentGold, currentLevelConfig);
         setNeedsReinit(false);
@@ -6082,6 +6110,24 @@ export default function App() {
         }
       }
       
+      // Step 1.7: Spawn pieces at specific positions from story events
+      const pendingPieceSpawns = (campaign as any).pendingPieceSpawns || [];
+      if (pendingPieceSpawns.length > 0) {
+        for (const spawn of pendingPieceSpawns) {
+          // Create the piece and place it at the specified position
+          if (spawn.y >= 0 && spawn.y < boardSize && spawn.x >= 0 && spawn.x < boardSize) {
+            const color = spawn.color === "w" ? W : B;
+            const newPiece: Piece = {
+              id: `${spawn.color}${spawn.pieceType}-${Math.random().toString(36).slice(2, 8)}`,
+              type: spawn.pieceType,
+              color: color,
+              equip: spawn.equip,
+            };
+            B0[spawn.y][spawn.x] = newPiece;
+          }
+        }
+      }
+      
       // Step 2: Filter out namedWhitePieces that already exist in roster (to avoid duplicates)
       const namedPiecesToAdd = levelConfig.namedWhitePieces?.filter(namedPiece => {
         // Check if this named piece already exists on the board
@@ -6206,6 +6252,7 @@ export default function App() {
       delete (newCampaign as any).pendingEnemyPawns;
       delete (newCampaign as any).pendingEnemyItemAssignments;
       delete (newCampaign as any).pendingEquipmentAssignments;
+      delete (newCampaign as any).pendingPieceSpawns;
       return newCampaign;
     });
     

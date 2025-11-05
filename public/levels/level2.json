@@ -97,14 +97,15 @@
         "text": "Publicly expose the betrayer",
         "events": [
           { "type": "assign_item_to_enemy", "item": "bow", "count": 3 },
-          { "type": "give_free_unit", "pieceType": "R" },
+          { "type": "give_free_unit", "pieceType": "R" },        
           { "type": "start_battle" }
         ]
       },
       "rightChoice": {
-        "text": "Take the matter into your own hands.",
+        "text": "Scout ahead and take the matter into your own hands.",
         "events": [
           { "type": "equip_item_to_named_piece", "item": "scythe", "pieceName": "Eohmer", "pieceType": "K" },
+          { "type": "spawn_piece_at_position", "pieceType": "P", "color": "w", "x": 3, "y": 3, "equip": "torch" },
           { "type": "start_battle" }
         ],
         "overlayColor": "rgba(34, 197, 94, 0.8)"
