@@ -102,7 +102,7 @@
         ]
       },
       "rightChoice": {
-        "text": "Attack without ceremony.",
+        "text": "Take the matter into your own hands.",
         "events": [
           { "type": "equip_item_to_named_piece", "item": "scythe", "pieceName": "Eohmer", "pieceType": "K" },
           { "type": "start_battle" }

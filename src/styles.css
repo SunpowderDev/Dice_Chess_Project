@@ -1034,7 +1034,11 @@ body {
   position: relative;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 
+    0 6px 0 rgb(85, 68, 56),
+    0 4px 0 rgba(85, 68, 56),
+    0 2px 0 rgba(85, 68, 56),
+    0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
 .story-card-image-container.idle-hint {
@@ -1509,15 +1513,15 @@ body {
 
 .tutorial-popup-banner {
   width: 100%;
-  height: 200px;
+  height: auto;
   overflow: hidden;
   position: relative;
 }
 
 .tutorial-popup-banner img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  object-fit: contain;
   display: block;
 }
 

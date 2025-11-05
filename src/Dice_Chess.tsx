@@ -2766,6 +2766,8 @@ function BoardComponent({
   currentLevelConfig: any;
 }) {
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
+  const [chipPositions, setChipPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
+  const boardContainerRef = React.useRef<HTMLDivElement>(null);
   const isL = (x: number, y: number) =>
     legal.some((s) => s.x === x && s.y === y);
 
@@ -2782,6 +2784,76 @@ function BoardComponent({
         : { sword: 0, shield: 0, support: 0, terrain: 0 },
     [fx]
   );
+
+  // Collect supporting pieces for visual connection lines
+  const supportingPieces = useMemo(() => {
+    if (!hover || !sel || !board[sel.y]?.[sel.x]) return [];
+    
+    const hoveredAttackTarget =
+      isL(hover.x, hover.y) &&
+      (board[hover.y]?.[hover.x] || obstacles[hover.y]?.[hover.x] !== "none");
+    
+    if (!hoveredAttackTarget) return [];
+    
+    const selectedPiece = board[sel.y]?.[sel.x];
+    if (!selectedPiece) return [];
+    
+    const supporting: { x: number; y: number }[] = [];
+    
+    for (let y = 0; y < boardSize; y++) {
+      for (let x = 0; x < boardSize; x++) {
+        const p = board[y]?.[x];
+        if (
+          p &&
+          p.id !== selectedPiece.id &&
+          p.color === selectedPiece.color &&
+          attacks(board, T, obstacles, x, y, hover.x, hover.y, boardSize)
+        ) {
+          supporting.push({ x, y });
+        }
+      }
+    }
+    
+    return supporting;
+  }, [hover, sel, board, T, obstacles, boardSize, isL]);
+
+  // Calculate chip positions mathematically from grid layout
+  // This avoids measurement issues during animations/transforms
+  useEffect(() => {
+    if (!hover || !sel || supportingPieces.length === 0) {
+      setChipPositions(new Map());
+      return;
+    }
+
+    const positions = new Map<string, { x: number; y: number }>();
+    const tileSize = 88; // Each tile is 88px × 88px
+    const labelOffset = 24; // Horizontal offset for rank labels
+    const halfTile = tileSize / 2; // Center of a tile
+
+    // Calculate supporting piece positions
+    supportingPieces.forEach((support) => {
+      const visualY = boardSize - 1 - support.y;
+      const centerX = labelOffset + support.x * tileSize + halfTile;
+      const centerY = visualY * tileSize + halfTile;
+      
+      positions.set(`support-${support.x}-${support.y}`, {
+        x: centerX,
+        y: centerY,
+      });
+    });
+
+    // Calculate target position
+    const visualY = boardSize - 1 - hover.y;
+    const centerX = labelOffset + hover.x * tileSize + halfTile;
+    const centerY = visualY * tileSize + halfTile;
+    
+    positions.set(`target-${hover.x}-${hover.y}`, {
+      x: centerX,
+      y: centerY,
+    });
+
+    setChipPositions(positions);
+  }, [hover, sel, supportingPieces, boardSize]);
 
   // Generate file labels (A-L for boards up to 12x12)
   const files = "ABCDEFGHIJKL";
@@ -2862,7 +2934,7 @@ function BoardComponent({
   const allVictoryConditions = ["king_captured", "king_beheaded", "king_dishonored", "king_escaped"];
 
   return (
-    <div className="inline-block relative">
+    <div className="inline-block relative" ref={boardContainerRef}>
       <div
         className="grid"
         style={{
@@ -3220,17 +3292,20 @@ function BoardComponent({
                             : ""
                         }`}
                       >
-                        <span
-                          className={`chip ${
-                            p.color === W ? "pw" : p.color === "b" ? "pb" : "pn"
-                          } ${
-                            p.stunnedForTurns && p.stunnedForTurns > 0
-                              ? "stunned-piece"
-                              : ""
-                          } ${p.shadowForTurns && p.shadowForTurns > 0 ? "shadow-piece" : ""}`}
-                        >
-                          {getPieceSymbol(p)}
-                        </span>
+                      <span
+                        data-chip-x={x}
+                        data-chip-y={y}
+                        data-piece-container="true"
+                        className={`chip ${
+                          p.color === W ? "pw" : p.color === "b" ? "pb" : "pn"
+                        } ${
+                          p.stunnedForTurns && p.stunnedForTurns > 0
+                            ? "stunned-piece"
+                            : ""
+                        } ${p.shadowForTurns && p.shadowForTurns > 0 ? "shadow-piece" : ""}`}
+                      >
+                        {getPieceSymbol(p)}
+                      </span>
                         {p.name && (
                           <span
                             className={`piece-name${
@@ -3519,6 +3594,54 @@ function BoardComponent({
           </div>
         </div>
       </div>
+
+      {/* Supporting Attack Lines - Blue lines connecting supporting pieces to target */}
+      {hover &&
+        sel &&
+        supportingPieces.length > 0 &&
+        isL(hover.x, hover.y) &&
+        (board[hover.y]?.[hover.x] || obstacles[hover.y]?.[hover.x] !== "none") &&
+        chipPositions.size > 0 &&
+        boardContainerRef.current && (
+          <svg
+            width={boardContainerRef.current.offsetWidth}
+            height={boardContainerRef.current.offsetHeight}
+            style={{
+              position: "absolute",
+              top: "0px",
+              left: "0px",
+              pointerEvents: "none",
+              zIndex: 2, // Below chips (z-index 3+) but above tiles
+              overflow: "visible",
+            }}
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            {supportingPieces.map((support, idx) => {
+              const supportPos = chipPositions.get(`support-${support.x}-${support.y}`);
+              const targetPos = chipPositions.get(`target-${hover.x}-${hover.y}`);
+              
+              if (!supportPos || !targetPos) return null;
+              
+              // SVG strokes are centered on the path by default
+              // The stroke width extends equally on both sides of the path (10.5px each side for 21px stroke)
+              return (
+                <line
+                  key={`support-line-${support.x}-${support.y}-${idx}`}
+                  x1={supportPos.x}
+                  y1={supportPos.y}
+                  x2={targetPos.x}
+                  y2={targetPos.y}
+                  stroke="#3b82f6"
+                  strokeWidth="21"
+                  strokeOpacity="0.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  shapeRendering="geometricPrecision"
+                />
+              );
+            })}
+          </svg>
+        )}
 
       {/* Sell Button Overlay - Only show during market phase when not deploying an item/piece and market is enabled */}
       {phase === "market" &&
@@ -4110,12 +4233,13 @@ export default function App() {
   // Tutorial state - just track which tutorial is showing
   const [currentTutorial, setCurrentTutorial] = useState<TutorialType | null>(null);
   const [tutorialPosition, setTutorialPosition] = useState<{ top: number; left: number } | null>(null);
-  const [tutorialArrowTarget, setTutorialArrowTarget] = useState<string | undefined>(undefined);
   const [pausedForTutorial, setPausedForTutorial] = useState(false);
   // Use ref to track pause state for setTimeout checks
   const pausedForTutorialRef = useRef(false);
   // Store pending move history to add after tutorial closes
   const pendingMoveHistoryRef = useRef<MoveRecord | null>(null);
+  // Store pending action to execute after tutorial closes
+  const pendingActionRef = useRef<{ from: { x: number; y: number }; to: { x: number; y: number }; isBot: boolean; isDragMove: boolean } | null>(null);
   
   // Keep ref in sync with state
   useEffect(() => {
@@ -4193,7 +4317,7 @@ export default function App() {
   // Returns true if tutorial was shown, false otherwise
   // skipSeenCheck: if true, shows tutorial even if already seen (for chaining tutorials)
   // positionAbove: if true, positions popup above the target element instead of at its center
-  const showTutorial = useCallback((type: TutorialType, triggerSquare?: { x: number; y: number }, arrowTarget?: string, skipSeenCheck: boolean = false, positionAbove: boolean = false): boolean => {
+  const showTutorial = useCallback((type: TutorialType, triggerSquare?: { x: number; y: number }, selector?: string, skipSeenCheck: boolean = false, positionAbove: boolean = false): boolean => {
     // Only show if tutorials are enabled
     if (!enableTutorialPopups) return false;
     if (!skipSeenCheck && campaign.tutorialsSeen.includes(type)) {
@@ -4209,15 +4333,15 @@ export default function App() {
       position = getMarketCenterPosition();
     } else if (type === "market_view_battlefield") {
       // Position above the VIEW BATTLEFIELD button
-      if (arrowTarget) {
-        position = positionAbove ? getButtonPositionAbove(arrowTarget) : getButtonPosition(arrowTarget);
+      if (selector) {
+        position = positionAbove ? getButtonPositionAbove(selector) : getButtonPosition(selector);
       }
     } else if (triggerSquare) {
       // For board square tutorials
       position = getBoardSquarePosition(triggerSquare.x, triggerSquare.y);
-    } else if (arrowTarget) {
+    } else if (selector) {
       // For other button-targeted tutorials
-      position = positionAbove ? getButtonPositionAbove(arrowTarget) : getButtonPosition(arrowTarget);
+      position = positionAbove ? getButtonPositionAbove(selector) : getButtonPosition(selector);
     }
     
     // Fallback to center of screen if position calculation fails
@@ -4230,8 +4354,6 @@ export default function App() {
     
     setTutorialPosition(position);
     setCurrentTutorial(type);
-    // Only set arrow target if provided (market_buy_pawn doesn't use arrow)
-    setTutorialArrowTarget(arrowTarget);
     setPausedForTutorial(true);
     pausedForTutorialRef.current = true;
     
@@ -4239,6 +4361,7 @@ export default function App() {
   }, [campaign.tutorialsSeen, enableTutorialPopups, getBoardSquarePosition, getButtonPosition, getButtonPositionAbove, getMarketCenterPosition]);
 
   // Helper function to close tutorial and mark as seen
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const closeTutorial = useCallback(() => {
     if (currentTutorial) {
       const closedTutorial = currentTutorial;
@@ -4250,7 +4373,6 @@ export default function App() {
       }));
       setCurrentTutorial(null);
       setTutorialPosition(null);
-      setTutorialArrowTarget(undefined);
       setPausedForTutorial(false);
       pausedForTutorialRef.current = false;
       
@@ -4261,6 +4383,17 @@ export default function App() {
         setMoveHistory((hist) => [...hist, pendingMove]);
       }
       
+      // Execute any pending action after tutorial closes
+      if (pendingActionRef.current) {
+        const pendingAction = pendingActionRef.current;
+        pendingActionRef.current = null;
+        // Small delay to ensure UI has updated after tutorial closes
+        setTimeout(() => {
+          // Note: perform is a function declaration defined below, so it's safe to call here
+          perform(pendingAction.from, pendingAction.to, pendingAction.isBot, pendingAction.isDragMove);
+        }, 100);
+      }
+      
       // If we just closed the first market tutorial, show the second one
       if (closedTutorial === "market_buy_pawn" && 
           enableTutorialPopups &&
@@ -4268,7 +4401,7 @@ export default function App() {
           phase === "market") {
         // Small delay to ensure DOM is ready
         setTimeout(() => {
-          // Position above the VIEW BATTLEFIELD button with arrow pointing at it
+          // Position above the VIEW BATTLEFIELD button
           showTutorial("market_view_battlefield", undefined, "data-view-battlefield", true, true);
         }, 300);
       }
@@ -4506,11 +4639,11 @@ export default function App() {
   // Bot Turn Logic - Removed bChk from dependency array
   useEffect(() => {
     if (!win && turn === B && phase === "playing") {
-      // Calculate speech bubble typing delay
+      // Calculate speech bubble typing delay using the ref to avoid re-triggering when bubble clears
       let speechDelay = 0;
-      if (speechBubble && speechBubble.text) {
+      if (speechBubbleRef.current && speechBubbleRef.current.text) {
         // Strip ** markers to get actual character count
-        const cleanText = speechBubble.text.replace(/\*\*/g, "");
+        const cleanText = speechBubbleRef.current.text.replace(/\*\*/g, "");
         // 50ms per character + 500ms extra to let player read the completed bubble
         speechDelay = cleanText.length * 50 + 500;
       }
@@ -4678,7 +4811,8 @@ export default function App() {
       return () => clearTimeout(t);
     }
     // Dependencies now only include things that should trigger the bot's turn
-  }, [turn, Bstate, Tstate, win, phase, TMG.botThink, kB, speechBubble]); // Added speechBubble dependency
+    // Note: speechBubble is NOT in deps - we use speechBubbleRef to check it without re-triggering
+  }, [turn, Bstate, Tstate, win, phase, TMG.botThink, kB]);
 
   const vis = useMemo(
     () => visibility(Bstate, phase, currentBoardSize, currentLevelConfig?.fogRows ?? 2, marketViewVisible, currentLevelConfig?.marketEnabled !== false),
@@ -6308,28 +6442,33 @@ export default function App() {
 
     // Piece vs piece
     if (t) {
-      // Tutorial: Single Combat (first attack - any unit attacking any other unit)
+      // Check for tutorials BEFORE executing combat
       let tutorialShown = false;
-      if (!pausedForTutorial && t.color !== p.color) {
+      if (!isBot && !pausedForTutorial && t.color !== p.color) {
+        // Tutorial: Single Combat (first attack - any unit attacking any other unit)
         tutorialShown = showTutorial("single_combat", to) || tutorialShown;
-      }
+        
+        // Tutorial: King Advantage (first King attack)
+        if (p.type === "K") {
+          tutorialShown = showTutorial("king_advantage", to) || tutorialShown;
+        }
 
-      const dir = p.color === W ? 1 : -1;
-      const lanceLungeUsed =
-        p.equip === "lance" && to.y === from.y + 2 * dir && to.x === from.x;
-      
-      // Tutorial: King Advantage (first King attack)
-      if (!pausedForTutorial && p.type === "K" && t.color !== p.color) {
-        tutorialShown = showTutorial("king_advantage", to) || tutorialShown;
-      }
-
-      // Tutorial: Supporting Units (first supported attack)
-      if (!pausedForTutorial && t.color !== p.color) {
+        // Tutorial: Supporting Units (first supported attack)
         const sup = supportCount(Bstate, Tstate, obstacles, p, from, to, currentBoardSize);
         if (sup > 0) {
           tutorialShown = showTutorial("supporting_units", to) || tutorialShown;
         }
       }
+      
+      // If a tutorial was shown, store this action to execute after tutorial closes
+      if (tutorialShown) {
+        pendingActionRef.current = { from, to, isBot, isDragMove };
+        return;
+      }
+
+      const dir = p.color === W ? 1 : -1;
+      const lanceLungeUsed =
+        p.equip === "lance" && to.y === from.y + 2 * dir && to.x === from.x;
       
       if (lanceLungeUsed) sfx.spear();
       const out = resolve(
@@ -8774,7 +8913,7 @@ export default function App() {
         {/* Mechanic Tutorial Popups */}
         {currentTutorial && tutorialPosition && (() => {
           const content = getTutorialContent(currentTutorial);
-          // Market tutorials and prayer dice tutorial should be centered (no arrow)
+          // Market tutorials and prayer dice tutorial should be centered
           const isMarketTutorial = currentTutorial === "market_buy_pawn" || currentTutorial === "market_view_battlefield";
           const isPrayerDiceTutorial = currentTutorial === "prayer_dice";
           const shouldCenter = isMarketTutorial || isPrayerDiceTutorial;
@@ -8787,7 +8926,6 @@ export default function App() {
               imageBanner={content.imageBanner}
               position={shouldCenter ? undefined : tutorialPosition}
               centered={shouldCenter}
-              arrowTarget={shouldCenter ? undefined : tutorialArrowTarget}
             />
           );
         })()}
@@ -8808,36 +8946,49 @@ export default function App() {
 
         {phase === "awaiting_reroll" && rerollState && rerollPopupPosition && !pausedForTutorial && (
           <div
-            className="fixed inset-0 bg-black/60 z-[2000]"
+            className="fixed inset-0 bg-black/70 z-[2000]"
             onClick={() => handleReroll(false)}
           >
             <div
-              className="bg-stone-900 rounded-2xl p-5 shadow-lg text-white text-center absolute"
+              className="bg-stone-950/90 backdrop-blur rounded-2xl shadow-2xl text-white text-center absolute border-2 border-amber-900/50 overflow-hidden"
               style={{
                 top: `${rerollPopupPosition.top}px`,
                 left: `${rerollPopupPosition.left}px`,
                 transform: "translate(-50%, -50%)",
                 zIndex: 2100,
+                fontFamily: 'Georgia, serif',
+                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.8), 0 0 0 2px rgba(212, 175, 55, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-lg font-bold mb-3">Roll Failed!</h3>
-              <p className="mb-4">
-                Use a Prayer Die to reroll both dice? ({prayerDice} left)
-              </p>
-              <div className="flex justify-center gap-4">
-                <button
-                  onClick={() => handleReroll(false)}
-                  className="px-5 py-2 rounded-lg bg-amber-900 hover:bg-amber-800 font-bold"
-                >
-                  No
-                </button>
-                <button
-                  onClick={() => handleReroll(true)}
-                  className="px-5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 font-bold"
-                >
-                  Yes 🙏
-                </button>
+              <div className="w-full overflow-hidden">
+                <img src="/popup_PrayerDice.png" alt="Prayer Die" className="w-full h-auto object-contain block" />
+              </div>
+              <div className="p-6">
+                <h3 className="text-xl font-bold mb-3 text-amber-200" style={{ fontFamily: 'Georgia, serif', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
+                  Roll Failed!
+                </h3>
+                <p className="mb-5 text-gray-200 italic" style={{ fontFamily: 'Georgia, serif' }}>
+                  Pray to the Eye for divine intervention?
+                  <br />
+                  <span className="text-purple-400 font-semibold">(🙏 x{prayerDice} remaining)</span>
+                </p>
+                <div className="flex justify-center gap-4">
+                  <button
+                    onClick={() => handleReroll(false)}
+                    className="px-6 py-2.5 rounded-lg bg-amber-900/80 hover:bg-amber-800/90 font-bold border border-amber-700/50 transition-colors"
+                    style={{ fontFamily: 'Georgia, serif' }}
+                  >
+                    Decline
+                  </button>
+                  <button
+                    onClick={() => handleReroll(true)}
+                    className="px-6 py-2.5 rounded-lg bg-purple-400 hover:bg-purple-300 text-purple-950 font-bold border border-purple-500/50 transition-colors shadow-lg"
+                    style={{ fontFamily: 'Georgia, serif', boxShadow: '0 4px 12px rgba(167, 139, 250, 0.4)' }}
+                  >
+                    Pray 🙏
+                  </button>
+                </div>
               </div>
             </div>
           </div>
