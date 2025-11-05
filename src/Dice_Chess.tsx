@@ -288,6 +288,8 @@ const inBounds = (x: number, y: number, size: number) =>
   x >= 0 && x < size && y >= 0 && y < size;
 const cheb = (a: { x: number; y: number }, b: { x: number; y: number }) =>
   Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+const manhattan = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+  Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 const cloneB = (b: Board) => b.map((r) => r.map((p) => (p ? { ...p } : null)));
 
 // Campaign utility functions
@@ -1577,7 +1579,7 @@ const visibility = (b: Board, phase: Phase, boardSize: number = S, fogRows: numb
       const R = p.equip === "torch" ? 3 : RAD;
       for (let yy = 0; yy < boardSize; yy++)
         for (let xx = 0; xx < boardSize; xx++)
-          if (v[yy] && cheb({ x, y }, { x: xx, y: yy }) <= R) v[yy][xx] = true; // Safe check
+          if (v[yy] && manhattan({ x, y }, { x: xx, y: yy }) <= R) v[yy][xx] = true; // Safe check - using Manhattan distance so diagonals don't count
       if (v[y]) v[y][x] = true; // Safe check
     }
   return v;
@@ -1616,7 +1618,8 @@ function resolve(
   from: { x: number; y: number },
   to: { x: number; y: number },
   boardSize: number = S,
-  adv: boolean // Advantage flag (usually for attacker King or special items)
+  adv: boolean, // Advantage flag (usually for attacker King or special items)
+  currentLevel?: number // Optional current level for tutorial mechanics
 ) {
   const terrainAtTarget = T[to.y]?.[to.x]; // Safe navigation
   const isTorchAdvantage = a.equip === "torch" && terrainAtTarget === "forest";
@@ -1624,14 +1627,21 @@ function resolve(
   const isVeteranDefender = (d.kills || 0) >= 5;
   const useAdv = a.type === "K" || adv || isTorchAdvantage || isVeteranAttacker;
 
+  // Tutorial mechanic: Force first combat die roll in level 1 to be won by white
+  const tutorialUsed = localStorage.getItem("dicechess_first_combat_tutorial_used") === "true";
+  const isFirstCombatTutorial = 
+    !tutorialUsed && 
+    currentLevel === 1 && 
+    (a.color === W || d.color === W); // White is either attacking or defending
+
   // --- Attacker Roll ---
   let rollsA = [d6(r)];
   if (useAdv) rollsA.push(d6(r));
   let A = useAdv ? Math.max(...rollsA) : rollsA[0];
   let aForced = false;
 
-  // Scythe effect for ATTACKER
-  if (a.equip === "scythe" && d.type === "P") {
+  // Scythe effect for ATTACKER (skip if tutorial is active)
+  if (!isFirstCombatTutorial && a.equip === "scythe" && d.type === "P") {
     A = 6;
     rollsA = [6]; // Update rolls array for UI
     aForced = true;
@@ -1646,17 +1656,44 @@ function resolve(
   let D = isVeteranDefender ? Math.max(...rollsD) : rollsD[0];
   let dForced = false;
 
-  // Stun effect for DEFENDER (overrides veteran advantage)
-  if (d.stunnedForTurns && d.stunnedForTurns > 0) {
+  // Stun effect for DEFENDER (overrides veteran advantage, skip if tutorial is active)
+  if (!isFirstCombatTutorial && d.stunnedForTurns && d.stunnedForTurns > 0) {
     rollsD = [1];
     D = 1;
     dForced = true;
   }
-  // Scythe effect for DEFENDER (overrides veteran advantage)
-  else if (d.equip === "scythe" && a.type === "P") {
+  // Scythe effect for DEFENDER (overrides veteran advantage, skip if tutorial is active)
+  else if (!isFirstCombatTutorial && d.equip === "scythe" && a.type === "P") {
     D = 6;
     rollsD = [6]; // Update rolls array for UI
     dForced = true;
+  }
+
+  // Tutorial: Force white to win on first combat in level 1 (applied after other effects to take precedence)
+  if (isFirstCombatTutorial) {
+    // Mark tutorial as used immediately to prevent it from triggering again
+    localStorage.setItem("dicechess_first_combat_tutorial_used", "true");
+    if (a.color === W) {
+      // White is attacking: give white high roll, black low roll
+      A = 6;
+      rollsA = [6];
+      if (useAdv) rollsA = [6, 6]; // If advantage, both dice are 6
+      aForced = true;
+      D = 1;
+      rollsD = [1];
+      if (isVeteranDefender) rollsD = [1, 1]; // If veteran, both dice are 1
+      dForced = true;
+    } else {
+      // Black is attacking white: give black low roll, white high roll
+      A = 1;
+      rollsA = [1];
+      if (useAdv) rollsA = [1, 1]; // If advantage, both dice are 1
+      aForced = true;
+      D = 6;
+      rollsD = [6];
+      if (isVeteranDefender) rollsD = [6, 6]; // If veteran, both dice are 6
+      dForced = true;
+    }
   }
 
   // --- Modifiers ---
@@ -2209,15 +2246,25 @@ function bot(
         })
       : [];
     
+    // Debug: Log all moves with their scores
+    console.log("🤖 Aggressive Bot - All moves:", ms.map(m => ({
+      from: m.from,
+      to: m.to,
+      score: m.score.toFixed(2),
+      target: b[m.to.y]?.[m.to.x]?.type || 'empty'
+    })).sort((a, b) => parseFloat(b.score) - parseFloat(a.score)).slice(0, 10)); // Top 10
+    
     if (kingAttackMoves.length > 0) {
       // If we have any king attack moves, strongly consider them
       // Include king attacks with score >= -20 (very permissive)
       movePool = kingAttackMoves.filter((m) => m.score >= -20);
       if (movePool.length === 0) movePool = kingAttackMoves; // Take any king attack
+      console.log("🎯 King attack moves available:", kingAttackMoves.length);
     } else {
       // No king attacks available, consider all moves (score >= -5)
       movePool = ms.filter((m) => m.score >= -5);
       if (movePool.length === 0) movePool = ms; // Fallback
+      console.log("⚔️ No king attacks, considering moves with score >= -5:", movePool.length);
     }
   } else if (isDefensive) {
     // Defensive: Only safe moves (score >= 5)
@@ -2768,8 +2815,10 @@ function BoardComponent({
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const [chipPositions, setChipPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
   const boardContainerRef = React.useRef<HTMLDivElement>(null);
-  const isL = (x: number, y: number) =>
-    legal.some((s) => s.x === x && s.y === y);
+  const isL = useCallback(
+    (x: number, y: number) => legal.some((s) => s.x === x && s.y === y),
+    [legal]
+  );
 
   // Memoize sums calculations to avoid recomputing on every render
   const sumsA = useMemo(
@@ -2821,7 +2870,7 @@ function BoardComponent({
   // This avoids measurement issues during animations/transforms
   useEffect(() => {
     if (!hover || !sel || supportingPieces.length === 0) {
-      setChipPositions(new Map());
+      setChipPositions((prev) => prev.size === 0 ? prev : new Map());
       return;
     }
 
@@ -2852,7 +2901,17 @@ function BoardComponent({
       y: centerY,
     });
 
-    setChipPositions(positions);
+    setChipPositions((prev) => {
+      // Check if positions have changed to avoid unnecessary re-renders
+      if (prev.size !== positions.size) return positions;
+      for (const [key, value] of positions.entries()) {
+        const prevValue = prev.get(key);
+        if (!prevValue || prevValue.x !== value.x || prevValue.y !== value.y) {
+          return positions;
+        }
+      }
+      return prev; // No change, return previous to avoid re-render
+    });
   }, [hover, sel, supportingPieces, boardSize]);
 
   // Generate file labels (A-L for boards up to 12x12)
@@ -3099,6 +3158,25 @@ function BoardComponent({
                 marketAction?.type === "item" &&
                 p?.color === W &&
                 !p?.equip;
+              
+              // Check if this is a valid move or swap target during market phase
+              const isMarketMoveTarget = 
+                phase === "market" &&
+                !marketAction &&
+                sel &&
+                sel.y <= 1 &&
+                y <= 1 &&
+                !p &&
+                obstacles[y]?.[x] === "none";
+              
+              const isMarketSwapTarget =
+                phase === "market" &&
+                !marketAction &&
+                sel &&
+                sel.y <= 1 &&
+                y <= 1 &&
+                p?.color === W &&
+                !(sel.x === x && sel.y === y);
 
               const isRerollTarget =
                 rerollTargetPos &&
@@ -3204,6 +3282,23 @@ function BoardComponent({
                   {isMarketPlacement && (
                     <div className="market-placement-overlay" />
                   )}
+                  
+                  {/* Market move/swap indicator */}
+                  {isMarketMoveTarget && (
+                    <span className="ind">
+                      <span className="dot" style={{ background: "#34d399" }} />
+                    </span>
+                  )}
+                  
+                  {/* Market swap indicator for allied pieces */}
+                  {isMarketSwapTarget && (
+                    <span className="ind">
+                      <span className="ring" style={{ 
+                        boxShadow: "0 0 32px 8px rgba(34, 197, 94, 0.7), 0 0 0 4px rgba(34, 197, 94, 0.35) inset",
+                        background: "radial-gradient(circle, rgba(34, 197, 94, 0.22) 0 55%, transparent 60%)"
+                      }}></span>
+                    </span>
+                  )}
 
                   {/* 1. Terrain Layer */}
                   {forest && !isEscapeRow && (
@@ -3290,7 +3385,7 @@ function BoardComponent({
                               sellButtonPos.y === y))
                             ? "hover-scale"
                             : ""
-                        }`}
+                        } ${isSel ? "selected-piece" : ""}`}
                       >
                       <span
                         data-chip-x={x}
@@ -3868,6 +3963,8 @@ function SettingsDropdown({
                   localStorage.setItem("dicechess_tutorial_popups_enabled", String(newValue));
                   // If enabling, clear tutorialsSeen so they trigger again
                   if (newValue) {
+                    // Clear tutorial-related localStorage flags
+                    localStorage.removeItem("dicechess_first_combat_tutorial_used");
                     setCampaign(prev => ({
                       ...prev,
                       tutorialsSeen: [],
@@ -4255,7 +4352,18 @@ export default function App() {
     }
   }, [enableTutorialPopups, currentTutorial]);
 
-  // Helper function to calculate position above a board square
+  // Helper function to get board center position
+  const getBoardCenterPosition = useCallback((): { top: number; left: number } | null => {
+    if (!boardRef.current) return null;
+    
+    const boardRect = boardRef.current.getBoundingClientRect();
+    return {
+      top: boardRect.top + boardRect.height / 2,
+      left: boardRect.left + boardRect.width / 2,
+    };
+  }, []);
+
+  // Helper function to calculate position above a board square (deprecated - kept for compatibility)
   const getBoardSquarePosition = useCallback((x: number, y: number): { top: number; left: number } | null => {
     if (!boardRef.current) return null;
     
@@ -4336,12 +4444,10 @@ export default function App() {
       if (selector) {
         position = positionAbove ? getButtonPositionAbove(selector) : getButtonPosition(selector);
       }
-    } else if (triggerSquare) {
-      // For board square tutorials
-      position = getBoardSquarePosition(triggerSquare.x, triggerSquare.y);
-    } else if (selector) {
-      // For other button-targeted tutorials
-      position = positionAbove ? getButtonPositionAbove(selector) : getButtonPosition(selector);
+    } else {
+      // For all board-related tutorials (single_combat, supporting_units, king_advantage, etc.),
+      // center them on the board for simplicity and consistency
+      position = getBoardCenterPosition();
     }
     
     // Fallback to center of screen if position calculation fails
@@ -4358,7 +4464,7 @@ export default function App() {
     pausedForTutorialRef.current = true;
     
     return true;
-  }, [campaign.tutorialsSeen, enableTutorialPopups, getBoardSquarePosition, getButtonPosition, getButtonPositionAbove, getMarketCenterPosition]);
+  }, [campaign.tutorialsSeen, enableTutorialPopups, getBoardCenterPosition, getButtonPosition, getButtonPositionAbove, getMarketCenterPosition]);
 
   // Helper function to close tutorial and mark as seen
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -4387,8 +4493,11 @@ export default function App() {
       if (pendingActionRef.current) {
         const pendingAction = pendingActionRef.current;
         pendingActionRef.current = null;
+        console.log("✅ Tutorial closed - re-triggering stored move:", pendingAction);
+        console.log("⏰ Scheduling move re-trigger in 100ms...");
         // Small delay to ensure UI has updated after tutorial closes
         setTimeout(() => {
+          console.log("🎬 Re-triggering move NOW:", pendingAction);
           // Note: perform is a function declaration defined below, so it's safe to call here
           perform(pendingAction.from, pendingAction.to, pendingAction.isBot, pendingAction.isDragMove);
         }, 100);
@@ -4462,12 +4571,8 @@ export default function App() {
         !campaign.tutorialsSeen.includes("prayer_dice") && 
         !pausedForTutorial &&
         !currentTutorial) {
-      // Small delay to ensure reroll popup position is calculated
-      const timer = setTimeout(() => {
-        // Center the popup (similar to market tutorials)
-        showTutorial("prayer_dice");
-      }, 300);
-      return () => clearTimeout(timer);
+      // Show immediately - the tutorial will appear before the Roll Failed popup
+      showTutorial("prayer_dice");
     }
   }, [phase, rerollState, campaign.tutorialsSeen, pausedForTutorial, currentTutorial, enableTutorialPopups, showTutorial]);
 
@@ -4582,6 +4687,42 @@ export default function App() {
           1 -
           Math.floor((e.clientY - boardRect.top - 12) / 88);
 
+        // Handle market phase drag-and-drop
+        if (phase === "market" && !marketAction) {
+          const B1 = cloneB(Bstate);
+          const draggedPiece = B1[drag.from.y]?.[drag.from.x];
+          const targetPiece = B1[y]?.[x];
+          
+          // Check if drop is valid (within deployment zone)
+          if (x >= 0 && x < currentBoardSize && y >= 0 && y <= 1 && drag.from.y <= 1 && draggedPiece) {
+            // Check if dropping on another white piece (swap) or empty square (move)
+            if (targetPiece && targetPiece.color === W && !(drag.from.x === x && drag.from.y === y)) {
+              // Swap pieces
+              sfx.move();
+              B1[drag.from.y][drag.from.x] = targetPiece;
+              B1[y][x] = draggedPiece;
+              setB(B1);
+              setSel(null);
+              setDrag(null);
+              return;
+            } else if (!targetPiece && obstacles[y]?.[x] === "none") {
+              // Move to empty square
+              sfx.move();
+              B1[y][x] = draggedPiece;
+              B1[drag.from.y][drag.from.x] = null;
+              setB(B1);
+              setSel(null);
+              setDrag(null);
+              return;
+            }
+          }
+          // Invalid drop in market phase - just clear drag and selection
+          setDrag(null);
+          setSel(null);
+          return;
+        }
+
+        // Handle playing phase drag-and-drop (existing logic)
         const isLegal = legal.some((m) => m.x === x && m.y === y);
         if (isLegal) {
           setSel(null);
@@ -4606,7 +4747,7 @@ export default function App() {
       window.removeEventListener("mouseup", onMouseUp);
       window.removeEventListener("blur", onBlur);
     };
-  }, [drag, legal, Bstate, Tstate]); // Added Bstate, Tstate as dependencies for perform closure
+  }, [drag, legal, Bstate, Tstate, phase, marketAction, obstacles, currentBoardSize]); // Added dependencies for market phase and perform closure
 
   // useEffect now depends on seed *and* level, init is passed unspentGold
   useEffect(() => {
@@ -4821,15 +4962,15 @@ export default function App() {
 
   const startDrag = (e: React.MouseEvent, x: number, y: number) => {
     const p = Bstate[y]?.[x]; // Safe navigation
-    if (
-      !p ||
-      p.color !== turn ||
-      p.color !== W || // player can only drag white
-      (p.stunnedForTurns && p.stunnedForTurns > 0) ||
-      moveAnim ||
-      fx ||
-      phase !== "playing"
-    )
+    
+    // Check if we're in market phase with a white piece in deployment zone
+    const isMarketDrag = phase === "market" && !marketAction && p?.color === W && y <= 1;
+    
+    // Check if we're in playing phase with valid piece
+    const isPlayingDrag = phase === "playing" && p?.color === turn && p.color === W && 
+                          !(p.stunnedForTurns && p.stunnedForTurns > 0) && !moveAnim && !fx;
+    
+    if (!p || (!isMarketDrag && !isPlayingDrag))
       return;
 
     e.preventDefault(); // 👈 avoid click artifacts while dragging
@@ -6197,6 +6338,55 @@ export default function App() {
       } else if (marketAction) {
         // If an action was selected but the click was invalid, cancel the action.
         setMarketAction(null);
+      } else {
+        // No market action - handle piece selection and movement/swapping
+        const clickedPiece = B1[y]?.[x];
+        
+        if (sel) {
+          // A piece is already selected
+          const selectedPiece = B1[sel.y]?.[sel.x];
+          
+          if (!selectedPiece) {
+            // Selected piece no longer exists, clear selection
+            setSel(null);
+            return;
+          }
+          
+          // Check if clicking on another white piece (swap) or empty square (move)
+          if (clickedPiece && clickedPiece.color === W) {
+            // Swap the two white pieces
+            if (y <= 1 && sel.y <= 1) {
+              sfx.move();
+              B1[sel.y][sel.x] = clickedPiece;
+              B1[y][x] = selectedPiece;
+              setB(B1);
+              setSel(null);
+            } else {
+              // Can't swap - one piece is outside deployment zone
+              setSel(null);
+            }
+          } else if (!clickedPiece && y <= 1 && obstacles[y]?.[x] === "none") {
+            // Move piece to empty square in deployment zone
+            if (sel.y <= 1) {
+              sfx.move();
+              B1[y][x] = selectedPiece;
+              B1[sel.y][sel.x] = null;
+              setB(B1);
+              setSel(null);
+            } else {
+              // Can't move - selected piece is outside deployment zone
+              setSel(null);
+            }
+          } else {
+            // Invalid move, clear selection
+            setSel(null);
+          }
+        } else {
+          // No piece selected - try to select a white piece in deployment zone
+          if (clickedPiece && clickedPiece.color === W && y <= 1) {
+            setSel({ x, y });
+          }
+        }
       }
       return;
     }
@@ -6286,7 +6476,11 @@ export default function App() {
     setDrag(null);
     if (fx || win || moveAnim) return;
     // Block new actions while tutorial is showing (but allow bot moves to complete)
-    if (!isBot && pausedForTutorial) return;
+    // Use ref instead of state to avoid race conditions when re-triggering moves
+    if (!isBot && pausedForTutorialRef.current) {
+      console.log("⛔ Move blocked: tutorial is showing");
+      return;
+    }
     const p = Bstate[from.y]?.[from.x]; // Safe navigation
     console.log("[PERFORM] Piece at from:", p);
     if (!p) return;
@@ -6425,6 +6619,12 @@ export default function App() {
         if (combatIdRef.current !== currentCombatId) return;
 
         if (!out.ok && p.color === W && prayerDice > 0) {
+          // Check if prayer_dice tutorial should show - if so, show it BEFORE entering awaiting_reroll
+          // This prevents the Roll Failed popup from flashing before the tutorial
+          if (!campaign.tutorialsSeen.includes("prayer_dice") && !pausedForTutorial && enableTutorialPopups) {
+            showTutorial("prayer_dice");
+          }
+          
           setPhase("awaiting_reroll");
           setRerollState({ from, to, kind: "obstacle", loserPos: from, obstacleType: targetObstacle });
           return;
@@ -6444,25 +6644,52 @@ export default function App() {
     if (t) {
       // Check for tutorials BEFORE executing combat
       let tutorialShown = false;
-      if (!isBot && !pausedForTutorial && t.color !== p.color) {
-        // Tutorial: Single Combat (first attack - any unit attacking any other unit)
-        tutorialShown = showTutorial("single_combat", to) || tutorialShown;
+      
+      // Check if this is the first rigged combat in level 1 (tutorial combat)
+      const tutorialUsed = localStorage.getItem("dicechess_first_combat_tutorial_used") === "true";
+      const isFirstCombatTutorial = 
+        !tutorialUsed && 
+        campaign.level === 1 && 
+        (p.color === W || t.color === W); // White is either attacking or defending
+      
+      // Check if white is involved in this combat (either attacking or defending)
+      const whiteInvolved = p.color === W || t.color === W;
+      
+      // Show tutorials if:
+      // 1. It's a player move (white attacking), OR
+      // 2. It's the first combat tutorial (rigged combat in level 1), OR
+      // 3. White is defending and single_combat tutorial hasn't been seen yet
+      const shouldShowTutorials = 
+        (!isBot || isFirstCombatTutorial || (whiteInvolved && !campaign.tutorialsSeen.includes("single_combat"))) &&
+        !pausedForTutorial && 
+        t.color !== p.color;
+      
+      if (shouldShowTutorials) {
+        // Tutorial: Single Combat (first combat involving white - either attacking or defending)
+        // Show on the first rigged combat OR first combat where white is involved
+        if (!campaign.tutorialsSeen.includes("single_combat")) {
+          tutorialShown = showTutorial("single_combat", to) || tutorialShown;
+        }
         
-        // Tutorial: King Advantage (first King attack)
-        if (p.type === "K") {
+        // Tutorial: King Advantage (first King attack - only when white is attacking)
+        if (p.type === "K" && p.color === W) {
           tutorialShown = showTutorial("king_advantage", to) || tutorialShown;
         }
 
-        // Tutorial: Supporting Units (first supported attack)
-        const sup = supportCount(Bstate, Tstate, obstacles, p, from, to, currentBoardSize);
-        if (sup > 0) {
-          tutorialShown = showTutorial("supporting_units", to) || tutorialShown;
+        // Tutorial: Supporting Units (first supported attack - only when white is attacking)
+        if (p.color === W) {
+          const sup = supportCount(Bstate, Tstate, obstacles, p, from, to, currentBoardSize);
+          if (sup > 0) {
+            tutorialShown = showTutorial("supporting_units", to) || tutorialShown;
+          }
         }
       }
       
       // If a tutorial was shown, store this action to execute after tutorial closes
       if (tutorialShown) {
+        console.log("📚 Tutorial shown - storing move to re-trigger after tutorial closes:", { from, to, isBot });
         pendingActionRef.current = { from, to, isBot, isDragMove };
+        console.log("⏸️ Returning early from perform() - move will execute after tutorial closes");
         return;
       }
 
@@ -6481,7 +6708,8 @@ export default function App() {
         from,
         to,
         currentBoardSize,
-        lanceLungeUsed
+        lanceLungeUsed,
+        campaign.level // Pass current level for tutorial mechanics
       );
       setFx({
         kind: "piece",
@@ -6551,6 +6779,13 @@ export default function App() {
 
         if (playerLost && prayerDice > 0 && !forcedForPlayer) {
           const loserPos = p.color === W ? from : to;
+          
+          // Check if prayer_dice tutorial should show - if so, show it BEFORE entering awaiting_reroll
+          // This prevents the Roll Failed popup from flashing before the tutorial
+          if (!campaign.tutorialsSeen.includes("prayer_dice") && !pausedForTutorial && enableTutorialPopups) {
+            showTutorial("prayer_dice");
+          }
+          
           setPhase("awaiting_reroll");
           setRerollState({ from, to, kind: "piece", loserPos });
           return;
@@ -8486,6 +8721,8 @@ export default function App() {
       freeItems: new Map(),
       tutorialsSeen: [],
     });
+    // Clear tutorial-related localStorage flags for new game
+    localStorage.removeItem("dicechess_first_combat_tutorial_used");
     // Trigger fresh init
     setSeed(new Date().toISOString() + "-newgame");
   };
@@ -8913,10 +9150,10 @@ export default function App() {
         {/* Mechanic Tutorial Popups */}
         {currentTutorial && tutorialPosition && (() => {
           const content = getTutorialContent(currentTutorial);
-          // Market tutorials and prayer dice tutorial should be centered
-          const isMarketTutorial = currentTutorial === "market_buy_pawn" || currentTutorial === "market_view_battlefield";
-          const isPrayerDiceTutorial = currentTutorial === "prayer_dice";
-          const shouldCenter = isMarketTutorial || isPrayerDiceTutorial;
+          // Market tutorials use button positioning, all board tutorials are centered
+          const isMarketButtonTutorial = currentTutorial === "market_view_battlefield";
+          // All board-related tutorials (single_combat, supporting_units, king_advantage, etc.) are centered
+          const shouldCenter = !isMarketButtonTutorial;
           return (
             <TutorialPopup
               message={content.title}

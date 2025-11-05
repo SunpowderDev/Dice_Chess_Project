@@ -98,6 +98,7 @@
   "guaranteedPieces": {
     "black": [
       { "type": "P" },
+      { "type": "P" },
       { "type": "P" }
     ],
     "white": [{ "type": "N" }]

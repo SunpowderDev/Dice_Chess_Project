@@ -64,7 +64,7 @@ export const TUTORIAL_CONTENT: Record<TutorialType, {
   },
   prayer_dice: {
     title: "🙏 Pray to the Eye",
-    body: "When a combat fails, you can use a Prayer Die to reroll the dice. This gives you a second chance to turn the tide of battle.",
+    body: "When a combat fails, you can use a Prayer Die to reroll a dice. This gives you a second chance to turn the tide of battle.",
     imageBanner: "/tutorial_imgs/tutorial_PrayerDice.png",
   },
 };
