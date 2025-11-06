@@ -6,7 +6,17 @@
   "enemyPieceGold": 0,
   "enemyEquipmentGold": 10,
   "playerPieceGold": 30,
-  "playerEquipmentGold": 20,
+  "playerEquipmentGold": 30,
+  "difficultySettings": {
+    "easy": {
+      "enemyPieceGold": 0,
+      "enemyEquipmentGold": 10
+    },
+    "hard": {
+      "enemyPieceGold": 10,
+      "enemyEquipmentGold": 30
+    }
+  },
   "botBehavior": "aggressive",
   "whiteKingName": "Eohmer",
   "namedWhitePieces": [
@@ -37,6 +47,32 @@
     }
   ],
   "storyCards": [
+    {
+      "id": "difficulty-selection",
+      "character": {
+        "type": "K",
+        "color": "w",
+        "name": "Narrator"
+      },
+      "bodyText": "You don't need to know chess to play, but a bit of chess sense will help you master its tactics.\n\nWhat level of challenge suits you?",
+      "image": "/level1_difficultySelection.png",
+      "leftChoice": {
+        "text": "A reasonable amount.",
+        "events": [
+          { "type": "set_difficulty", "difficulty": "easy" },
+          { "type": "show_difficulty_transition" }
+        ],
+        "overlayColor": "rgba(59, 130, 246, 0.8)"
+      },
+      "rightChoice": {
+        "text": "I'm ready for a hard challenge!",
+        "events": [
+          { "type": "set_difficulty", "difficulty": "hard" },
+          { "type": "show_difficulty_transition" }
+        ],
+        "overlayColor": "rgba(239, 68, 68, 0.8)"
+      }
+    },
     {
       "id": "level1-narrator",
       "character": {

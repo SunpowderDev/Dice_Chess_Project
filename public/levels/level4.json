@@ -9,6 +9,16 @@
   "playerPieceGold": 0,
   "playerEquipmentGold": 0,
   "playerPawnBudget": 0.3,
+  "difficultySettings": {
+    "easy": {
+      "enemyPieceGold": 180,
+      "enemyEquipmentGold": 80
+    },
+    "hard": {
+      "enemyPieceGold": 260,
+      "enemyEquipmentGold": 140
+    }
+  },
   "botBehavior": "defensive",
   "namedWhitePieces": [
     {

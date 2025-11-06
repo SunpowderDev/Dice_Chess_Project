@@ -4124,6 +4124,46 @@ export default function App() {
     lastCard?: StoryCardType;
   } | null>(null);
   const [showTransition, setShowTransition] = useState(false);
+  const [showDifficultyTransition, setShowDifficultyTransition] = useState(false);
+  const [difficultyTransitionLine, setDifficultyTransitionLine] = useState<0 | 1 | 'fade1' | 'fade2'>(0);
+  const [difficultyTransitionText, setDifficultyTransitionText] = useState("");
+  const difficultyTransitionIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const difficultyTransitionAudioCtxRef = useRef<AudioContext | null>(null);
+
+  const ensureDifficultyAudioContext = () => {
+    if (!difficultyTransitionAudioCtxRef.current) {
+      const Ctx: any = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (Ctx) {
+        difficultyTransitionAudioCtxRef.current = new Ctx();
+      }
+    }
+    return difficultyTransitionAudioCtxRef.current;
+  };
+
+  const playDifficultyTextBlip = () => {
+    try {
+      const ctx = ensureDifficultyAudioContext();
+      if (!ctx) return;
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+      osc.type = "square";
+      osc.frequency.value = 380; // medieval-ish
+      filter.type = "lowpass";
+      filter.frequency.value = 1200;
+      const now = ctx.currentTime;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.04, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.1);
+    } catch (e) {}
+  };
+
   const playBattleTrumpet = () => {
     try {
       const Ctx: any =
@@ -4287,6 +4327,7 @@ export default function App() {
   // Campaign state for carryover roster
   const [campaign, setCampaign] = useState<CampaignState>(() => {
     const saved = localStorage.getItem("dicechess_campaign_v1");
+    const savedDifficulty = localStorage.getItem("dicechess_difficulty") as "easy" | "hard" | null;
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -4304,6 +4345,7 @@ export default function App() {
             parsed.tutorialsSeen && Array.isArray(parsed.tutorialsSeen)
               ? parsed.tutorialsSeen
               : [],
+          difficulty: parsed.difficulty || savedDifficulty || undefined,
         };
       } catch (e) {
         console.warn("Failed to parse saved campaign state:", e);
@@ -4317,6 +4359,7 @@ export default function App() {
       freeUnits: new Map(),
       freeItems: new Map(),
       tutorialsSeen: [],
+      difficulty: savedDifficulty || undefined,
     };
   });
 
@@ -5525,9 +5568,11 @@ export default function App() {
               freeUnits: new Map(),
               freeItems: new Map(),
               tutorialsSeen: [],
+              difficulty: undefined,
             });
-            // Clear tutorial-related localStorage flags
+            // Clear tutorial-related and difficulty localStorage flags
             localStorage.removeItem("dicechess_first_combat_tutorial_used");
+            localStorage.removeItem("dicechess_difficulty");
             // Return to title screen
             setShowIntro(true);
             // Trigger fresh init
@@ -5957,6 +6002,34 @@ export default function App() {
             }
             break;
 
+          case "set_difficulty":
+            // Set difficulty level for the campaign
+            campaignUpdates.difficulty = event.difficulty;
+            // Store in localStorage for persistence
+            localStorage.setItem("dicechess_difficulty", event.difficulty);
+            break;
+
+          case "show_difficulty_transition":
+            // Hide current story card and show automatic transition
+            setCurrentStoryCard(null);
+            setShowDifficultyTransition(true);
+            setDifficultyTransitionLine(0);
+            setDifficultyTransitionText("");
+            // Find the first real story card (skip difficulty-selection)
+            const firstRealCard = currentLevelConfig?.storyCards?.find(
+              (card) => card.id !== "difficulty-selection"
+            );
+            if (firstRealCard) {
+              // After transition completes (allowing time for both lines + fades), show the first real story card
+              setTimeout(() => {
+                setShowDifficultyTransition(false);
+                setDifficultyTransitionLine(0);
+                setDifficultyTransitionText("");
+                setCurrentStoryCard(firstRealCard);
+              }, 8500); // ~8.5 seconds total: line1 animation + longer pause + fade + line2 animation + longer pause + fade + spiral
+            }
+            break;
+
           case "start_battle":
             shouldStartBattle = true;
             break;
@@ -6031,6 +6104,94 @@ export default function App() {
     }
   }, [needsReinit, campaign]);
 
+  // Animate difficulty transition text sequentially (line 1 -> fade -> line 2 -> fade)
+  useEffect(() => {
+    if (!showDifficultyTransition) {
+      // Clear any existing interval when transition is hidden
+      if (difficultyTransitionIntervalRef.current) {
+        clearInterval(difficultyTransitionIntervalRef.current);
+        difficultyTransitionIntervalRef.current = null;
+      }
+      return;
+    }
+
+    // Only start animation when transition first appears and we're at the initial state
+    if (difficultyTransitionLine !== 0 || difficultyTransitionText !== "") {
+      return;
+    }
+
+    const line1 = "Murky Kingdoms' Highkeep.";
+    const line2 = "Year of the See, 1165.";
+
+    // Clear any existing interval
+    if (difficultyTransitionIntervalRef.current) {
+      clearInterval(difficultyTransitionIntervalRef.current);
+      difficultyTransitionIntervalRef.current = null;
+    }
+
+    // Animate line 1
+    let currentIndex = 0;
+    const animateLine1 = () => {
+      const interval = setInterval(() => {
+        if (currentIndex < line1.length) {
+          setDifficultyTransitionText(line1.substring(0, currentIndex + 1));
+          currentIndex++;
+          
+          // Play sound every 3 characters
+          if (currentIndex % 3 === 0) {
+            playDifficultyTextBlip();
+          }
+        } else {
+          clearInterval(interval);
+          difficultyTransitionIntervalRef.current = null;
+          // After line 1 completes, wait longer before fading it
+          setTimeout(() => {
+            setDifficultyTransitionLine('fade1');
+            // After fade completes, start line 2
+            setTimeout(() => {
+              setDifficultyTransitionLine(1);
+              setDifficultyTransitionText("");
+              // Animate line 2
+              let currentIndex2 = 0;
+              const animateLine2 = () => {
+                const interval2 = setInterval(() => {
+                  if (currentIndex2 < line2.length) {
+                    setDifficultyTransitionText(line2.substring(0, currentIndex2 + 1));
+                    currentIndex2++;
+                    
+                    // Play sound every 3 characters
+                    if (currentIndex2 % 3 === 0) {
+                      playDifficultyTextBlip();
+                    }
+                  } else {
+                    clearInterval(interval2);
+                    difficultyTransitionIntervalRef.current = null;
+                    // After line 2 completes, wait longer before fading it
+                    setTimeout(() => {
+                      setDifficultyTransitionLine('fade2');
+                    }, 2000); // Longer pause before fade
+                  }
+                }, 30); // 30ms per character
+                difficultyTransitionIntervalRef.current = interval2;
+              };
+              animateLine2();
+            }, 500); // Fade duration
+          }, 2000); // Longer pause before fade (was 800)
+        }
+      }, 30); // 30ms per character
+      difficultyTransitionIntervalRef.current = interval;
+    };
+
+    animateLine1();
+
+    return () => {
+      if (difficultyTransitionIntervalRef.current) {
+        clearInterval(difficultyTransitionIntervalRef.current);
+        difficultyTransitionIntervalRef.current = null;
+      }
+    };
+  }, [showDifficultyTransition]); // Only depend on showDifficultyTransition
+
   function init(
     s: string,
     currentLevel: number,
@@ -6058,10 +6219,20 @@ export default function App() {
 
     // Use level configuration - separate gold pools if specified
     // If specific gold pools aren't set, fall back to legacy enemyArmyGold/playerArmyGold, or default to 0
-    const enemyPieceGold = levelConfig.enemyPieceGold ?? levelConfig.enemyArmyGold ?? 0;
-    const playerPieceGold = levelConfig.playerPieceGold ?? levelConfig.playerArmyGold ?? 0;
-    const enemyEquipmentGold = levelConfig.enemyEquipmentGold ?? levelConfig.enemyArmyGold ?? 0;
-    const playerEquipmentGold = levelConfig.playerEquipmentGold ?? levelConfig.playerArmyGold ?? 0;
+    let enemyPieceGold = levelConfig.enemyPieceGold ?? levelConfig.enemyArmyGold ?? 0;
+    let playerPieceGold = levelConfig.playerPieceGold ?? levelConfig.playerArmyGold ?? 0;
+    let enemyEquipmentGold = levelConfig.enemyEquipmentGold ?? levelConfig.enemyArmyGold ?? 0;
+    let playerEquipmentGold = levelConfig.playerEquipmentGold ?? levelConfig.playerArmyGold ?? 0;
+
+    // Apply difficulty-specific gold overrides if difficulty is set and settings exist
+    const currentDifficulty = campaign.difficulty || (localStorage.getItem("dicechess_difficulty") as "easy" | "hard" | null);
+    if (currentDifficulty && levelConfig.difficultySettings?.[currentDifficulty]) {
+      const diffSettings = levelConfig.difficultySettings[currentDifficulty]!;
+      if (diffSettings.enemyPieceGold !== undefined) enemyPieceGold = diffSettings.enemyPieceGold;
+      if (diffSettings.playerPieceGold !== undefined) playerPieceGold = diffSettings.playerPieceGold;
+      if (diffSettings.enemyEquipmentGold !== undefined) enemyEquipmentGold = diffSettings.enemyEquipmentGold;
+      if (diffSettings.playerEquipmentGold !== undefined) playerEquipmentGold = diffSettings.playerEquipmentGold;
+    }
 
     // Campaign logic: handle white army based on level and survivors
     if (campaign.level <= 1 || campaign.whiteRoster.length === 0) {
@@ -9059,6 +9230,23 @@ export default function App() {
   return (
     <div className="min-h-screen text-white p-6 flex items-center justify-center relative">
       {showIntro && <MainMenu onEnter={handleIntroComplete} />}
+      {showDifficultyTransition && (
+        <div className="difficulty-transition-overlay">
+          <div className="difficulty-transition-spiral" />
+          <div className="difficulty-transition-text-container">
+            {(difficultyTransitionLine === 0 || difficultyTransitionLine === 'fade1') && (
+              <div className={`difficulty-transition-line difficulty-transition-line-1 ${difficultyTransitionLine === 'fade1' ? 'fading' : ''}`}>
+                {difficultyTransitionLine === 0 ? difficultyTransitionText : "Murky Kingdoms' Highkeep."}
+              </div>
+            )}
+            {(difficultyTransitionLine === 1 || difficultyTransitionLine === 'fade2') && (
+              <div className={`difficulty-transition-line difficulty-transition-line-2 ${difficultyTransitionLine === 'fade2' ? 'fading' : ''}`}>
+                {difficultyTransitionLine === 1 ? difficultyTransitionText : "Year of the See, 1165."}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {showTransition && (
         <div className="transition-overlay">
           <div className="transition-banner left" />
@@ -9099,8 +9287,8 @@ export default function App() {
         </div>
       )}
 
-      {/* Story Card System - only show if intro is dismissed */}
-      {!showIntro && (currentStoryCard || storyOutcome) && (
+      {/* Story Card System - only show if intro is dismissed and transition is not active */}
+      {!showIntro && !showDifficultyTransition && (currentStoryCard || storyOutcome) && (
         <StoryCard
           card={
             currentStoryCard ||
@@ -9124,7 +9312,7 @@ export default function App() {
         />
       )}
 
-      <div style={{ display: (showIntro || showTransition || currentStoryCard || storyOutcome) ? "none" : "block" }}>
+      <div style={{ display: (showIntro || showTransition || showDifficultyTransition || currentStoryCard || storyOutcome) ? "none" : "block" }}>
         <div className="max-w-[2000px] mx-auto flex gap-8 justify-center flex-wrap md:flex-nowrap">
           <div className="order-1 w-full max-w-lg">
             {/* Market removed from here - now positioned over the board */}

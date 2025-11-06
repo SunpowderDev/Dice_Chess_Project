@@ -97,6 +97,8 @@ export type TutorialType =
   | "market_view_battlefield"
   | "prayer_dice";
 
+export type Difficulty = "easy" | "hard";
+
 export type CampaignState = {
   level: number;
   whiteRoster: Piece[]; // persisted across levels
@@ -106,6 +108,7 @@ export type CampaignState = {
   freeItems: Map<Exclude<Equip, undefined>, number>; // free items available to deploy (item -> count)
   prayerDiceCost?: number; // custom prayer dice cost (if increased by story event)
   tutorialsSeen: TutorialType[]; // tutorials shown during campaign
+  difficulty?: Difficulty; // game difficulty setting (easy = less enemy gold, hard = more enemy gold)
 };
 
 // Story Card System Types
@@ -126,6 +129,8 @@ export type StoryEvent =
   | { type: "equip_item_to_named_piece"; item: Exclude<Equip, undefined>; pieceName: string; pieceType: PieceType }
   | { type: "increase_prayer_cost" }
   | { type: "spawn_piece_at_position"; pieceType: PieceType; color: "w" | "b"; x: number; y: number; equip?: Equip }
+  | { type: "set_difficulty"; difficulty: Difficulty }
+  | { type: "show_difficulty_transition" }
   | { type: "start_battle" }
   | { type: "reset_to_title" };
 
