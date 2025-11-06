@@ -3099,7 +3099,16 @@ function BoardComponent({
               if (showPct && attacker && targetPiece) {
                 // Ensure attacker and targetPiece exist
                 const a = attacker as Piece;
-                const d = targetPiece as Piece;
+                let d = targetPiece as Piece;
+                
+                // FOG OF WAR FIX: If the defender is in fog, strip their equipment
+                // so win percentage doesn't reveal hidden information
+                const inFog = !V[y]?.[x];
+                if (inFog && d.equip) {
+                  // Create a copy of the defender without equipment for win% calculation
+                  d = { ...d, equip: undefined };
+                }
+                
                 pct = winPercent(board, T, obstacles, a, d, sel!, { x, y }, boardSize);
               }
 
@@ -5478,11 +5487,43 @@ export default function App() {
       for (const event of events) {
         switch (event.type) {
           case "next_card":
-            // Find the next card
-            nextCard = currentLevelConfig?.storyCards?.find(
+            // Find the next card - first check in storyCardQueue (for end-of-story cards), then in level config
+            nextCard = storyCardQueue.find(
+              (card) => card.id === event.cardId
+            ) || currentLevelConfig?.storyCards?.find(
               (card) => card.id === event.cardId
             );
             break;
+
+          case "reset_to_title":
+            // Reset all progress and return to title screen
+            setShowVictoryDetails(false);
+            setWin(null);
+            setKilledEnemyPieces([]);
+            setThisLevelUnlockedItems([]);
+            setCurrentStoryCard(null);
+            setStoryCardQueue([]);
+            setStoryOutcome(null);
+            setPhase("market");
+            setMarketViewVisible(true);
+            setMarketPoints(0);
+            setUnspentGold(0);
+            setCampaign({
+              level: 1,
+              whiteRoster: [],
+              prayerDice: 2,
+              unlockedItems: [],
+              freeUnits: new Map(),
+              freeItems: new Map(),
+              tutorialsSeen: [],
+            });
+            // Clear tutorial-related localStorage flags
+            localStorage.removeItem("dicechess_first_combat_tutorial_used");
+            // Return to title screen
+            setShowIntro(true);
+            // Trigger fresh init
+            setSeed(new Date().toISOString() + "-newgame");
+            return; // Exit early, no need to process other events
 
           case "give_gold":
             // Flush pending free unit before other events
@@ -5965,7 +6006,7 @@ export default function App() {
         setNeedsReinit(true);
       }
     },
-    [campaign.level, currentLevelConfig, Bstate, currentBoardSize]
+    [campaign.level, currentLevelConfig, Bstate, currentBoardSize, storyCardQueue, campaign, setMarketPoints, setPrayerDice, setCampaign, setB, rngRef]
   );
   
   // Re-initialize board when pending events need to be processed
@@ -6769,16 +6810,25 @@ export default function App() {
       });
 
       const notation = getChessNotation(from, to, p, true);
+      
+      // FOG OF WAR FIX: Calculate win% as the player saw it (without hidden equipment)
+      const defenderInFog = !vis[to.y]?.[to.x];
+      let defenderForWinPct = t;
+      if (defenderInFog && t.equip) {
+        // Strip equipment if defender was in fog
+        defenderForWinPct = { ...t, equip: undefined };
+      }
       const winPct = winPercent(
         Bstate,
         Tstate,
         obstacles,
         p,
-        t,
+        defenderForWinPct,
         from,
         to,
         currentBoardSize
       );
+      
       const sup = supportCount(Bstate, Tstate, obstacles, p, from, to, currentBoardSize);
       const moveRec: MoveRecord = {
         turnNumber,
@@ -6791,7 +6841,7 @@ export default function App() {
           attackerRolls: out.a.rolls, // Store initial rolls
           defenderRolls: out.d.rolls, // Store initial rolls
         },
-        inFog: !vis[to.y]?.[to.x], // Safe navigation
+        inFog: defenderInFog, // Safe navigation
       };
       // If tutorial is showing, defer move history update to prevent flickering
       if (pausedForTutorialRef.current) {
@@ -8774,7 +8824,117 @@ export default function App() {
     setSeed(new Date().toISOString() + "-newgame");
   };
 
+  // Comprehensive reset function for dev tools - resets everything to fresh state
+  const handleResetEverything = () => {
+    // Clear all localStorage items
+    localStorage.removeItem("dicechess_campaign_v1");
+    localStorage.removeItem("dicechess_first_combat_tutorial_used");
+    localStorage.removeItem("dicechess_tutorial_popups_enabled");
+    
+    // Reset all game state
+    setShowTransition(false);
+    setShowIntro(true);
+    setCurrentStoryCard(null);
+    setStoryCardQueue([]);
+    setStoryOutcome(null);
+    setPhase("market");
+    setMarketViewVisible(true);
+    setWin(null);
+    setMarketPoints(100); // Reset to starting gold
+    setUnspentGold(0);
+    setKilledEnemyPieces([]);
+    setThisLevelUnlockedItems([]);
+    setCampaign({
+      level: 1,
+      whiteRoster: [],
+      prayerDice: 2,
+      unlockedItems: [],
+      freeUnits: new Map(),
+      freeItems: new Map(),
+      tutorialsSeen: [],
+    });
+    
+    // Reset tutorial settings to default (enabled)
+    setEnableTutorialPopups(true);
+    
+    // Reset other UI state
+    setShowVictoryDetails(false);
+    setShowDevPanel(false);
+    
+    // Trigger fresh init
+    setSeed(new Date().toISOString() + "-newgame");
+  };
+
+  // Function to show end-of-demo cards (used by both handleNextLevel and dev tools)
+  const showEndOfDemoCards = () => {
+    // Create End-of-Story story cards
+    const endOfStoryCard: StoryCardType = {
+      id: "end_of_story",
+      bodyText: "The King's enemies are **scattered**, his dominion restored.",
+      image: "/demo_end_EohmerWins.png",
+      leftChoice: {
+        text: "Sounds too good to be true...!",
+        events: [{ type: "next_card", cardId: "middle_card" }],
+        overlayColor: "rgba(101, 67, 33, 0.85)",
+      },
+      rightChoice: {
+        text: "Peace at last!",
+        events: [{ type: "next_card", cardId: "middle_card" }],
+        overlayColor: "rgba(101, 67, 33, 0.85)",
+      },
+    };
+
+    const middleCard: StoryCardType = {
+      id: "middle_card",
+      bodyText: "But with the Bell of Names destroyed... deep within the vaults beneath the castle, **something** stirs... calling out.. **Eoohhmeerr**.",
+      image: "/demo_end_horror.png",
+      leftChoice: {
+        text: "...maybe Morcant was onto something.",
+        events: [{ type: "next_card", cardId: "thanks_for_playing" }],
+        overlayColor: "rgba(101, 67, 33, 0.85)",
+      },
+      rightChoice: {
+        text: "...Dad?!",
+        events: [{ type: "next_card", cardId: "thanks_for_playing" }],
+        overlayColor: "rgba(101, 67, 33, 0.85)",
+      },
+    };
+
+    const thanksForPlayingCard: StoryCardType = {
+      id: "thanks_for_playing",
+      bodyText: "Thank **you** for playing this demo!",
+      image: "/demo_end_sunpowder.png",
+      leftChoice: {
+        text: "It was mid",
+        events: [{ type: "reset_to_title" }],
+        overlayColor: "rgba(147, 51, 234, 0.85)",
+      },
+      rightChoice: {
+        text: "I enjoyed it!",
+        events: [{ type: "reset_to_title" }],
+      },
+    };
+
+    // Clear victory popup and queue the end-of-story cards
+    setShowVictoryDetails(false);
+    setWin(null);
+    setKilledEnemyPieces([]);
+    setThisLevelUnlockedItems([]);
+    
+    // Queue the story cards
+    setStoryCardQueue([endOfStoryCard, middleCard, thanksForPlayingCard]);
+    // Show the first card immediately
+    setCurrentStoryCard(endOfStoryCard);
+  };
+
   const handleNextLevel = () => {
+    // Check if this is level 5 - if so, show end-of-story cards instead of progressing
+    if (campaign.level === 5) {
+      showEndOfDemoCards();
+      return;
+    }
+
+    // Normal level progression (for levels 1-4)
     // Calculate ransom gold (35% of regular pieces and items, excluding Kings)
     // Count purses separately (25g each, not subject to ransom %)
     const purseCount = killedEnemyPieces.filter((kp) => kp.piece.equip === "purse").length;
@@ -9481,6 +9641,64 @@ export default function App() {
               </button>
             ))}
           </div>
+          <div style={{ marginBottom: "8px", fontSize: "10px", opacity: 0.6 }}>
+            Quick Actions:
+          </div>
+          <button
+            onClick={() => {
+              showEndOfDemoCards();
+              setShowDevPanel(false);
+            }}
+            style={{
+              background: "#9932cc",
+              color: "#fff",
+              border: "1px solid #9932cc",
+              padding: "6px 12px",
+              cursor: "pointer",
+              borderRadius: "4px",
+              fontFamily: "monospace",
+              fontSize: "12px",
+              fontWeight: "bold",
+              width: "100%",
+              marginBottom: "8px",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#ba55d3";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "#9932cc";
+            }}
+          >
+            End
+          </button>
+          <button
+            onClick={() => {
+              handleResetEverything();
+            }}
+            style={{
+              background: "#ff6b00",
+              color: "#fff",
+              border: "1px solid #ff6b00",
+              padding: "6px 12px",
+              cursor: "pointer",
+              borderRadius: "4px",
+              fontFamily: "monospace",
+              fontSize: "12px",
+              fontWeight: "bold",
+              width: "100%",
+              marginBottom: "8px",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#ff8800";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "#ff6b00";
+            }}
+          >
+            Reset Everything
+          </button>
           <button
             onClick={() => setShowDevPanel(false)}
             style={{

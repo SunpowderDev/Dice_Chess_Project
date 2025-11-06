@@ -101,10 +101,48 @@ export function VictoryPopup({
   // Get victory conditions to display (same logic as quest component)
   const victoryConditions = currentLevelConfig?.displayedVictoryConditions || currentLevelConfig?.victoryConditions || [];
 
+  // Determine which victory condition was fulfilled
+  const getFulfilledVictoryCondition = (): string | null => {
+    if (win !== W) return null;
+    
+    // Check for king_escaped first (phrase-based)
+    if (phrase === "King Crossing!") {
+      return "king_escaped";
+    }
+    
+    // Check killedEnemyPieces for defeated king
+    const defeatedKing = killedEnemyPieces.find(kp => kp.piece.type === "K");
+    if (defeatedKing?.defeatType) {
+      switch (defeatedKing.defeatType) {
+        case "beheaded":
+          return "king_beheaded";
+        case "checkmate":
+          return "king_captured";
+        case "dishonored":
+          return "king_dishonored";
+      }
+    }
+    
+    // Fallback: check phrase for other victory types
+    if (phrase === "Regicide!" || phrase?.includes("Regicide")) {
+      return "king_beheaded";
+    }
+    if (phrase === "King captured! Checkmate!" || phrase?.includes("Checkmate")) {
+      return "king_captured";
+    }
+    
+    // If we can't determine, return the first victory condition as fallback
+    return victoryConditions.length > 0 ? victoryConditions[0] : null;
+  };
+
+  const fulfilledCondition = getFulfilledVictoryCondition();
+
   return (
     <div className="fixed inset-0 z-50 bg-black/70">
       <div
-        className="bg-stone-950/90 backdrop-blur rounded-2xl p-4 text-center space-y-3 border border-amber-900 absolute"
+        className={`bg-stone-950/90 backdrop-blur rounded-2xl p-4 text-center space-y-3 border absolute ${
+          win === W ? "border-green-700/50" : "border-amber-900"
+        }`}
         style={{
           top: winModalPosition.top,
           left: winModalPosition.left,
@@ -112,13 +150,36 @@ export function VictoryPopup({
         }}
       >
         {/* Show initial victory phrase first, then main content (only for wins) */}
-        {!showVictoryDetails && win === W && phrase && (
+        {!showVictoryDetails && win === W && phrase && fulfilledCondition && (
           <>
-            <div
-              className={`px-4 py-2 rounded-full font-bold text-xl ${"bg-gradient-to-r from-gray-200 to-white text-black"}`}
-            >
-              {phrase}
+            {/* Show fulfilled victory condition with green styling (same style as losing popup but in green) */}
+            <div className="mb-4">
+              <div className="flex flex-col gap-1 bg-black/20 rounded p-2 border border-green-700/50">
+                <div className="flex items-center gap-2">
+                  <span 
+                    className="text-green-400 text-lg"
+                    style={{
+                      animation: "checkmarkDraw 0.6s ease-out forwards",
+                      opacity: 0,
+                      display: "inline-block",
+                    }}
+                  >
+                    ✓
+                  </span>
+                  <span className="font-semibold text-green-400">
+                    {formatVictoryCondition(fulfilledCondition)}
+                  </span>
+                </div>
+                {getVictoryConditionDescription(fulfilledCondition) && (
+                  <span className="text-green-100 italic text-xs ml-6">
+                    {getVictoryConditionDescription(fulfilledCondition)}
+                  </span>
+                )}
+              </div>
             </div>
+            <h2 className="text-2xl font-bold text-white mb-2 bg-green-700/80 px-4 py-2 rounded">
+              {formatVictoryCondition(fulfilledCondition).toUpperCase()}
+            </h2>
           </>
         )}
 
@@ -157,7 +218,7 @@ export function VictoryPopup({
               </>
             )}
             {win === W && (
-              <h2 className="text-2xl font-bold text-green-400 mb-2">
+              <h2 className="text-2xl font-bold text-green-400 mb-2" style={{ fontFamily: 'serif', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
                 Level Cleared!
               </h2>
             )}
@@ -165,7 +226,7 @@ export function VictoryPopup({
             {/* Show unlocked items if player won and has unlocked items */}
             {win === W && thisLevelUnlockedItems.length > 0 && (
               <div className="mb-4 bg-gradient-to-r from-amber-600 to-amber-800 p-3 rounded-xl">
-                <div className="font-bold text-white mb-1">
+                <div className="font-bold text-white mb-1" style={{ fontFamily: 'serif', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
                   Unlocked New Item
                   {thisLevelUnlockedItems.length > 1 ? "s" : ""}!
                 </div>
@@ -245,7 +306,7 @@ export function VictoryPopup({
 
                 return (
                   <div className="mb-4 bg-gradient-to-r from-yellow-600 to-yellow-800 p-3 rounded-xl">
-                    <div className="font-bold text-white mb-2">Gold Earned</div>
+                    <div className="font-bold text-white mb-2" style={{ fontFamily: 'serif', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>Gold Earned</div>
                     <div className="flex flex-wrap justify-center gap-2 mb-2">
                       {killedEnemyPieces.map((killedPiece, index) => (
                         <span
@@ -335,6 +396,7 @@ export function VictoryPopup({
             <button
               onClick={win === W ? handleNextLevel : handleTryAgain}
               className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+              style={{ fontFamily: 'serif' }}
             >
               {win === W ? "Next Level" : "Try Again"}
             </button>

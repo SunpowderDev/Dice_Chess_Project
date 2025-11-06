@@ -126,7 +126,8 @@ export type StoryEvent =
   | { type: "equip_item_to_named_piece"; item: Exclude<Equip, undefined>; pieceName: string; pieceType: PieceType }
   | { type: "increase_prayer_cost" }
   | { type: "spawn_piece_at_position"; pieceType: PieceType; color: "w" | "b"; x: number; y: number; equip?: Equip }
-  | { type: "start_battle" };
+  | { type: "start_battle" }
+  | { type: "reset_to_title" };
 
 // Outcome display data with visual information
 export type OutcomeData = {
