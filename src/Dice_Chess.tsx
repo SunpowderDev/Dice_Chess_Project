@@ -659,12 +659,42 @@ function build(
     // Count actual empty slots (no pieces AND no obstacles)
     availableBackSlots = 0;
     availableFrontSlots = 0;
+    const blockedBackSlots: number[] = [];
+    const blockedFrontSlots: number[] = [];
     for (let x = 0; x < boardSize; x++) {
       const backHasObstacle = obstacles && obstacles[backRankRow]?.[x] && obstacles[backRankRow][x] !== "none";
       const frontHasObstacle = obstacles && obstacles[frontRankRow]?.[x] && obstacles[frontRankRow][x] !== "none";
+      const backHasPiece = board[backRankRow]?.[x] !== null && board[backRankRow]?.[x] !== undefined;
+      const frontHasPiece = board[frontRankRow]?.[x] !== null && board[frontRankRow]?.[x] !== undefined;
       
-      if (board[backRankRow]?.[x] === null && !backHasObstacle) availableBackSlots++;
-      if (board[frontRankRow]?.[x] === null && !frontHasObstacle) availableFrontSlots++;
+      if (board[backRankRow]?.[x] === null && !backHasObstacle) {
+        availableBackSlots++;
+      } else if (backHasObstacle || backHasPiece) {
+        blockedBackSlots.push(x);
+      }
+      
+      if (board[frontRankRow]?.[x] === null && !frontHasObstacle) {
+        availableFrontSlots++;
+      } else if (frontHasObstacle || frontHasPiece) {
+        blockedFrontSlots.push(x);
+      }
+    }
+    
+    // Debug logging for slot calculation
+    if (color === B) {
+      console.log("[Difficulty Debug] Slot calculation:", {
+        backRankRow,
+        frontRankRow,
+        boardSize,
+        availableBackSlots,
+        availableFrontSlots,
+        blockedBackSlots,
+        blockedFrontSlots,
+        backRankObstacles: Array.from({length: boardSize}, (_, i) => obstacles?.[backRankRow]?.[i]),
+        frontRankObstacles: Array.from({length: boardSize}, (_, i) => obstacles?.[frontRankRow]?.[i]),
+        backRankPieces: Array.from({length: boardSize}, (_, i) => board?.[backRankRow]?.[i] ? board[backRankRow][i]?.type : null),
+        frontRankPieces: Array.from({length: boardSize}, (_, i) => board?.[frontRankRow]?.[i] ? board[frontRankRow][i]?.type : null)
+      });
     }
   }
 
@@ -803,6 +833,17 @@ function build(
     // Fallback to minimal army spec if specPool returns empty (when gold is too low)
     const defaultSpec = { q: 0, r: 0, b: 0, n: 0, p: 0 };
     s = SPECS.length > 0 ? rand(r, SPECS) : defaultSpec;
+    
+    // Debug logging for spec generation
+    if (color === B) {
+      console.log("[Difficulty Debug] Spec generation:", {
+        initialGold,
+        allowedPieceTypes,
+        specsGenerated: SPECS.length,
+        selectedSpec: s,
+        specsArray: SPECS
+      });
+    }
   }
 
   // Add randomly generated pieces (only up to remaining back rank slots and only if allowed)
@@ -893,6 +934,20 @@ function build(
   const actualPawnsToGenerate = allowed.has("P") 
     ? Math.min(s?.p || 0, remainingPawnSlots)
     : 0;
+  
+  // Debug logging for pawn generation
+  if (color === B) {
+    console.log("[Difficulty Debug] Pawn generation:", {
+      availableFrontSlots,
+      boardSize,
+      namedFrontRankPiecesCount: namedFrontRankPieces.length,
+      guaranteedFrontRankPiecesCount: guaranteedFrontRankPieces.length,
+      remainingPawnSlots,
+      specPawns: s?.p || 0,
+      actualPawnsToGenerate,
+      allowedHasP: allowed.has("P")
+    });
+  }
 
   // Generate random pawns (only up to remaining slots and only if allowed)
   if (actualPawnsToGenerate > 0) {
@@ -4327,10 +4382,11 @@ export default function App() {
   // Campaign state for carryover roster
   const [campaign, setCampaign] = useState<CampaignState>(() => {
     const saved = localStorage.getItem("dicechess_campaign_v1");
-    const savedDifficulty = localStorage.getItem("dicechess_difficulty") as "easy" | "hard" | null;
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
+        // Only restore difficulty if it was explicitly saved in campaign state
+        // Don't read from localStorage directly - difficulty must be set via selection card
         return {
           level: parsed.level || 1,
           whiteRoster: parsed.whiteRoster || [],
@@ -4345,7 +4401,7 @@ export default function App() {
             parsed.tutorialsSeen && Array.isArray(parsed.tutorialsSeen)
               ? parsed.tutorialsSeen
               : [],
-          difficulty: parsed.difficulty || savedDifficulty || undefined,
+          difficulty: parsed.difficulty || undefined, // Only use saved difficulty, not localStorage
         };
       } catch (e) {
         console.warn("Failed to parse saved campaign state:", e);
@@ -4359,7 +4415,7 @@ export default function App() {
       freeUnits: new Map(),
       freeItems: new Map(),
       tutorialsSeen: [],
-      difficulty: savedDifficulty || undefined,
+      difficulty: undefined, // Always start fresh - no difficulty until selection card
     };
   });
 
@@ -6225,13 +6281,25 @@ export default function App() {
     let playerEquipmentGold = levelConfig.playerEquipmentGold ?? levelConfig.playerArmyGold ?? 0;
 
     // Apply difficulty-specific gold overrides if difficulty is set and settings exist
-    const currentDifficulty = campaign.difficulty || (localStorage.getItem("dicechess_difficulty") as "easy" | "hard" | null);
+    // IMPORTANT: Only use campaign.difficulty (set by difficulty selection card), NOT localStorage
+    // This ensures difficulty is only applied after the player explicitly chooses it
+    // For level 1, always require explicit selection (don't use localStorage fallback)
+    const currentDifficulty = campaign.difficulty;
+    
+    // Debug logging (can be removed later)
+    console.log("[Difficulty Debug] campaign.difficulty:", campaign.difficulty, "level:", campaign.level, "using:", currentDifficulty);
+    console.log("[Difficulty Debug] Base gold - enemyPieceGold:", enemyPieceGold, "enemyEquipmentGold:", enemyEquipmentGold);
+    
     if (currentDifficulty && levelConfig.difficultySettings?.[currentDifficulty]) {
       const diffSettings = levelConfig.difficultySettings[currentDifficulty]!;
       if (diffSettings.enemyPieceGold !== undefined) enemyPieceGold = diffSettings.enemyPieceGold;
       if (diffSettings.playerPieceGold !== undefined) playerPieceGold = diffSettings.playerPieceGold;
       if (diffSettings.enemyEquipmentGold !== undefined) enemyEquipmentGold = diffSettings.enemyEquipmentGold;
       if (diffSettings.playerEquipmentGold !== undefined) playerEquipmentGold = diffSettings.playerEquipmentGold;
+      
+      console.log("[Difficulty Debug] Applied", currentDifficulty, "settings - enemyPieceGold:", enemyPieceGold, "enemyEquipmentGold:", enemyEquipmentGold);
+    } else {
+      console.log("[Difficulty Debug] No difficulty settings applied - difficulty:", currentDifficulty, "hasSettings:", !!levelConfig.difficultySettings);
     }
 
     // Campaign logic: handle white army based on level and survivors
@@ -6367,7 +6435,15 @@ export default function App() {
       }) || [];
       
       // Step 3: Add guaranteed pieces from level config (if any)
-      const rawGuaranteedWhite = levelConfig.guaranteedPieces?.white || [];
+      // Get guaranteed pieces - check difficulty-specific override first, then fall back to base config
+      let rawGuaranteedWhite = levelConfig.guaranteedPieces?.white || [];
+      if (currentDifficulty && levelConfig.difficultySettings?.[currentDifficulty]?.guaranteedPieces?.white) {
+        // Use difficulty-specific guaranteed pieces if available
+        const diffSettings = levelConfig.difficultySettings[currentDifficulty];
+        if (diffSettings?.guaranteedPieces?.white) {
+          rawGuaranteedWhite = diffSettings.guaranteedPieces.white;
+        }
+      }
       const guaranteedWhitePieces = rawGuaranteedWhite.map(item => 
         typeof item === 'string' ? { type: item as PieceType } : item
       );
@@ -6429,10 +6505,26 @@ export default function App() {
       }
     }
     
+    console.log("[Difficulty Debug] Pending assignments:", pendingAssignments);
+    console.log("[Difficulty Debug] Guaranteed items array:", guaranteedItems);
+    console.log("[Difficulty Debug] Enemy piece gold for pawns:", enemyPieceGold);
+    
     // Check for pending pawns (from story events) - add them to guaranteed pieces
     const pendingPawns = (campaign as any).pendingEnemyPawns || 0;
+    console.log("[Difficulty Debug] Pending pawns from story:", pendingPawns);
+    
+    // Get guaranteed pieces - check difficulty-specific override first, then fall back to base config
+    let rawGuaranteedBlack = levelConfig.guaranteedPieces?.black || [];
+    if (currentDifficulty && levelConfig.difficultySettings?.[currentDifficulty]?.guaranteedPieces?.black) {
+      // Use difficulty-specific guaranteed pieces if available
+      const diffSettings = levelConfig.difficultySettings[currentDifficulty];
+      if (diffSettings?.guaranteedPieces?.black) {
+        rawGuaranteedBlack = diffSettings.guaranteedPieces.black;
+        console.log("[Difficulty Debug] Using difficulty-specific guaranteed pieces for", currentDifficulty);
+      }
+    }
+    
     // Convert string array to object array if needed for backward compatibility
-    const rawGuaranteedBlack = levelConfig.guaranteedPieces?.black || [];
     const guaranteedBlackPieces = rawGuaranteedBlack.map(item => 
       typeof item === 'string' ? { type: item as PieceType } : item
     );
@@ -6441,6 +6533,16 @@ export default function App() {
     for (let i = 0; i < pendingPawns; i++) {
       guaranteedBlackPieces.push({ type: "P" });
     }
+    
+    console.log("[Difficulty Debug] Final guaranteed black pieces count:", guaranteedBlackPieces.length);
+    
+    console.log("[Difficulty Debug] Calling build with:", {
+      enemyPieceGold,
+      enemyEquipmentGold,
+      guaranteedItemsCount: guaranteedItems.length,
+      guaranteedPiecesCount: guaranteedBlackPieces.length,
+      randomizationPieces: levelConfig.randomizationPieces?.black
+    });
     
     const bl = build(
       B,
@@ -6462,6 +6564,11 @@ export default function App() {
       O0, // Obstacles grid to check blocked slots
       levelConfig.enemyPawnBudget // Pawn budget percentage for black
     );
+    
+    console.log("[Difficulty Debug] Build result - back rank pieces:", bl.back.length, "front rank pieces:", bl.front.length);
+    console.log("[Difficulty Debug] Total pieces:", bl.back.length + bl.front.length);
+    const totalEquipped = [...bl.back, ...bl.front].filter(p => p && p.equip).length;
+    console.log("[Difficulty Debug] Pieces with equipment:", totalEquipped);
     
     // Place black pieces, avoiding obstacles
     placePiecesAvoidingObstacles(B0, O0, bl.back, boardSize - 1, boardSize);

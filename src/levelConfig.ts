@@ -39,12 +39,20 @@ export interface LevelConfig {
       enemyEquipmentGold?: number;
       playerPieceGold?: number;
       playerEquipmentGold?: number;
+      guaranteedPieces?: {
+        black?: Array<{ type: PieceType; equip?: EquipType }>;
+        white?: Array<{ type: PieceType; equip?: EquipType }>;
+      };
     };
     hard?: {
       enemyPieceGold?: number;
       enemyEquipmentGold?: number;
       playerPieceGold?: number;
       playerEquipmentGold?: number;
+      guaranteedPieces?: {
+        black?: Array<{ type: PieceType; equip?: EquipType }>;
+        white?: Array<{ type: PieceType; equip?: EquipType }>;
+      };
     };
   }
   // Optional: Pawn budget allocation (0.0 to 1.0) - percentage of piece gold to spend on pawns before generating other pieces

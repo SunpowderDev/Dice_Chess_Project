@@ -5,16 +5,30 @@
   "startingGold": 0,
   "enemyPieceGold": 0,
   "enemyEquipmentGold": 10,
+  "enemyPawnBudget": 0.3,
   "playerPieceGold": 30,
   "playerEquipmentGold": 30,
   "difficultySettings": {
     "easy": {
       "enemyPieceGold": 0,
-      "enemyEquipmentGold": 10
+      "enemyEquipmentGold": 10,
+      "guaranteedPieces": {
+        "black": [
+          { "type": "P" },
+          { "type": "P" }
+        ]
+      }
     },
     "hard": {
       "enemyPieceGold": 10,
-      "enemyEquipmentGold": 30
+      "enemyEquipmentGold": 20,
+      "guaranteedPieces": {
+        "black": [
+          { "type": "P" },
+          { "type": "N" },
+          { "type": "P" }
+        ]
+      }
     }
   },
   "botBehavior": "aggressive",
@@ -108,7 +122,7 @@
       "leftChoice": {
         "text": "Save the royal regalia!",
         "events": [
-          { "type": "assign_item_to_enemy", "item": "purse", "count": 2 },
+          { "type": "assign_item_to_enemy", "item": "purse", "count": 3 },
           { "type": "spawn_enemy_pawns", "count": 1 },
           { "type": "start_battle" }
         ]
@@ -128,7 +142,7 @@
     "whiteRandomization": ["shield"]
   },
   "randomizationPieces": {
-    "black": [],
+    "black": ["P"],
     "white": ["P"]
   },
   "guaranteedPieces": {
