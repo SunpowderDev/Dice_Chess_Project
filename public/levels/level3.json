@@ -128,7 +128,7 @@
   },
   "terrainMatrix": [
     ["f", "f", "f", "f", "f", "f", "f"],
-    ["W", "W", "_", "_", "_", "W", "W"],
+    ["W", "W", "_(Courtier)", "_", "_", "W", "W"],
     ["W", "W", "_", "_(Courtier)", "_(Courtier)", "W", "W"],
     ["W", "W", "_(Courtier)", "_(Courtier)", "_(Courtier)", "W", "W"],
     ["W(Rock)", "W(Rock)", "_(Gate)", "_(Gate)", "_(Gate)", "W(Rock)", "W(Rock)"],
@@ -143,7 +143,7 @@
     "Blessed be the **journey**!",
     "Make way for **pilgrims**!",
     "**Praise** Pintus!",
-    "The bridge brings us **closer** to God!",
+    "The bridge brings us **closer** to The Eye!",
     "**Alms** for the faithful!",
     "**Step** aside, traveler!",
     "The palace is **sacred** ground!",
@@ -159,7 +159,7 @@
   ],
   "marketEnabled": true,
   "fogRows": 2,
-  "questNarration": "Slip Eohmer within the Pontiff's precincts. Cross Pilgrim's Pass and breach the palace by hood or by hammer.",
+  "questNarration": "Cross Pilgrim's Pass and slip King Eohmer within the Pontiff's precincts. Breach the palace by hood or by hammer.",
   "victoryConditionDescriptions": {
     "king_escaped": "Lead your King to the golden squares at the board's edge."
   }

@@ -1420,7 +1420,7 @@ function moves(
       }
     }
   }
-  // Crystal Ball: swap with adjacent ally
+  // Crystal Ball: swap with adjacent ally or Courtier
   if (p.equip === "crystal_ball") {
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
@@ -1429,9 +1429,11 @@ function moves(
         const ny = y + dy;
         if (inBounds(nx, ny, boardSize)) {
           const targetPiece = b[ny]?.[nx]; // Safe navigation
+          const targetObstacle = O[ny]?.[nx]; // Check for obstacle
+          // Can swap with allied piece or Courtier
           if (
-            targetPiece &&
-            targetPiece.color === p.color
+            (targetPiece && targetPiece.color === p.color) ||
+            targetObstacle === "courtier"
           ) {
             out.push({ x: nx, y: ny });
           }
@@ -1943,18 +1945,25 @@ function bot(
             }
           }
         } else if (targetObstacle !== "none") {
-          // --- OBSTACLE ATTACK SCORING ---
-          // Black bot should NEVER attack the bell (it protects their king)
-          if (targetObstacle === "bell" && c === B) {
-            continue; // Skip bell attacks for black
-          }
-          const winProb =
-            obstacleWinPercent(b, T, O, p, { x, y }, t, boardSize) / 100;
-          sc = winProb * 1 - (1 - winProb) * 0.1; // Small penalty for failure
-          
-          // Defensive bots should avoid attacking rock obstacles
-          if (isDefensive && targetObstacle === "rock") {
-            sc -= 15; // Heavy penalty for defensive bots attacking rocks
+          // --- CRYSTAL BALL SWAP WITH COURTIER SCORING ---
+          if (p.equip === "crystal_ball" && targetObstacle === "courtier") {
+            // Crystal Ball swap with Courtier - small positive score to encourage using item
+            // This allows repositioning without destroying the Courtier
+            sc = 0.1;
+          } else {
+            // --- OBSTACLE ATTACK SCORING ---
+            // Black bot should NEVER attack the bell (it protects their king)
+            if (targetObstacle === "bell" && c === B) {
+              continue; // Skip bell attacks for black
+            }
+            const winProb =
+              obstacleWinPercent(b, T, O, p, { x, y }, t, boardSize) / 100;
+            sc = winProb * 1 - (1 - winProb) * 0.1; // Small penalty for failure
+            
+            // Defensive bots should avoid attacking rock obstacles
+            if (isDefensive && targetObstacle === "rock") {
+              sc -= 15; // Heavy penalty for defensive bots attacking rocks
+            }
           }
         } else {
           // --- QUIET MOVE SCORING (AI LOGIC UPGRADE) ---
@@ -6579,7 +6588,7 @@ export default function App() {
 
     const turnNumber = Math.floor(moveHistory.length / 2) + 1;
 
-    // Crystal Ball Swap
+    // Crystal Ball Swap with piece
     if (p.equip === "crystal_ball" && t && t.color === p.color) {
       sfx.crystalBall();
       const B1 = cloneB(Bstate);
@@ -6640,8 +6649,58 @@ export default function App() {
       return;
     }
 
-    // Check for obstacle attack
+    // Crystal Ball Swap with Courtier
     const targetObstacle = obstacles[to.y]?.[to.x];
+    if (p.equip === "crystal_ball" && targetObstacle === "courtier" && !t) {
+      sfx.crystalBall();
+      const B1 = cloneB(Bstate);
+      const userPiece = { ...p, equip: undefined };
+      B1[to.y][to.x] = userPiece;
+      B1[from.y][from.x] = null;
+
+      // Swap the Courtier to the piece's original position
+      const O1 = obstacles.map((row) => [...row]); // Clone obstacles
+      O1[to.y][to.x] = "none"; // Remove Courtier from target
+      O1[from.y][from.x] = "courtier"; // Place Courtier at original position
+
+      // Check for exhaustion
+      checkExhaustion(p.id, from, to, B1);
+
+      // Pawn promotion check for crystal ball swaps with Courtiers
+      if (userPiece.type === "P") {
+        const shouldPromote = 
+          (userPiece.color === W && to.y === currentBoardSize - 1) ||
+          (userPiece.color === B && to.y === 0);
+        if (shouldPromote) {
+          let promotionType: PieceType = currentLevelConfig?.pawnPromotionType || "Q";
+          // Safeguard: never promote to Pawn or King
+          if (promotionType === "P" || promotionType === "K") promotionType = "Q";
+          B1[to.y][to.x] = { ...userPiece, type: promotionType };
+        }
+      }
+
+      setB(B1);
+      setObstacles(O1);
+      setLastMove({ from, to });
+      decrementStunFor(turn, B1, currentBoardSize); // tick down the mover's stun at END of their turn
+      setTurn(nextTurn);
+      setPhase("playing");
+      
+      const notation = getChessNotation(from, to, p, false);
+      setMoveHistory((hist) => [
+        ...hist,
+        {
+          turnNumber,
+          color: p.color as Color,
+          notation: `${notation} (swap with courtier)`,
+          piece: { type: p.type, color: p.color as Color },
+          inFog: !vis[to.y]?.[to.x], // Safe navigation
+        },
+      ]);
+      return;
+    }
+
+    // Check for obstacle attack
     if (targetObstacle !== "none" && !t) {
       const dir = p.color === W ? 1 : -1;
       const lanceLungeUsed =

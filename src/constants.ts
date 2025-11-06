@@ -247,22 +247,22 @@ export const ITEM_DESCRIPTIONS = {
   sword: "🗡️ Sword: +1 to attack rolls.",
   shield: "🛡️ Shield: +1 to defense rolls.",
   lance:
-    "🐎 Mount: Charge forward 2 squares with Advantage; the mount breaks after use.",
-  scythe: "🪓Scythe: Always rolls a 6 against pawns.",
-  banner: "⚜️ Banner: Friendly pieces within 1 square gain a Shield bonus.",
-  curse: "🎃 Curse: When this piece dies, stuns adjacent pieces for 1 turn. Cannot be sold.",
-  skull: "💀 Skull: When this piece dies, the attacker dies with it.",
+    "🐎 Mount: Charge forward 2 squares with Advantage; Mount breaks after use.",
+  scythe: "🪓 Scythe: Always rolls a 6 against Pawns.",
+  banner: "⚜️ Banner: Friendly units within 1 square gain a Shield bonus.",
+  curse: "🎃 Curse: When this unit dies, stuns adjacent pieces for 1 turn. Cannot be sold.",
+  skull: "💀 Skull: When this unit dies, the attacker dies with it.",
   torch:
-    "🔥 Torch: Piece sees 3 squares away (normally 2) and gains Advantage when attacking into a Forest.",
-  bow: "🏹 Bow: Survive your first failed attack; bow breaks.",
+    "🔥 Torch: Unit sees 3 squares away (normally 2) and gains Advantage when attacking into a Forest.",
+  bow: "🏹 Bow: Survive your first failed attack; Bow breaks after use.",
   staff: "🪄 Staff: On a win, convert the defender to your side; staff breaks.",
   crystal_ball:
-    "🔮 Crystal Ball: One-time swap with an adjacent friendly piece.",
+    "🔮 Crystal Ball: One-time swap with an adjacent friendly or neutral unit.",
   prayer_die:
     "🙏 Prayer Die: Consume to reroll both dice after a failed attack or defense.",
   disguise:
-    "🎭 Disguise: Piece appears and moves as a Pawn. You can break the disguise on your turn to reveal the original piece.",
-  purse: "💰 Purse: When killed, grants 25 gold.",
+    "🎭 Disguise: Unit appears and moves as a Pawn. You can break the disguise on your turn to reveal the original unit.",
+  purse: "💰 Purse: When unit is killed, grants 25 gold.",
 };
 
 export const PIECE_DESCRIPTIONS = {
