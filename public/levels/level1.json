@@ -7,7 +7,7 @@
   "enemyEquipmentGold": 10,
   "enemyPawnBudget": 0.3,
   "playerPieceGold": 30,
-  "playerEquipmentGold": 30,
+  "playerEquipmentGold": 20,
   "difficultySettings": {
     "easy": {
       "enemyPieceGold": 0,
