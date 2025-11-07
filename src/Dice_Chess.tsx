@@ -16,6 +16,7 @@ import {
 } from "./levelConfig";
 import StoryCard from "./StoryCard";
 import { MainMenu } from "./MainMenu";
+import { MusicManager, type MusicManagerHandle } from "./MusicManager";
 import type {
   PieceType,
   Color,
@@ -3928,6 +3929,8 @@ function SettingsDropdown({
   setShowRules,
   muted,
   setMuted,
+  musicMuted,
+  setMusicMuted,
   fastMode,
   setFastMode,
   showBoardTooltips,
@@ -3942,6 +3945,8 @@ function SettingsDropdown({
   setShowRules: (value: boolean | ((prev: boolean) => boolean)) => void;
   muted: boolean;
   setMuted: (value: boolean | ((prev: boolean) => boolean)) => void;
+  musicMuted: boolean;
+  setMusicMuted: (value: boolean | ((prev: boolean) => boolean)) => void;
   fastMode: boolean;
   setFastMode: (value: boolean | ((prev: boolean) => boolean)) => void;
   showBoardTooltips: boolean;
@@ -3992,10 +3997,25 @@ function SettingsDropdown({
               >
                 <span>
                   <span className="text-lg mr-2">{muted ? "🔇" : "🔊"}</span>
-                  Sound
+                  Sound Effects
                 </span>
                 <span className={`px-2 py-1 rounded text-xs ${muted ? "bg-amber-900" : "bg-emerald-600"}`}>
                   {muted ? "OFF" : "ON"}
+                </span>
+              </button>
+              
+              <button
+                onClick={() => {
+                  setMusicMuted((m) => !m);
+                }}
+                className="px-4 py-3 text-left hover:bg-amber-950 border-b border-amber-900 flex items-center justify-between"
+              >
+                <span>
+                  <span className="text-lg mr-2">{musicMuted ? "🔇" : "🎵"}</span>
+                  Music
+                </span>
+                <span className={`px-2 py-1 rounded text-xs ${musicMuted ? "bg-amber-900" : "bg-emerald-600"}`}>
+                  {musicMuted ? "OFF" : "ON"}
                 </span>
               </button>
               
@@ -4081,13 +4101,11 @@ export default function App() {
   const [showIntro, setShowIntro] = useState(true);
   const [isRetryingLevel, setIsRetryingLevel] = useState(false);
   
-  // Debug: Track showIntro and isRetryingLevel changes
-  useEffect(() => {
-    console.log("🔄 [RETRY] State changed - showIntro:", showIntro, "isRetryingLevel:", isRetryingLevel, "shouldShowMainMenu:", showIntro && !isRetryingLevel);
-  }, [showIntro, isRetryingLevel]);
   const [seed, setSeed] = useState(() => new Date().toISOString());
   const [muted, setMuted] = useState(false);
+  const [musicMuted, setMusicMuted] = useState(false);
   const [fastMode, setFastMode] = useState(false);
+  const musicManagerRef = useRef<MusicManagerHandle>(null);
   const [showBoardTooltips, setShowBoardTooltips] = useState(true);
   const [enableTutorialPopups, setEnableTutorialPopups] = useState(() => {
     const saved = localStorage.getItem("dicechess_tutorial_popups_enabled");
@@ -4190,6 +4208,7 @@ export default function App() {
   const [difficultyTransitionLine, setDifficultyTransitionLine] = useState<0 | 1 | 'fade1' | 'fade2'>(0);
   const [difficultyTransitionText, setDifficultyTransitionText] = useState("");
   const difficultyTransitionIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const difficultyTransitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const difficultyTransitionAudioCtxRef = useRef<AudioContext | null>(null);
 
   const ensureDifficultyAudioContext = () => {
@@ -4477,14 +4496,6 @@ export default function App() {
       && campaign.level >= 1;
       
     if (needsSnapshot) {
-      console.log("🔄 [RETRY] Creating snapshot from current state (loaded from save or post-story):", {
-        level: campaign.level,
-        gold: unspentGold,
-        roster: campaign.whiteRoster.length,
-        prayerDice: campaign.prayerDice,
-        difficulty: campaign.difficulty,
-        phase
-      });
       setLevelStartSnapshot({
         level: campaign.level,
         gold: unspentGold,
@@ -4939,15 +4950,7 @@ export default function App() {
     // 1. We have story cards in the queue
     // 2. No current story card is showing
     // 3. Intro popup is not showing
-    console.log("🔄 [RETRY] Story card auto-show check:", {
-      queueLength: storyCardQueue.length,
-      currentCard: !!currentStoryCard,
-      showIntro,
-      shouldShow: storyCardQueue.length > 0 && !currentStoryCard && !showIntro
-    });
-    
     if (storyCardQueue.length > 0 && !currentStoryCard && !showIntro) {
-      console.log("🔄 [RETRY] Auto-showing first story card, clearing retry flag");
       setCurrentStoryCard(storyCardQueue[0]);
       setIsRetryingLevel(false);
     }
@@ -5614,6 +5617,12 @@ export default function App() {
       setPhase(marketEnabled ? "market" : "playing");
       setMarketViewVisible(marketEnabled); // Start with market visible by default only if enabled
 
+      // TRIGGER: If market is disabled, battle starts immediately - trigger level music
+      if (!marketEnabled) {
+        musicManagerRef.current?.playLevelMusic(campaign.level);
+      }
+      // If market is enabled, music will trigger when user clicks "Start Battle" button
+
       // Medieval transition sound via WebAudio (match 2.5s animation)
       try {
         const Ctx: any =
@@ -5667,6 +5676,9 @@ export default function App() {
             break;
 
           case "reset_to_title":
+            // TRIGGER: Stop music when resetting to title
+            musicManagerRef.current?.stopMusic();
+            
             // Reset all progress and return to title screen
             setShowVictoryDetails(false);
             setWin(null);
@@ -6134,6 +6146,8 @@ export default function App() {
             setShowDifficultyTransition(true);
             setDifficultyTransitionLine(0);
             setDifficultyTransitionText("");
+            // TRIGGER: Start main menu music
+            musicManagerRef.current?.playMainMenuMusic();
             // Find the first real story card (skip difficulty-selection)
             const firstRealCard = currentLevelConfig?.storyCards?.find(
               (card) => card.id !== "difficulty-selection"
@@ -6193,13 +6207,6 @@ export default function App() {
           setCurrentStoryCard(nextCard);
         } else if (shouldStartBattle) {
           // Save snapshot of resources before starting the level (for level retry)
-          console.log("🔄 [RETRY] Saving level start snapshot:", {
-            level: campaign.level,
-            gold: unspentGold,
-            roster: campaign.whiteRoster.length,
-            prayerDice: campaign.prayerDice,
-            difficulty: campaign.difficulty
-          });
           setLevelStartSnapshot({
             level: campaign.level,
             gold: unspentGold,
@@ -6219,6 +6226,12 @@ export default function App() {
           const marketEnabled = currentLevelConfig?.marketEnabled !== false;
           setPhase(marketEnabled ? "market" : "playing");
           setMarketViewVisible(marketEnabled); // Start with market visible by default only if enabled
+          
+          // TRIGGER: If market is disabled, battle starts immediately - trigger level music
+          if (!marketEnabled) {
+            musicManagerRef.current?.playLevelMusic(campaign.level);
+          }
+          // If market is enabled, music will trigger when user clicks "Start Battle" button
         }
       }
       
@@ -6246,10 +6259,14 @@ export default function App() {
   // Animate difficulty transition text sequentially (line 1 -> fade -> line 2 -> fade)
   useEffect(() => {
     if (!showDifficultyTransition) {
-      // Clear any existing interval when transition is hidden
+      // Clear any existing interval and timeout when transition is hidden
       if (difficultyTransitionIntervalRef.current) {
         clearInterval(difficultyTransitionIntervalRef.current);
         difficultyTransitionIntervalRef.current = null;
+      }
+      if (difficultyTransitionTimeoutRef.current) {
+        clearTimeout(difficultyTransitionTimeoutRef.current);
+        difficultyTransitionTimeoutRef.current = null;
       }
       return;
     }
@@ -6321,12 +6338,20 @@ export default function App() {
       difficultyTransitionIntervalRef.current = interval;
     };
 
-    animateLine1();
+    // Add 2-second delay before starting the animation
+    difficultyTransitionTimeoutRef.current = setTimeout(() => {
+      animateLine1();
+      difficultyTransitionTimeoutRef.current = null;
+    }, 2000);
 
     return () => {
       if (difficultyTransitionIntervalRef.current) {
         clearInterval(difficultyTransitionIntervalRef.current);
         difficultyTransitionIntervalRef.current = null;
+      }
+      if (difficultyTransitionTimeoutRef.current) {
+        clearTimeout(difficultyTransitionTimeoutRef.current);
+        difficultyTransitionTimeoutRef.current = null;
       }
     };
   }, [showDifficultyTransition]); // Only depend on showDifficultyTransition
@@ -8653,6 +8678,9 @@ export default function App() {
   }
 
   const handleStartBattle = () => {
+    // TRIGGER: Start level music when battle actually begins
+    musicManagerRef.current?.playLevelMusic(campaign.level);
+    
     // Start battle immediately - no confirmation needed (confirmation happens on COMPLETE DEPLOYMENT)
     setPhase("playing");
     setMarketViewVisible(true); // Reset to market visible for next market phase
@@ -9213,6 +9241,9 @@ export default function App() {
 
   // --- Roguelike handlers ---
   const handleTryAgain = () => {
+    // TRIGGER: Stop music when resetting game
+    musicManagerRef.current?.stopMusic();
+    
     // Fully reset run and return to Intro popup
     // Clear localStorage to remove all saved data
     localStorage.removeItem("dicechess_campaign_v1");
@@ -9246,26 +9277,12 @@ export default function App() {
   };
 
   const handleRetryLevel = () => {
-    console.log("🔄 [RETRY] ========== RETRY LEVEL CLICKED ==========");
-    console.log("🔄 [RETRY] Snapshot exists:", !!levelStartSnapshot);
-    
     if (!levelStartSnapshot) {
-      console.log("🔄 [RETRY] No snapshot found, falling back to full reset");
       handleTryAgain();
       return;
     }
 
-    console.log("🔄 [RETRY] Snapshot data:", {
-      level: levelStartSnapshot.level,
-      gold: levelStartSnapshot.gold,
-      roster: levelStartSnapshot.whiteRoster.length,
-      prayerDice: levelStartSnapshot.prayerDice,
-      difficulty: levelStartSnapshot.difficulty
-    });
-
-    console.log("🔄 [RETRY] Setting isRetryingLevel = true");
     setIsRetryingLevel(true);
-    
     localStorage.setItem(
       "dicechess_campaign_v1",
       JSON.stringify({
@@ -9275,7 +9292,6 @@ export default function App() {
       })
     );
 
-    console.log("🔄 [RETRY] Setting showIntro = false");
     setShowIntro(false);
     setShowTransition(false);
     setStoryOutcome(null);
@@ -9289,11 +9305,8 @@ export default function App() {
     setShowVictoryDetails(false);
     setUnspentGold(levelStartSnapshot.gold);
 
-    console.log("🔄 [RETRY] Loading level config for level", levelStartSnapshot.level);
     loadLevelConfig(levelStartSnapshot.level).then((config) => {
-      console.log("🔄 [RETRY] Config loaded:", config.name);
       setCurrentLevelConfig(config);
-      console.log("🔄 [RETRY] Restoring campaign state");
       setCampaign({
         level: levelStartSnapshot.level,
         whiteRoster: [...levelStartSnapshot.whiteRoster],
@@ -9304,13 +9317,15 @@ export default function App() {
         tutorialsSeen: [...levelStartSnapshot.tutorialsSeen],
         difficulty: levelStartSnapshot.difficulty,
       });
-      console.log("🔄 [RETRY] Triggering init with new seed");
       setSeed(new Date().toISOString() + "-retry");
     });
   };
 
   // Comprehensive reset function for dev tools - resets everything to fresh state
   const handleResetEverything = () => {
+    // TRIGGER: Stop music when resetting everything (dev tool)
+    musicManagerRef.current?.stopMusic();
+    
     // Clear all localStorage items
     localStorage.removeItem("dicechess_campaign_v1");
     localStorage.removeItem("dicechess_first_combat_tutorial_used");
@@ -9411,6 +9426,9 @@ export default function App() {
     setStoryCardQueue([endOfStoryCard, middleCard, thanksForPlayingCard]);
     // Show the first card immediately
     setCurrentStoryCard(endOfStoryCard);
+    
+    // TRIGGER: Start end game music
+    musicManagerRef.current?.playEndGameMusic();
   };
 
   const handleNextLevel = () => {
@@ -9471,6 +9489,10 @@ export default function App() {
     setWin(null); // Clear win state
     setKilledEnemyPieces([]); // Clear killed pieces for next level
     setThisLevelUnlockedItems([]); // Clear unlocked items for next level
+    
+    // TRIGGER: Stop music when transitioning to next level's story cards
+    musicManagerRef.current?.stopMusic();
+    
     const nextLevel = campaign.level + 1;
     setCampaign((prev) => ({
       ...prev,
@@ -9485,6 +9507,10 @@ export default function App() {
 
   return (
     <div className="min-h-screen text-white p-6 flex items-center justify-center relative">
+      <MusicManager
+        ref={musicManagerRef}
+        musicMuted={musicMuted}
+      />
       {showIntro && !isRetryingLevel && <MainMenu onEnter={handleIntroComplete} />}
       {showDifficultyTransition && (
         <div className="difficulty-transition-overlay">
@@ -9693,11 +9719,13 @@ export default function App() {
               </div>
 
               {/* Settings Dropdown - Below Quest Panel */}
-              <SettingsDropdown 
+              <SettingsDropdown
                 showRules={showRules}
                 setShowRules={setShowRules}
                 muted={muted}
                 setMuted={setMuted}
+                musicMuted={musicMuted}
+                setMusicMuted={setMusicMuted}
                 fastMode={fastMode}
                 setFastMode={setFastMode}
                 showBoardTooltips={showBoardTooltips}
