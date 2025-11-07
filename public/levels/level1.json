@@ -11,7 +11,7 @@
   "difficultySettings": {
     "easy": {
       "enemyPieceGold": 0,
-      "enemyEquipmentGold": 10,
+      "enemyEquipmentGold": 0,
       "guaranteedPieces": {
         "black": [
           { "type": "P" },

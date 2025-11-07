@@ -19,7 +19,7 @@
       "enemyEquipmentGold": 100
     }
   },
-  "botBehavior": "balanced",
+  "botBehavior": "aggressive",
   "namedWhitePieces": [
     {
       "type": "K",
