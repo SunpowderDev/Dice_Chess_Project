@@ -1784,3 +1784,47 @@ body {
 .tutorial-popup-btn:active {
   transform: translateY(0);
 }
+
+/* Victory Popup Buttons */
+.victory-popup-btn {
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  width: 100%;
+}
+
+.victory-popup-btn-retry {
+  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.victory-popup-btn-retry:hover {
+  background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4), 0 0 20px rgba(245, 158, 11, 0.2);
+  transform: translateY(-1px);
+}
+
+.victory-popup-btn-restart {
+  background: linear-gradient(180deg, #451a03 0%, #292524 100%);
+  color: #d4a574;
+  border: 1px solid rgba(120, 53, 15, 0.4);
+}
+
+.victory-popup-btn-restart:hover {
+  background: linear-gradient(180deg, #78350f 0%, #451a03 100%);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+  transform: translateY(-1px);
+  color: #fef3c7;
+}
+
+.victory-popup-btn:active {
+  transform: translateY(0);
+}

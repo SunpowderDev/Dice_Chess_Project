@@ -41,6 +41,7 @@ interface VictoryPopupProps {
   destroyedCourtiers: number;
   handleNextLevel: () => void;
   handleTryAgain: () => void;
+  handleRetryLevel: () => void;
   winModalPosition: { top: number; left: number } | null;
   currentLevelConfig: LevelConfig | null;
 }
@@ -54,6 +55,7 @@ export function VictoryPopup({
   destroyedCourtiers,
   handleNextLevel,
   handleTryAgain,
+  handleRetryLevel,
   winModalPosition,
   currentLevelConfig,
 }: VictoryPopupProps) {
@@ -187,7 +189,7 @@ export function VictoryPopup({
           <>
             {win !== W && (
               <>
-                {/* Show victory condition above RUN ENDED */}
+                {/* Show victory condition above Eohmer's Tale Ended */}
                 {victoryConditions.length > 0 && (
                   <div className="mb-4">
                     <div className="flex flex-col gap-2 text-sm">
@@ -212,8 +214,8 @@ export function VictoryPopup({
                     </div>
                   </div>
                 )}
-                <h2 className="text-2xl font-bold text-red-500 mb-2">
-                  RUN ENDED
+                <h2 className="text-2xl font-bold text-red-500 mb-2" style={{ fontFamily: 'serif', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>
+                  Eohmer's Tale Ended
                 </h2>
               </>
             )}
@@ -393,13 +395,32 @@ export function VictoryPopup({
                 );
               })()}
 
-            <button
-              onClick={win === W ? handleNextLevel : handleTryAgain}
-              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
-              style={{ fontFamily: 'serif' }}
-            >
-              {win === W ? "Next Level" : "Try Again"}
-            </button>
+            {win === W ? (
+              <button
+                onClick={handleNextLevel}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+                style={{ fontFamily: 'serif' }}
+              >
+                Next Level
+              </button>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleRetryLevel}
+                  className="victory-popup-btn victory-popup-btn-retry"
+                  style={{ fontFamily: 'serif' }}
+                >
+                  Retry Level
+                </button>
+                <button
+                  onClick={handleTryAgain}
+                  className="victory-popup-btn victory-popup-btn-restart"
+                  style={{ fontFamily: 'serif' }}
+                >
+                  Restart Campaign
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>

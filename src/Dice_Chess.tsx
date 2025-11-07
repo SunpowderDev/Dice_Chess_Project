@@ -37,6 +37,7 @@ import type {
   KingDefeatType,
   OutcomeData,
   TutorialType,
+  Difficulty,
 } from "./types";
 import {
   S,
@@ -682,19 +683,19 @@ function build(
     
     // Debug logging for slot calculation
     if (color === B) {
-      console.log("[Difficulty Debug] Slot calculation:", {
-        backRankRow,
-        frontRankRow,
-        boardSize,
-        availableBackSlots,
-        availableFrontSlots,
-        blockedBackSlots,
-        blockedFrontSlots,
-        backRankObstacles: Array.from({length: boardSize}, (_, i) => obstacles?.[backRankRow]?.[i]),
-        frontRankObstacles: Array.from({length: boardSize}, (_, i) => obstacles?.[frontRankRow]?.[i]),
-        backRankPieces: Array.from({length: boardSize}, (_, i) => board?.[backRankRow]?.[i] ? board[backRankRow][i]?.type : null),
-        frontRankPieces: Array.from({length: boardSize}, (_, i) => board?.[frontRankRow]?.[i] ? board[frontRankRow][i]?.type : null)
-      });
+      // console.log("[Difficulty Debug] Slot calculation:", {
+      //   backRankRow,
+      //   frontRankRow,
+      //   boardSize,
+      //   availableBackSlots,
+      //   availableFrontSlots,
+      //   blockedBackSlots,
+      //   blockedFrontSlots,
+      //   backRankObstacles: Array.from({length: boardSize}, (_, i) => obstacles?.[backRankRow]?.[i]),
+      //   frontRankObstacles: Array.from({length: boardSize}, (_, i) => obstacles?.[frontRankRow]?.[i]),
+      //   backRankPieces: Array.from({length: boardSize}, (_, i) => board?.[backRankRow]?.[i] ? board[backRankRow][i]?.type : null),
+      //   frontRankPieces: Array.from({length: boardSize}, (_, i) => board?.[frontRankRow]?.[i] ? board[frontRankRow][i]?.type : null)
+      // });
     }
   }
 
@@ -836,13 +837,13 @@ function build(
     
     // Debug logging for spec generation
     if (color === B) {
-      console.log("[Difficulty Debug] Spec generation:", {
-        initialGold,
-        allowedPieceTypes,
-        specsGenerated: SPECS.length,
-        selectedSpec: s,
-        specsArray: SPECS
-      });
+      // console.log("[Difficulty Debug] Spec generation:", {
+      //   initialGold,
+      //   allowedPieceTypes,
+      //   specsGenerated: SPECS.length,
+      //   selectedSpec: s,
+      //   specsArray: SPECS
+      // });
     }
   }
 
@@ -937,16 +938,16 @@ function build(
   
   // Debug logging for pawn generation
   if (color === B) {
-    console.log("[Difficulty Debug] Pawn generation:", {
-      availableFrontSlots,
-      boardSize,
-      namedFrontRankPiecesCount: namedFrontRankPieces.length,
-      guaranteedFrontRankPiecesCount: guaranteedFrontRankPieces.length,
-      remainingPawnSlots,
-      specPawns: s?.p || 0,
-      actualPawnsToGenerate,
-      allowedHasP: allowed.has("P")
-    });
+    // console.log("[Difficulty Debug] Pawn generation:", {
+    //   availableFrontSlots,
+    //   boardSize,
+    //   namedFrontRankPiecesCount: namedFrontRankPieces.length,
+    //   guaranteedFrontRankPiecesCount: guaranteedFrontRankPieces.length,
+    //   remainingPawnSlots,
+    //   specPawns: s?.p || 0,
+    //   actualPawnsToGenerate,
+    //   allowedHasP: allowed.has("P")
+    // });
   }
 
   // Generate random pawns (only up to remaining slots and only if allowed)
@@ -4078,6 +4079,12 @@ function SettingsDropdown({
 // --- Main App Component ---
 export default function App() {
   const [showIntro, setShowIntro] = useState(true);
+  const [isRetryingLevel, setIsRetryingLevel] = useState(false);
+  
+  // Debug: Track showIntro and isRetryingLevel changes
+  useEffect(() => {
+    console.log("🔄 [RETRY] State changed - showIntro:", showIntro, "isRetryingLevel:", isRetryingLevel, "shouldShowMainMenu:", showIntro && !isRetryingLevel);
+  }, [showIntro, isRetryingLevel]);
   const [seed, setSeed] = useState(() => new Date().toISOString());
   const [muted, setMuted] = useState(false);
   const [fastMode, setFastMode] = useState(false);
@@ -4443,6 +4450,54 @@ export default function App() {
 
   // Track Courtiers destroyed this level
   const [destroyedCourtiers, setDestroyedCourtiers] = useState<number>(0);
+
+  // State to save resources before starting a level (for level retry)
+  const [levelStartSnapshot, setLevelStartSnapshot] = useState<{
+    level: number;
+    gold: number;
+    whiteRoster: Piece[];
+    prayerDice: number;
+    unlockedItems: Exclude<Equip, undefined>[];
+    freeUnits: Map<PieceType, number>;
+    freeItems: Map<Exclude<Equip, undefined>, number>;
+    tutorialsSeen: TutorialType[];
+    difficulty?: Difficulty;
+  } | null>(null);
+  
+  // Create snapshot if we're in a level but don't have one (e.g., loaded from save or refreshed)
+  useEffect(() => {
+    // Only create snapshot if:
+    // 1. We don't have a snapshot yet OR the snapshot is for a different level
+    // 2. We're past the intro (game has started)
+    // 3. We're in market or playing phase (actually in a level)
+    // 4. We have a campaign level >= 1
+    const needsSnapshot = (!levelStartSnapshot || levelStartSnapshot.level !== campaign.level) 
+      && !showIntro 
+      && (phase === "market" || phase === "playing") 
+      && campaign.level >= 1;
+      
+    if (needsSnapshot) {
+      console.log("🔄 [RETRY] Creating snapshot from current state (loaded from save or post-story):", {
+        level: campaign.level,
+        gold: unspentGold,
+        roster: campaign.whiteRoster.length,
+        prayerDice: campaign.prayerDice,
+        difficulty: campaign.difficulty,
+        phase
+      });
+      setLevelStartSnapshot({
+        level: campaign.level,
+        gold: unspentGold,
+        whiteRoster: [...campaign.whiteRoster],
+        prayerDice: campaign.prayerDice,
+        unlockedItems: [...campaign.unlockedItems],
+        freeUnits: new Map(campaign.freeUnits),
+        freeItems: new Map(campaign.freeItems),
+        tutorialsSeen: [...campaign.tutorialsSeen],
+        difficulty: campaign.difficulty,
+      });
+    }
+  }, [levelStartSnapshot, showIntro, phase, campaign, unspentGold]);
 
   // Tutorial state - just track which tutorial is showing
   const [currentTutorial, setCurrentTutorial] = useState<TutorialType | null>(null);
@@ -4883,12 +4938,20 @@ export default function App() {
     // Only show story cards if:
     // 1. We have story cards in the queue
     // 2. No current story card is showing
-    // 3. Intro popup is not showing (campaign.level > 1 means we're past the first level)
-    // 4. We're not showing the intro popup
-    if (storyCardQueue.length > 0 && !currentStoryCard && !showIntro && campaign.level > 1) {
+    // 3. Intro popup is not showing
+    console.log("🔄 [RETRY] Story card auto-show check:", {
+      queueLength: storyCardQueue.length,
+      currentCard: !!currentStoryCard,
+      showIntro,
+      shouldShow: storyCardQueue.length > 0 && !currentStoryCard && !showIntro
+    });
+    
+    if (storyCardQueue.length > 0 && !currentStoryCard && !showIntro) {
+      console.log("🔄 [RETRY] Auto-showing first story card, clearing retry flag");
       setCurrentStoryCard(storyCardQueue[0]);
+      setIsRetryingLevel(false);
     }
-  }, [storyCardQueue, currentStoryCard, showIntro, campaign.level]);
+  }, [storyCardQueue, currentStoryCard, showIntro]);
 
   useEffect(() => {
     sfx.muted = muted;
@@ -6129,6 +6192,26 @@ export default function App() {
           // Directly transition to next card without clearing
           setCurrentStoryCard(nextCard);
         } else if (shouldStartBattle) {
+          // Save snapshot of resources before starting the level (for level retry)
+          console.log("🔄 [RETRY] Saving level start snapshot:", {
+            level: campaign.level,
+            gold: unspentGold,
+            roster: campaign.whiteRoster.length,
+            prayerDice: campaign.prayerDice,
+            difficulty: campaign.difficulty
+          });
+          setLevelStartSnapshot({
+            level: campaign.level,
+            gold: unspentGold,
+            whiteRoster: [...campaign.whiteRoster],
+            prayerDice: campaign.prayerDice,
+            unlockedItems: [...campaign.unlockedItems],
+            freeUnits: new Map(campaign.freeUnits),
+            freeItems: new Map(campaign.freeItems),
+            tutorialsSeen: [...campaign.tutorialsSeen],
+            difficulty: campaign.difficulty,
+          });
+          
           // Clear card and go to market or skip to playing if market disabled
           setCurrentStoryCard(null);
           setStoryCardQueue([]);
@@ -6287,8 +6370,8 @@ export default function App() {
     const currentDifficulty = campaign.difficulty;
     
     // Debug logging (can be removed later)
-    console.log("[Difficulty Debug] campaign.difficulty:", campaign.difficulty, "level:", campaign.level, "using:", currentDifficulty);
-    console.log("[Difficulty Debug] Base gold - enemyPieceGold:", enemyPieceGold, "enemyEquipmentGold:", enemyEquipmentGold);
+    // Difficulty debug removed
+    // Difficulty debug removed
     
     if (currentDifficulty && levelConfig.difficultySettings?.[currentDifficulty]) {
       const diffSettings = levelConfig.difficultySettings[currentDifficulty]!;
@@ -6297,9 +6380,9 @@ export default function App() {
       if (diffSettings.enemyEquipmentGold !== undefined) enemyEquipmentGold = diffSettings.enemyEquipmentGold;
       if (diffSettings.playerEquipmentGold !== undefined) playerEquipmentGold = diffSettings.playerEquipmentGold;
       
-      console.log("[Difficulty Debug] Applied", currentDifficulty, "settings - enemyPieceGold:", enemyPieceGold, "enemyEquipmentGold:", enemyEquipmentGold);
+      // Difficulty debug removed
     } else {
-      console.log("[Difficulty Debug] No difficulty settings applied - difficulty:", currentDifficulty, "hasSettings:", !!levelConfig.difficultySettings);
+      // Difficulty debug removed
     }
 
     // Campaign logic: handle white army based on level and survivors
@@ -6505,13 +6588,13 @@ export default function App() {
       }
     }
     
-    console.log("[Difficulty Debug] Pending assignments:", pendingAssignments);
-    console.log("[Difficulty Debug] Guaranteed items array:", guaranteedItems);
-    console.log("[Difficulty Debug] Enemy piece gold for pawns:", enemyPieceGold);
+    // Difficulty debug removed
+    // Difficulty debug removed
+    // Difficulty debug removed
     
     // Check for pending pawns (from story events) - add them to guaranteed pieces
     const pendingPawns = (campaign as any).pendingEnemyPawns || 0;
-    console.log("[Difficulty Debug] Pending pawns from story:", pendingPawns);
+    // Difficulty debug removed
     
     // Get guaranteed pieces - check difficulty-specific override first, then fall back to base config
     let rawGuaranteedBlack = levelConfig.guaranteedPieces?.black || [];
@@ -6520,7 +6603,7 @@ export default function App() {
       const diffSettings = levelConfig.difficultySettings[currentDifficulty];
       if (diffSettings?.guaranteedPieces?.black) {
         rawGuaranteedBlack = diffSettings.guaranteedPieces.black;
-        console.log("[Difficulty Debug] Using difficulty-specific guaranteed pieces for", currentDifficulty);
+        // Difficulty debug removed
       }
     }
     
@@ -6534,15 +6617,15 @@ export default function App() {
       guaranteedBlackPieces.push({ type: "P" });
     }
     
-    console.log("[Difficulty Debug] Final guaranteed black pieces count:", guaranteedBlackPieces.length);
+    // Difficulty debug removed
     
-    console.log("[Difficulty Debug] Calling build with:", {
-      enemyPieceGold,
-      enemyEquipmentGold,
-      guaranteedItemsCount: guaranteedItems.length,
-      guaranteedPiecesCount: guaranteedBlackPieces.length,
-      randomizationPieces: levelConfig.randomizationPieces?.black
-    });
+    // console.log("[Difficulty Debug] Calling build with:", {
+    //   enemyPieceGold,
+    //   enemyEquipmentGold,
+    //   guaranteedItemsCount: guaranteedItems.length,
+    //   guaranteedPiecesCount: guaranteedBlackPieces.length,
+    //   randomizationPieces: levelConfig.randomizationPieces?.black
+    // });
     
     const bl = build(
       B,
@@ -6565,10 +6648,10 @@ export default function App() {
       levelConfig.enemyPawnBudget // Pawn budget percentage for black
     );
     
-    console.log("[Difficulty Debug] Build result - back rank pieces:", bl.back.length, "front rank pieces:", bl.front.length);
-    console.log("[Difficulty Debug] Total pieces:", bl.back.length + bl.front.length);
+    // Difficulty debug removed
+    // Difficulty debug removed
     const totalEquipped = [...bl.back, ...bl.front].filter(p => p && p.equip).length;
-    console.log("[Difficulty Debug] Pieces with equipment:", totalEquipped);
+    // Difficulty debug removed
     
     // Place black pieces, avoiding obstacles
     placePiecesAvoidingObstacles(B0, O0, bl.back, boardSize - 1, boardSize);
@@ -9134,8 +9217,9 @@ export default function App() {
     // Clear localStorage to remove all saved data
     localStorage.removeItem("dicechess_campaign_v1");
     
-    setShowTransition(false);
+    setIsRetryingLevel(false);
     setShowIntro(true);
+    setShowTransition(false);
     setCurrentStoryCard(null);
     setStoryCardQueue([]);
     setStoryOutcome(null);
@@ -9161,6 +9245,70 @@ export default function App() {
     setSeed(new Date().toISOString() + "-newgame");
   };
 
+  const handleRetryLevel = () => {
+    console.log("🔄 [RETRY] ========== RETRY LEVEL CLICKED ==========");
+    console.log("🔄 [RETRY] Snapshot exists:", !!levelStartSnapshot);
+    
+    if (!levelStartSnapshot) {
+      console.log("🔄 [RETRY] No snapshot found, falling back to full reset");
+      handleTryAgain();
+      return;
+    }
+
+    console.log("🔄 [RETRY] Snapshot data:", {
+      level: levelStartSnapshot.level,
+      gold: levelStartSnapshot.gold,
+      roster: levelStartSnapshot.whiteRoster.length,
+      prayerDice: levelStartSnapshot.prayerDice,
+      difficulty: levelStartSnapshot.difficulty
+    });
+
+    console.log("🔄 [RETRY] Setting isRetryingLevel = true");
+    setIsRetryingLevel(true);
+    
+    localStorage.setItem(
+      "dicechess_campaign_v1",
+      JSON.stringify({
+        ...levelStartSnapshot,
+        freeUnits: Array.from(levelStartSnapshot.freeUnits.entries()),
+        freeItems: Array.from(levelStartSnapshot.freeItems.entries()),
+      })
+    );
+
+    console.log("🔄 [RETRY] Setting showIntro = false");
+    setShowIntro(false);
+    setShowTransition(false);
+    setStoryOutcome(null);
+    setCurrentStoryCard(null);
+    setStoryCardQueue([]);
+    setWin(null);
+    setKilledEnemyPieces([]);
+    setThisLevelUnlockedItems([]);
+    setDestroyedCourtiers(0);
+    setMarketPoints(0);
+    setShowVictoryDetails(false);
+    setUnspentGold(levelStartSnapshot.gold);
+
+    console.log("🔄 [RETRY] Loading level config for level", levelStartSnapshot.level);
+    loadLevelConfig(levelStartSnapshot.level).then((config) => {
+      console.log("🔄 [RETRY] Config loaded:", config.name);
+      setCurrentLevelConfig(config);
+      console.log("🔄 [RETRY] Restoring campaign state");
+      setCampaign({
+        level: levelStartSnapshot.level,
+        whiteRoster: [...levelStartSnapshot.whiteRoster],
+        prayerDice: levelStartSnapshot.prayerDice,
+        unlockedItems: [...levelStartSnapshot.unlockedItems],
+        freeUnits: new Map(levelStartSnapshot.freeUnits),
+        freeItems: new Map(levelStartSnapshot.freeItems),
+        tutorialsSeen: [...levelStartSnapshot.tutorialsSeen],
+        difficulty: levelStartSnapshot.difficulty,
+      });
+      console.log("🔄 [RETRY] Triggering init with new seed");
+      setSeed(new Date().toISOString() + "-retry");
+    });
+  };
+
   // Comprehensive reset function for dev tools - resets everything to fresh state
   const handleResetEverything = () => {
     // Clear all localStorage items
@@ -9169,6 +9317,7 @@ export default function App() {
     localStorage.removeItem("dicechess_tutorial_popups_enabled");
     
     // Reset all game state
+    setIsRetryingLevel(false);
     setShowTransition(false);
     setShowIntro(true);
     setCurrentStoryCard(null);
@@ -9336,7 +9485,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen text-white p-6 flex items-center justify-center relative">
-      {showIntro && <MainMenu onEnter={handleIntroComplete} />}
+      {showIntro && !isRetryingLevel && <MainMenu onEnter={handleIntroComplete} />}
       {showDifficultyTransition && (
         <div className="difficulty-transition-overlay">
           <div className="difficulty-transition-spiral" />
@@ -9738,6 +9887,7 @@ export default function App() {
           destroyedCourtiers={destroyedCourtiers}
           handleNextLevel={handleNextLevel}
           handleTryAgain={handleTryAgain}
+          handleRetryLevel={handleRetryLevel}
           winModalPosition={winModalPosition}
           currentLevelConfig={currentLevelConfig}
         />
