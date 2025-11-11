@@ -17,7 +17,7 @@ export const PIECE_COSTS = {
 
 export const ITEM_COSTS = {
   sword: 10,
-  shield: 10,
+  shield: 15,
   lance: 15,
   torch: 5,
   bow: 20,

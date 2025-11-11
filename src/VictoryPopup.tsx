@@ -242,9 +242,9 @@ export function VictoryPopup({
         <div
           className={`bg-gradient-to-b from-amber-900/40 via-stone-950/90 to-stone-950/95 rounded-lg shadow-2xl border-4 ${frameBorderClass} backdrop-blur-sm overflow-hidden`}
           style={{
-            minWidth: "340px",
-            width: "min(380px, calc(100vw - 32px))",
-            maxWidth: "380px",
+            minWidth: "360px",
+            width: "min(420px, calc(100vw - 32px))",
+            maxWidth: "420px",
           }}
         >
           <div className={`h-2 ${topBottomBarClass}`}></div>
@@ -477,8 +477,8 @@ export function VictoryPopup({
                         )}
                         {destroyedCourtiers > 0 && (
                           <div className="flex items-center justify-between font-semibold">
-                            <span className="text-amber-200">Peasants Casualties</span>
-                            <span className="text-red-400">-{casualtiesPenalty}g</span>
+                            <span className="text-red-700">Peasants Casualties</span>
+                            <span className="text-red-700">-{casualtiesPenalty}g</span>
                           </div>
                         )}
                       </div>

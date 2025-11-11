@@ -563,6 +563,14 @@ body {
   position: relative;
 }
 
+.quest-objective-text {
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+}
+
+.quest-objective-reward {
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.7);
+}
+
 .check {
   position: absolute;
   top: 50%;

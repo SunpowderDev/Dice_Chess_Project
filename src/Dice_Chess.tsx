@@ -2903,6 +2903,8 @@ function BoardComponent({
   victoryConditions,
   setSpeechBubble,
   currentLevelConfig,
+  kingEscapeGuideActive,
+  kingEscapeGuideOpacity,
 }: {
   board: Board;
   T: Terrain;
@@ -2948,6 +2950,8 @@ function BoardComponent({
   victoryConditions: string[];
   setSpeechBubble: (bubble: { text: string; id: number; targetId: string } | null) => void;
   currentLevelConfig: any;
+  kingEscapeGuideActive: boolean;
+  kingEscapeGuideOpacity: number;
 }) {
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const [chipPositions, setChipPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
@@ -3050,6 +3054,46 @@ function BoardComponent({
       return prev; // No change, return previous to avoid re-render
     });
   }, [hover, sel, supportingPieces, boardSize]);
+
+  const kingEscapeGuideLinePoints = useMemo(() => {
+    if (!kingEscapeGuideActive) return null;
+    if (!victoryConditions.includes("king_escaped")) return null;
+
+    let kingPos: { x: number; y: number } | null = null;
+    for (let y = 0; y < boardSize; y++) {
+      for (let x = 0; x < boardSize; x++) {
+        const piece = board[y]?.[x];
+        if (piece && piece.type === "K" && piece.color === W) {
+          kingPos = { x, y };
+          break;
+        }
+      }
+      if (kingPos) break;
+    }
+
+    if (!kingPos) return null;
+
+    const targetY = boardSize - 1;
+    if (kingPos.y === targetY) return null;
+
+    const tileSize = 88;
+    const labelOffset = 24;
+    const halfTile = tileSize / 2;
+
+    const kingVisualY = boardSize - 1 - kingPos.y;
+    const targetVisualY = boardSize - 1 - targetY;
+
+    const centerX = labelOffset + kingPos.x * tileSize + halfTile;
+    const kingCenterY = kingVisualY * tileSize + halfTile;
+    const targetCenterY = targetVisualY * tileSize + halfTile;
+
+    return {
+      x1: centerX,
+      y1: kingCenterY,
+      x2: centerX,
+      y2: targetCenterY,
+    };
+  }, [kingEscapeGuideActive, victoryConditions, board, boardSize]);
 
   // Generate file labels (A-L for boards up to 12x12)
   const files = "ABCDEFGHIJKL";
@@ -3710,13 +3754,7 @@ function BoardComponent({
                         <span className="expr">
                           <span className="term">
                             {fx.a.rolls.map((roll: number, i: number) => (
-                              <div
-                                key={i}
-                                style={{
-                                  opacity:
-                                    fx.adv && roll !== fx.a.base ? 0.5 : 1,
-                                }}
-                              >
+                              <div key={i}>
                                 <DiceD6
                                   rolling={
                                     phase === "base" &&
@@ -3835,6 +3873,36 @@ function BoardComponent({
           </div>
         </div>
       </div>
+
+      {kingEscapeGuideLinePoints && boardContainerRef.current && (
+        <svg
+          width={boardContainerRef.current.offsetWidth}
+          height={boardContainerRef.current.offsetHeight}
+          style={{
+            position: "absolute",
+            top: "0px",
+            left: "0px",
+            pointerEvents: "none",
+            zIndex: 2,
+            overflow: "visible",
+          }}
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <line
+            x1={kingEscapeGuideLinePoints.x1}
+            y1={kingEscapeGuideLinePoints.y1}
+            x2={kingEscapeGuideLinePoints.x2}
+            y2={kingEscapeGuideLinePoints.y2}
+            stroke="#facc15"
+            strokeWidth="21"
+            strokeOpacity={kingEscapeGuideOpacity}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            shapeRendering="geometricPrecision"
+            style={{ transition: "stroke-opacity 0.8s ease-in-out" }}
+          />
+        </svg>
+      )}
 
       {/* Supporting Attack Lines - Blue lines connecting supporting pieces to target */}
       {hover &&
@@ -4617,6 +4685,11 @@ export default function App() {
   const pendingMoveHistoryRef = useRef<MoveRecord | null>(null);
   // Store pending action to execute after tutorial closes
   const pendingActionRef = useRef<{ from: { x: number; y: number }; to: { x: number; y: number }; isBot: boolean; isDragMove: boolean } | null>(null);
+  const [kingEscapeTutorialTriggered, setKingEscapeTutorialTriggered] = useState(false);
+  const [kingEscapeGuideLineVisible, setKingEscapeGuideLineVisible] = useState(false);
+  const [kingEscapeGuideLineOpacity, setKingEscapeGuideLineOpacity] = useState(0);
+  const kingEscapeGuideLineFadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const kingEscapeGuideLineHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Keep ref in sync with state
   useEffect(() => {
@@ -4746,6 +4819,38 @@ export default function App() {
     return true;
   }, [campaign.tutorialsSeen, enableTutorialPopups, getBoardCenterPosition, getButtonPosition, getButtonPositionAbove, getMarketCenterPosition]);
 
+  const clearKingEscapeGuideLineTimeouts = useCallback(() => {
+    if (kingEscapeGuideLineFadeTimeoutRef.current) {
+      clearTimeout(kingEscapeGuideLineFadeTimeoutRef.current);
+      kingEscapeGuideLineFadeTimeoutRef.current = null;
+    }
+    if (kingEscapeGuideLineHideTimeoutRef.current) {
+      clearTimeout(kingEscapeGuideLineHideTimeoutRef.current);
+      kingEscapeGuideLineHideTimeoutRef.current = null;
+    }
+  }, []);
+
+  const triggerKingEscapeGuideLine = useCallback(() => {
+    clearKingEscapeGuideLineTimeouts();
+    setKingEscapeGuideLineVisible(true);
+    setKingEscapeGuideLineOpacity(0);
+
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(() => {
+        setKingEscapeGuideLineOpacity(0.85);
+      });
+    } else {
+      setKingEscapeGuideLineOpacity(0.85);
+    }
+
+    kingEscapeGuideLineFadeTimeoutRef.current = setTimeout(() => {
+      setKingEscapeGuideLineOpacity(0);
+      kingEscapeGuideLineHideTimeoutRef.current = setTimeout(() => {
+        setKingEscapeGuideLineVisible(false);
+      }, 800);
+    }, 5000);
+  }, [clearKingEscapeGuideLineTimeouts]);
+
   // Helper function to close tutorial and mark as seen
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const closeTutorial = useCallback(() => {
@@ -4794,8 +4899,50 @@ export default function App() {
           showTutorial("market_view_battlefield", undefined, "data-view-battlefield", true, true);
         }, 300);
       }
+      if (closedTutorial === "king_escape_hint") {
+        triggerKingEscapeGuideLine();
+      }
     }
-  }, [currentTutorial, campaign.tutorialsSeen, enableTutorialPopups, phase, showTutorial]);
+  }, [currentTutorial, campaign.tutorialsSeen, enableTutorialPopups, phase, showTutorial, triggerKingEscapeGuideLine]);
+
+  useEffect(() => {
+    return () => {
+      clearKingEscapeGuideLineTimeouts();
+    };
+  }, [clearKingEscapeGuideLineTimeouts]);
+
+  useEffect(() => {
+    clearKingEscapeGuideLineTimeouts();
+    setKingEscapeTutorialTriggered(false);
+    setKingEscapeGuideLineVisible(false);
+    setKingEscapeGuideLineOpacity(0);
+  }, [campaign.level, clearKingEscapeGuideLineTimeouts]);
+
+  useEffect(() => {
+    if (
+      campaign.level === 1 &&
+      phase === "playing" &&
+      !kingEscapeTutorialTriggered &&
+      !pausedForTutorial &&
+      !currentTutorial &&
+      enableTutorialPopups &&
+      !campaign.tutorialsSeen.includes("king_escape_hint")
+    ) {
+      const shown = showTutorial("king_escape_hint");
+      if (shown) {
+        setKingEscapeTutorialTriggered(true);
+      }
+    }
+  }, [
+    campaign.level,
+    phase,
+    kingEscapeTutorialTriggered,
+    pausedForTutorial,
+    currentTutorial,
+    enableTutorialPopups,
+    campaign.tutorialsSeen,
+    showTutorial,
+  ]);
 
   // Tutorial: Exhausted Units - trigger when first exhausted piece detected
   useEffect(() => {
@@ -7414,6 +7561,7 @@ function handleLevelCompletion(
         a: out.a,
         ok: out.ok,
         id: currentCombatId,
+        adv: out.adv,
         obstacleType: targetObstacle, // Store actual obstacle type
       });
 
@@ -7555,6 +7703,7 @@ function handleLevelCompletion(
         d: out.d,
         win: out.win,
         id: currentCombatId,
+        adv: out.adv,
       });
 
       const notation = getChessNotation(from, to, p, true);
@@ -9404,7 +9553,7 @@ function handleLevelCompletion(
           return newHistory;
         });
 
-        setFx({ ...fx, a: out.a, ok: out.ok, isReroll: true });
+        setFx({ ...fx, a: out.a, ok: out.ok, adv: out.adv, isReroll: true });
 
         // Update display value to show the new roll
         setDispA(out.a.total);
@@ -9424,16 +9573,26 @@ function handleLevelCompletion(
 
         // Reroll BOTH attacker and defender dice
         let newA: number, newD: number, newRollsA: number[], newRollsD: number[];
-        
+
+        const attackerHadAdvantage =
+          fx?.kind === "piece" &&
+          Array.isArray(fx.a?.rolls) &&
+          fx.a.rolls.length > 1;
+        const defenderHadAdvantage =
+          fx?.kind === "piece" &&
+          Array.isArray(fx.d?.rolls) &&
+          fx.d.rolls.length > 1;
+
         // Reroll attacker's dice
-        const useAdvA = p.type === "K" || lanceLungeUsed;
+        const useAdvA = attackerHadAdvantage || p.type === "K" || lanceLungeUsed;
         newRollsA = [d6(rngRef.current)];
         if (useAdvA) newRollsA.push(d6(rngRef.current));
         newA = useAdvA ? Math.max(...newRollsA) : newRollsA[0];
-        
-        // Reroll defender's dice (defender never has advantage)
+
+        // Reroll defender's dice (preserve veteran advantage if present)
         newRollsD = [d6(rngRef.current)];
-        newD = newRollsD[0];
+        if (defenderHadAdvantage) newRollsD.push(d6(rngRef.current));
+        newD = defenderHadAdvantage ? Math.max(...newRollsD) : newRollsD[0];
 
         // Update history AFTER getting new rolls (both attacker and defender rerolled)
         setMoveHistory((hist) => {
@@ -9462,7 +9621,7 @@ function handleLevelCompletion(
         };
         const newWin = newFxA.total >= newFxD.total;
 
-        setFx({ ...fx, a: newFxA, d: newFxD, win: newWin, isReroll: true });
+        setFx({ ...fx, a: newFxA, d: newFxD, win: newWin, adv: useAdvA, isReroll: true });
 
         // Update display values to trigger animation for both dice
         // The rerolled dice will show the new value, the other will bump/settle
@@ -10029,16 +10188,22 @@ function handleLevelCompletion(
                         }
                       };
                       const description = getDescription(condition);
+                      const isConditionFulfilled = win === W && lastVictoryInfo?.condition === condition;
                       return (
                         <div key={idx} className="flex flex-col gap-1 bg-black/20 rounded p-2 border border-amber-700/30">
                           <div className="flex items-center gap-2">
-                            <span className="text-emerald-400 text-lg">✓</span>
-                            <span className="font-semibold text-amber-100">
+                            <span
+                              className={`text-lg quest-objective-text ${isConditionFulfilled ? "text-emerald-400" : "text-amber-400"}`}
+                              aria-hidden="true"
+                            >
+                              {isConditionFulfilled ? "✓" : "○"}
+                            </span>
+                            <span className="font-semibold text-amber-100 quest-objective-text">
                               {formatVictoryCondition(condition)}
                             </span>
                           </div>
                           {description && (
-                            <span className="text-gray-300 italic text-xs ml-6">
+                            <span className="text-gray-300 italic text-xs ml-6 quest-objective-text">
                               {description}
                             </span>
                           )}
@@ -10110,7 +10275,7 @@ function handleLevelCompletion(
                                   {isCompleted ? '✓' : isFailed ? '✗' : '○'}
                                 </span>
                                   <span
-                                    className={`font-semibold ${
+                                    className={`font-semibold quest-objective-text ${
                                       isCompleted
                                         ? 'text-blue-200'
                                         : isFailed
@@ -10122,7 +10287,7 @@ function handleLevelCompletion(
                                   </span>
                                 </div>
                                 <span
-                                  className={`text-xs font-semibold ${
+                                  className={`text-xs font-semibold quest-objective-reward ${
                                     isFailed ? 'text-red-200 line-through' : 'text-yellow-300'
                                   }`}
                                 >
@@ -10243,6 +10408,8 @@ function handleLevelCompletion(
                 victoryConditions={currentLevelConfig?.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"]}
                 setSpeechBubble={setSpeechBubble}
                 currentLevelConfig={currentLevelConfig}
+                kingEscapeGuideActive={kingEscapeGuideLineVisible}
+                kingEscapeGuideOpacity={kingEscapeGuideLineOpacity}
               />
               
               {/* Market Overlay - positioned over the board during market phase */}

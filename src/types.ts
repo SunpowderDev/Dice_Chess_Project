@@ -95,6 +95,7 @@ export type TutorialType =
   | "single_combat"
   | "supporting_units"
   | "king_advantage"
+  | "king_escape_hint"
   | "stunned_units"
   | "exhausted_units"
   | "veterans"

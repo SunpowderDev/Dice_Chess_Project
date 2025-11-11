@@ -37,6 +37,11 @@ export const TUTORIAL_CONTENT: Record<TutorialType, {
     body: "King always attacks with Advantage (roll 2d6, keep highest).",
     imageBanner: "/tutorial_imgs/tutorial_KingAdvantage.png",
   },
+  king_escape_hint: {
+    title: "To win this scenario, lead your King to the golden squares at the board's edge.",
+    body: "",
+    imageBanner: "",
+  },
   stunned_units: {
     title: "Stunned Units",
     body: "Stunned Units always roll 1.",

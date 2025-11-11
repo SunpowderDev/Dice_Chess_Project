@@ -37,7 +37,7 @@
     },
     {
       "type": "Q",
-      "name": "Delila",
+      "name": "Delila D.",
       "equip": "banner",
       "speechLines": [
         "Close the ranks!",
@@ -128,7 +128,7 @@
   "availableItems": {
     "blackRandomization": ["sword", "bow", "crystal_ball", "banner"],
     "whiteRandomization": [],
-    "whitePurchase": ["disguise", "crystal_ball"]
+    "whitePurchase": ["shield", "sword","disguise", "crystal_ball"]
   },
   "randomizationPieces": {
     "black": ["R", "B", "N", "P"],

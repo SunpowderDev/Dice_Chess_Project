@@ -165,7 +165,7 @@
         },
         "difficultyParams": {
           "easy": {
-            "maxLosses": 3
+            "maxLosses": 4
           },
           "hard": {
             "maxLosses": 2
@@ -174,7 +174,7 @@
       },
       "reward": 35,
       "rewardByDifficulty": {
-        "easy": 40,
+        "easy": 35,
         "hard": 35
       }
     },
@@ -238,7 +238,7 @@
       },
       "reward": 60,
       "rewardByDifficulty": {
-        "easy": 25,
+        "easy": 30,
         "hard": 30
       }
     },
