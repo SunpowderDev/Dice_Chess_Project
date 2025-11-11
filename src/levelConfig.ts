@@ -123,6 +123,8 @@ export interface LevelConfig {
   // Custom descriptions for victory conditions (overrides defaults)
   // Maps condition name to description text
   victoryConditionDescriptions?: Partial<Record<VictoryCondition, string>>;
+  // Optional objectives that award bonus gold when completed
+  optionalObjectives?: import("./types").OptionalObjective[];
 }
 
 // Define all available equipment (for fallback scaling)

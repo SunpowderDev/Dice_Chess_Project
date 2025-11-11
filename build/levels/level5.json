@@ -23,7 +23,7 @@
   "namedWhitePieces": [
     {
       "type": "K",
-      "name": "Eohmer",
+      "name": "Edran",
       "speechLines": [
         "Erase **his** name from the Bell.",
         "Your name will be **forgotten**, Prelate!",
@@ -41,7 +41,7 @@
       "name": "Morcant",
       "speechLines": [
         "I am the name that will not fall.",
-        "**Kneel**, Eohmer, for I am your **new god**!",
+        "**Kneel**, Edran, for I am your **new god**!",
         "My name rings **true**!",
         "History forgets yours, **Crownless**.",
         "The bell **protects** me!",
@@ -105,7 +105,7 @@
         "color": "b",
         "name": "Morcant"
       },
-      "bodyText": "\"Kneel, Eohmer, for I am your new god, and my name only rings **true**! Let history forget yours, **Crownless**.\"",
+      "bodyText": "\"Kneel, Edran, for I am your new god, and my name only rings **true**! Let history forget yours, **Crownless**.\"",
       "image": "/level5_Morcant.png",
       "leftChoice": {
         "text": "Ambush an Ebon Staff-Mage",
@@ -171,5 +171,53 @@
   "victoryConditionDescriptions": {
     "king_beheaded": "Vanquish Morcant through combat or checkmate."
   },
-  "displayedVictoryConditions": ["king_beheaded"]
+  "displayedVictoryConditions": ["king_beheaded"],
+  "optionalObjectives": [
+    {
+      "id": "decisive_battle",
+      "description": "Defeat Morcant within {{maxTurns}} {{plural|maxTurns|turn|turns}}",
+      "condition": {
+        "type": "win_under_turns",
+        "params": {
+          "maxTurns": 18
+        },
+        "difficultyParams": {
+          "easy": {
+            "maxTurns": 20
+          },
+          "hard": {
+            "maxTurns": 12
+          }
+        }
+      },
+      "reward": 60,
+      "rewardByDifficulty": {
+        "easy": 50,
+        "hard": 75
+      }
+    },
+    {
+      "id": "pyrrhic_victory",
+      "description": "{{ifZero|maxLosses|Win without losing any units|Win with no more than {{maxLosses}} {{plural|maxLosses|casualty|casualties}}}}",
+      "condition": {
+        "type": "max_casualties",
+        "params": {
+          "maxLosses": 3
+        },
+        "difficultyParams": {
+          "easy": {
+            "maxLosses": 4
+          },
+          "hard": {
+            "maxLosses": 2
+          }
+        }
+      },
+      "reward": 50,
+      "rewardByDifficulty": {
+        "easy": 40,
+        "hard": 65
+      }
+    },
+  ]
 }

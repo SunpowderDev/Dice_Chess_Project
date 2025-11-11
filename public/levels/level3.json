@@ -23,7 +23,7 @@
   "namedWhitePieces": [
     {
       "type": "K",
-      "name": "Eohmer",
+      "name": "Edran",
       "speechLines": [
         "While the Pontiff feasts...",
         "We must **pass** through!",
@@ -46,7 +46,7 @@
         "**Bleed** for your king!",
         "House Deliss **marches**!",
         "**Wine** and vice won't save them!",
-        "Forward, for **Eohmer**!",
+        "Forward, for **Edran**!",
         "The Pontiff will **kneel**!"
       ]
     }
@@ -76,7 +76,7 @@
         "color": "w",
         "name": "Narrator"
       },
-      "bodyText": "\"Morcant might not fear God, but he must fear Pope Pintus\" Eohmer thought. Pilgrim's Pass is the Pontiff's palace's umbilical: stone ribs over black water, but it is open for pilgrims, not crownless Kings…",
+      "bodyText": "\"Morcant might not fear God, but he must fear Pope Pintus\" Edran thought. Pilgrim's Pass is the Pontiff's palace's umbilical: stone ribs over black water, but it is open for pilgrims, not crownless Kings…",
       "image": "/level3_PilgrimsPass.png",
       "leftChoice": {
         "text": "Vices are great leverages..",
@@ -117,6 +117,8 @@
         "events": [
           { "type": "give_free_item", "item": "disguise", "count": 5 },
           { "type": "give_gold", "amount": 40 },
+          { "type": "set_objective_flag", "flag": "disguise_entry" },
+          { "type": "equip_item_to_named_piece", "item": "disguise", "pieceName": "Edran", "pieceType": "K" },
           { "type": "start_battle" }
         ],
         "overlayColor": "rgba(234, 179, 8, 0.8)"
@@ -169,8 +171,83 @@
   ],
   "marketEnabled": true,
   "fogRows": 2,
-  "questNarration": "Cross Pilgrim's Pass and slip King Eohmer within the Pontiff's precincts. Breach the palace by hood or by hammer.",
+  "questNarration": "Cross Pilgrim's Pass and slip King Edran within the Pontiff's precincts. Breach the palace by hood or by hammer.",
   "victoryConditionDescriptions": {
     "king_escaped": "Lead your King to the golden squares at the board's edge."
-  }
+  },
+  "optionalObjectives": [
+    {
+      "id": "quick_escape",
+      "description": "Enter the Palace within {{maxTurns}} {{plural|maxTurns|turn|turns}}",
+      "condition": {
+        "type": "win_under_turns",
+        "difficultyParams": {
+          "easy": {
+            "maxTurns": 18
+          },
+          "hard": {
+            "maxTurns": 12
+          }
+        }
+      },
+      "reward": 45,
+      "rewardByDifficulty": {
+        "easy": 40,
+        "hard": 40
+      }
+    },
+    {
+      "id": "protect_pilgrims",
+      "description": "Don't harm any pilgrim",
+      "condition": {
+        "type": "dont_kill_courtiers",
+        "difficultyParams": {
+          "easy": {
+            "maxCourtiers": 0
+          },
+          "hard": {
+            "maxCourtiers": 0
+          }
+        }
+      },
+      "reward": 15,
+      "rewardByDifficulty": {
+        "easy": 60,
+        "hard": 60
+      }
+    },
+    {
+      "id": "minimal_losses_l3",
+      "description": "{{ifZero|maxLosses|Win without losing any units|Win with no more than {{maxLosses}} {{plural|maxLosses|casualty|casualties}}}}",
+      "condition": {
+        "type": "max_casualties",
+        "difficultyParams": {
+          "easy": {
+            "maxLosses": 4
+          },
+          "hard": {
+            "maxLosses": 2
+          }
+        }
+      },
+      "reward": 40,
+      "rewardByDifficulty": {
+        "easy": 30,
+        "hard": 30
+      }
+    },
+    {
+      "id": "stealth_escape",
+      "description": "Infiltrate the Palace without revealing your King",
+      "condition": {
+        "type": "keep_king_disguised"
+      },
+      "requiredFlags": ["disguise_entry"],
+      "reward": 70,
+      "rewardByDifficulty": {
+        "easy": 100,
+        "hard": 100
+      }
+    }
+  ]
 }

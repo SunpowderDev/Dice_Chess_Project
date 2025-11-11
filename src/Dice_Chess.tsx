@@ -13,6 +13,7 @@ import {
   type NamedPiece,
   type BotBehavior,
   type LevelConfig,
+  type VictoryCondition,
 } from "./levelConfig";
 import StoryCard from "./StoryCard";
 import { MainMenu } from "./MainMenu";
@@ -60,6 +61,13 @@ import {
 import { Market } from "./Market";
 import { VictoryPopup } from "./VictoryPopup";
 import { TutorialPopup, getTutorialContent } from "./TutorialPopup";
+import {
+  checkAllObjectives,
+  checkObjectiveCondition,
+  calculateObjectiveBonus,
+  formatObjectiveDescription,
+  type ObjectiveTracking,
+} from "./ObjectiveManager";
 import "./styles.css";
 
 // --- Error Boundary & Tooltip Components ---
@@ -293,6 +301,8 @@ const cheb = (a: { x: number; y: number }, b: { x: number; y: number }) =>
 const manhattan = (a: { x: number; y: number }, b: { x: number; y: number }) =>
   Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 const cloneB = (b: Board) => b.map((r) => r.map((p) => (p ? { ...p } : null)));
+const isKingPiece = (piece: Piece | null | undefined) =>
+  !!piece && (piece.type === "K" || piece.originalType === "K");
 
 // Campaign utility functions
 function serializePiece(p: Piece): {
@@ -421,9 +431,13 @@ function onPieceDeath(
   b: Board,
   piece: Piece | null,
   pos: { x: number; y: number },
-  turn: Color
+  turn: Color,
+  onPlayerPieceLost?: (piece: Piece) => void
 ) {
   if (!piece) return;
+  if (piece.color === "w" && onPlayerPieceLost) {
+    onPlayerPieceLost(piece);
+  }
   if (piece.equip === "curse") {
     applyStunAround(b, pos, turn);
   }
@@ -441,6 +455,12 @@ function trackKingDefeat(
   }
 }
 
+type KillRecordContext = {
+  killerPiece?: Piece | null;
+  killerPosition?: { x: number; y: number } | null;
+  terrain?: Terrain;
+};
+
 // Helper function to check and unlock items, and track killed enemies for ransom
 function checkUnlockItem(
   killedPiece: Piece | null,
@@ -453,11 +473,37 @@ function checkUnlockItem(
   setKilledEnemies: React.Dispatch<React.SetStateAction<KilledPiece[]>>,
   setMarketPoints?: React.Dispatch<React.SetStateAction<number>>,
   setUnspentGold?: React.Dispatch<React.SetStateAction<number>>,
-  defeatType?: KingDefeatType
+  defeatType?: KingDefeatType,
+  context?: KillRecordContext
 ) {
   // Track killed enemies for ransom
   if (killedPiece && killerColor === W && (killedPiece.color as string) === B) {
-    setKilledEnemies((prev) => [...prev, { piece: killedPiece, defeatType }]);
+    const killerPiece = context?.killerPiece || null;
+    const terrainGrid = context?.terrain;
+    const killerPosition = context?.killerPosition;
+    let killerTerrain: TerrainCell | undefined;
+    const targetStunned =
+      !!(killedPiece && killedPiece.stunnedForTurns !== undefined && killedPiece.stunnedForTurns > 0);
+
+    if (terrainGrid && killerPosition) {
+      const row = terrainGrid[killerPosition.y];
+      if (row) {
+        killerTerrain = row[killerPosition.x] ?? undefined;
+      }
+    }
+
+    setKilledEnemies((prev) => [
+      ...prev,
+      {
+        piece: killedPiece,
+        defeatType,
+        killerType: killerPiece?.type,
+        killerName: killerPiece?.name,
+        killerId: killerPiece?.id,
+        killerTerrain,
+        targetStunned,
+      },
+    ]);
   }
 
   // Only process if white (player) killed black (enemy)
@@ -4470,6 +4516,32 @@ export default function App() {
   // Track Courtiers destroyed this level
   const [destroyedCourtiers, setDestroyedCourtiers] = useState<number>(0);
 
+  // Track player pieces lost this level
+  const [playerPiecesLost, setPlayerPiecesLost] = useState<Piece[]>([]);
+
+  // Optional Objectives System - imported dynamically
+  const [objectiveStates, setObjectiveStates] = useState<
+    import("./types").ObjectiveState[]
+  >([]);
+  const [activeObjectiveIds, setActiveObjectiveIds] = useState<string[]>([]); // IDs of objectives active for this level
+  const [newlyCompletedObjectives, setNewlyCompletedObjectives] = useState<string[]>([]);
+  const [newlyFailedObjectives, setNewlyFailedObjectives] = useState<string[]>([]);
+  const [lastVictoryInfo, setLastVictoryInfo] = useState<{
+    pieceType: PieceType;
+    originalType?: PieceType;
+    condition?: VictoryCondition;
+  } | null>(null);
+
+  const handlePlayerPieceLost = useCallback((piece: Piece) => {
+    if (piece.color !== "w") return;
+    setPlayerPiecesLost((prev) => {
+      if (prev.some((p) => p.id === piece.id)) {
+        return prev;
+      }
+      return [...prev, piece];
+    });
+  }, []);
+
   // State to save resources before starting a level (for level retry)
   const [levelStartSnapshot, setLevelStartSnapshot] = useState<{
     level: number;
@@ -5062,7 +5134,12 @@ export default function App() {
               console.log(">>> TAKING PATH: Black in check with no moves - checkmate");
               sfx.winCheckmate();
               setWin(W); // Player wins if bot has no moves and is in check
-              handleLevelCompletion(W, Bstate);
+              const deliveringPiece =
+                lastMove ? Bstate[lastMove.to.y]?.[lastMove.to.x] : null;
+              handleLevelCompletion(W, Bstate, {
+                deliverer: deliveringPiece,
+                condition: "king_captured",
+              });
               setPhrase("King captured! Checkmate!");
               
               // Track King defeat for ransom
@@ -5076,9 +5153,9 @@ export default function App() {
               // Add '#' for checkmate
               setMoveHistory((hist) => {
                 const newHistory = [...hist];
-                const lastMove = newHistory[newHistory.length - 1];
-                if (lastMove) {
-                  lastMove.notation += "#";
+                const lastMoveEntry = newHistory[newHistory.length - 1];
+                if (lastMoveEntry) {
+                  lastMoveEntry.notation += "#";
                 }
                 return newHistory;
               });
@@ -5459,7 +5536,21 @@ export default function App() {
   }, [phase]);
 
   // Campaign level completion handler
-  function handleLevelCompletion(winner: Color, board: Board) {
+function handleLevelCompletion(
+    winner: Color,
+    board: Board,
+    options?: { deliverer?: Piece | null; condition?: VictoryCondition }
+  ) {
+    if (winner === W && options?.deliverer) {
+      const deliverer = options.deliverer;
+      setLastVictoryInfo({
+        pieceType: deliverer.originalType ?? deliverer.type,
+        originalType: deliverer.originalType,
+        condition: options.condition,
+      });
+    } else {
+      setLastVictoryInfo(null);
+    }
     if (winner === W) {
       // Player won - compute survivors and update campaign state
       const survivors: Piece[] = [];
@@ -5481,6 +5572,11 @@ export default function App() {
         freeItems: prev.freeItems || new Map(), // Preserve free items
         tutorialsSeen: prev.tutorialsSeen || [],
       }));
+
+      // Check objectives one final time on victory
+      setTimeout(() => {
+        checkObjectives({ allowCompletion: true });
+      }, 100);
     }
     // If player lost, don't update campaign state (they'll restart from current level)
   }
@@ -5659,7 +5755,7 @@ export default function App() {
       let shouldStartBattle = false;
       
       // Accumulate all campaign changes to apply in one batch
-      let campaignUpdates: Partial<CampaignState & { pendingEnemyPawns: number; pendingEnemyItemAssignments: Array<{ item: string; count: number }>; pendingEquipmentAssignments: Array<{ pieceName: string; pieceType: PieceType; equip: Exclude<Equip, undefined> }>; pendingPieceSpawns: Array<{ pieceType: PieceType; color: "w" | "b"; x: number; y: number; equip?: Equip }> }> = {};
+      let campaignUpdates: Partial<CampaignState & { pendingEnemyPawns: number; pendingEnemyItemAssignments: Array<{ item: string; count: number }>; pendingEquipmentAssignments: Array<{ pieceName: string; pieceType: PieceType; equip: Exclude<Equip, undefined> }>; pendingPieceSpawns: Array<{ pieceType: PieceType; color: "w" | "b"; x: number; y: number; equip?: Equip }>; pendingObjectiveFlags: string[] }> = {};
       
       // Track free units to combine consecutive events of the same type
       let pendingFreeUnit: { pieceType: PieceType; count: number } | null = null;
@@ -5683,6 +5779,7 @@ export default function App() {
             setShowVictoryDetails(false);
             setWin(null);
             setKilledEnemyPieces([]);
+            setPlayerPiecesLost([]);
             setThisLevelUnlockedItems([]);
             setCurrentStoryCard(null);
             setStoryCardQueue([]);
@@ -6136,6 +6233,8 @@ export default function App() {
           case "set_difficulty":
             // Set difficulty level for the campaign
             campaignUpdates.difficulty = event.difficulty;
+            campaignUpdates.pendingDifficultyReinit = true;
+            setNeedsReinit(true);
             // Store in localStorage for persistence
             localStorage.setItem("dicechess_difficulty", event.difficulty);
             break;
@@ -6162,6 +6261,19 @@ export default function App() {
               }, 8500); // ~8.5 seconds total: line1 animation + longer pause + fade + line2 animation + longer pause + fade + spiral
             }
             break;
+
+          case "set_objective_flag": {
+            const existingFlags =
+              campaignUpdates.pendingObjectiveFlags ??
+              ((campaign as any).pendingObjectiveFlags
+                ? [...((campaign as any).pendingObjectiveFlags as string[])]
+                : []);
+            if (!existingFlags.includes(event.flag)) {
+              existingFlags.push(event.flag);
+            }
+            campaignUpdates.pendingObjectiveFlags = existingFlags;
+            break;
+          }
 
           case "start_battle":
             shouldStartBattle = true;
@@ -6248,13 +6360,21 @@ export default function App() {
     if (needsReinit && currentLevelConfig) {
       // Only call init if there are actually pending events in the campaign state
       // This ensures we wait for the campaign state to be updated before initializing
-      const hasPendingEvents = (campaign as any).pendingEnemyPawns || (campaign as any).pendingEnemyItemAssignments || (campaign as any).pendingEquipmentAssignments || (campaign as any).pendingPieceSpawns;
+      const hasPendingEvents =
+        (campaign as any).pendingEnemyPawns ||
+        (campaign as any).pendingEnemyItemAssignments ||
+        (campaign as any).pendingEquipmentAssignments ||
+        (campaign as any).pendingPieceSpawns ||
+        (campaign as any).pendingObjectiveFlags ||
+        (campaign as any).pendingDifficultyReinit;
       if (hasPendingEvents) {
-        init(seed, campaign.level, unspentGold, currentLevelConfig);
+        init(seed, campaign.level, unspentGold, currentLevelConfig, {
+          preserveStoryState: true,
+        });
         setNeedsReinit(false);
       }
     }
-  }, [needsReinit, campaign]);
+  }, [needsReinit, campaign, currentLevelConfig, seed, unspentGold]);
 
   // Animate difficulty transition text sequentially (line 1 -> fade -> line 2 -> fade)
   useEffect(() => {
@@ -6356,12 +6476,105 @@ export default function App() {
     };
   }, [showDifficultyTransition]); // Only depend on showDifficultyTransition
 
+  // Helper function to check and update objectives
+  const checkObjectives = useCallback(
+    (options?: { allowCompletion?: boolean }) => {
+    if (!currentLevelConfig?.optionalObjectives || currentLevelConfig.optionalObjectives.length === 0 || activeObjectiveIds.length === 0) {
+      return;
+    }
+    
+    // Filter to only active objectives
+    const activeObjectives = currentLevelConfig.optionalObjectives.filter(
+      obj => activeObjectiveIds.includes(obj.id)
+    );
+
+    // Build tracking data from current game state
+    const tracking: ObjectiveTracking = {
+      turnNumber: moveHistory.length,
+      whiteTurnCount: moveHistory.reduce(
+        (count, record) => (record.color === W ? count + 1 : count),
+        0
+      ),
+      playerPiecesLost,
+      enemyPiecesKilled: killedEnemyPieces,
+      pieceConversions: 0, // Will be tracked via combat logic (staff conversions)
+      courtiersDestroyed: destroyedCourtiers,
+      itemsUsed: new Set(), // Will need to track this separately
+      kingPosition: null,
+      kingDisguiseActive: false,
+      victoryDelivererType: lastVictoryInfo?.pieceType,
+      victoryDelivererOriginalType: lastVictoryInfo?.originalType,
+      victoryCondition: lastVictoryInfo?.condition,
+      difficulty: campaign.difficulty,
+    };
+
+    // Find white king position (handles disguised kings via originalType)
+    outer: for (let y = 0; y < Bstate.length; y++) {
+      for (let x = 0; x < Bstate[y].length; x++) {
+        const piece = Bstate[y][x];
+        if (!piece || piece.color !== "w") continue;
+        const isKing = isKingPiece(piece);
+        if (isKing) {
+          tracking.kingPosition = { x, y };
+          tracking.kingDisguiseActive = piece.equip === "disguise";
+          break outer;
+        }
+      }
+    }
+
+    // Check objectives and get newly completed/failed ones
+    const { newlyCompleted, newlyFailed } = checkAllObjectives(
+      activeObjectives,
+      objectiveStates,
+      tracking,
+      Bstate,
+      options
+    );
+
+    // If any objectives were newly completed, show notification and play sound
+    if (newlyCompleted.length > 0) {
+      setNewlyCompletedObjectives(prev => [...prev, ...newlyCompleted]);
+      // Play success sound
+      if (!muted) {
+        sfx.purchase(); // Reuse purchase sound for now
+      }
+      // Force update objective states
+      setObjectiveStates([...objectiveStates]);
+    }
+    
+    // If any objectives were newly failed, show notification and play sound
+    if (newlyFailed.length > 0) {
+      setNewlyFailedObjectives(prev => [...prev, ...newlyFailed]);
+      // Play failure sound
+      if (!muted) {
+        sfx.combatLose(); // Reuse combat lose sound for failures
+      }
+      // Force update objective states
+      setObjectiveStates([...objectiveStates]);
+    }
+  },
+  [currentLevelConfig, activeObjectiveIds, objectiveStates, killedEnemyPieces, destroyedCourtiers, playerPiecesLost, campaign.difficulty, Bstate, moveHistory, muted, lastVictoryInfo]
+  );
+
+  // Check objectives whenever a turn completes (after board state settles)
+  useEffect(() => {
+    if (phase === "playing" && !win) {
+      // Small delay to let board state settle after animations
+      const timer = setTimeout(() => {
+        checkObjectives();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [turn, checkObjectives, phase, win]);
+
   function init(
     s: string,
     currentLevel: number,
     currentUnspentGold: number,
-    levelConfig: LevelConfig
+    levelConfig: LevelConfig,
+    options?: { preserveStoryState?: boolean }
   ) {
+    const preserveStoryState = options?.preserveStoryState ?? false;
     const r = rngFrom(s + currentLevel); // Use level in seed for variation
     rngRef.current = r;
 
@@ -6373,6 +6586,9 @@ export default function App() {
     ) as Board;
     const T0 = emptyTerrain(boardSize);
     const O0 = emptyObstacles(boardSize);
+    const pendingObjectiveFlags: string[] =
+      ((campaign as any).pendingObjectiveFlags as string[] | undefined) ?? [];
+    const objectiveFlagSet = new Set(pendingObjectiveFlags);
 
     // Check if king_escaped is enabled - if so, skip terrain on escape row (top row)
     const victoryConditions = levelConfig.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"];
@@ -6468,10 +6684,13 @@ export default function App() {
           for (let y = 0; y < boardSize && !foundMatch; y++) {
             for (let x = 0; x < boardSize && !foundMatch; x++) {
               const boardPiece = B0[y][x];
-              if (boardPiece && 
-                  boardPiece.color === W && 
-                  boardPiece.type === namedPiece.type && 
-                  boardPiece.name === namedPiece.name) {
+              if (
+                boardPiece &&
+                boardPiece.color === W &&
+                boardPiece.name === namedPiece.name &&
+                (boardPiece.type === namedPiece.type ||
+                  boardPiece.originalType === namedPiece.type)
+              ) {
                 // Found a match - update its properties
                 if (namedPiece.speechLines) {
                   boardPiece.speechLines = namedPiece.speechLines;
@@ -6500,7 +6719,15 @@ export default function App() {
                   boardPiece.type === assignment.pieceType && 
                   boardPiece.name === assignment.pieceName) {
                 // Found the target piece - equip the item
-                boardPiece.equip = assignment.equip;
+                if (assignment.equip === "disguise") {
+                  if (boardPiece.type !== "P") {
+                    boardPiece.originalType = boardPiece.type;
+                    boardPiece.type = "P";
+                  }
+                  boardPiece.equip = assignment.equip;
+                } else {
+                  boardPiece.equip = assignment.equip;
+                }
               }
             }
           }
@@ -6526,21 +6753,25 @@ export default function App() {
       }
       
       // Step 2: Filter out namedWhitePieces that already exist in roster (to avoid duplicates)
-      const namedPiecesToAdd = levelConfig.namedWhitePieces?.filter(namedPiece => {
-        // Check if this named piece already exists on the board
-        for (let y = 0; y < boardSize; y++) {
-          for (let x = 0; x < boardSize; x++) {
-            const boardPiece = B0[y][x];
-            if (boardPiece && 
-                boardPiece.color === W && 
-                boardPiece.type === namedPiece.type && 
-                boardPiece.name === namedPiece.name) {
-              return false; // Already exists, don't add
+      const namedPiecesToAdd =
+        levelConfig.namedWhitePieces?.filter((namedPiece) => {
+          // Check if this named piece already exists on the board
+          for (let y = 0; y < boardSize; y++) {
+            for (let x = 0; x < boardSize; x++) {
+              const boardPiece = B0[y][x];
+              if (
+                boardPiece &&
+                boardPiece.color === W &&
+                boardPiece.name === namedPiece.name &&
+                (boardPiece.type === namedPiece.type ||
+                  boardPiece.originalType === namedPiece.type)
+              ) {
+                return false; // Already exists, don't add
+              }
             }
           }
-        }
-        return true; // Doesn't exist, add it
-      }) || [];
+          return true; // Doesn't exist, add it
+        }) || [];
       
       // Step 3: Add guaranteed pieces from level config (if any)
       // Get guaranteed pieces - check difficulty-specific override first, then fall back to base config
@@ -6689,6 +6920,8 @@ export default function App() {
       delete (newCampaign as any).pendingEnemyItemAssignments;
       delete (newCampaign as any).pendingEquipmentAssignments;
       delete (newCampaign as any).pendingPieceSpawns;
+      delete (newCampaign as any).pendingObjectiveFlags;
+      delete (newCampaign as any).pendingDifficultyReinit;
       return newCampaign;
     });
     
@@ -6704,8 +6937,10 @@ export default function App() {
 
     // Don't show story cards yet - wait for intro popup to be dismissed
     // Story cards will be shown after intro via handleIntroComplete
-    setCurrentStoryCard(null);
-    setStoryCardQueue(levelConfig.storyCards || []);
+    if (!preserveStoryState) {
+      setCurrentStoryCard(null);
+      setStoryCardQueue(levelConfig.storyCards || []);
+    }
     // Default phase: market or playing (skip market if disabled)
     const marketEnabled = levelConfig.marketEnabled !== false;
     setPhase(marketEnabled ? "market" : "playing");
@@ -6724,8 +6959,50 @@ export default function App() {
     setMoveHistory([]);
     setThisLevelUnlockedItems([]); // Reset unlocked items for new level
     setKilledEnemyPieces([]); // Reset killed enemies for new level
+    setPlayerPiecesLost([]);
     setDestroyedCourtiers(0); // Reset Courtiers counter for new level
     setShowVictoryDetails(false); // Reset victory details for new level
+    setLastVictoryInfo(null);
+    
+    // Initialize optional objectives for this level
+    if (levelConfig.optionalObjectives && levelConfig.optionalObjectives.length > 0) {
+      const eligibleObjectives = levelConfig.optionalObjectives.filter((objective) => {
+        if (objective.requiredFlags && objective.requiredFlags.length > 0) {
+          return objective.requiredFlags.every((flag) => objectiveFlagSet.has(flag));
+        }
+        return true;
+      });
+
+      if (eligibleObjectives.length > 0) {
+        // Randomly select 1 or 2 objectives from the eligible pool
+        const desiredCount = r() < 0.5 ? 1 : 2; // 50% chance for 1 or 2 objectives
+        const numToSelect = Math.min(desiredCount, eligibleObjectives.length);
+        const shuffled = [...eligibleObjectives].sort(() => r() - 0.5);
+        const selectedObjectives = shuffled.slice(0, numToSelect);
+        const selectedIds = selectedObjectives.map((obj) => obj.id);
+
+        setActiveObjectiveIds(selectedIds);
+
+        const initialStates = selectedObjectives.map((obj) => ({
+          objectiveId: obj.id,
+          isCompleted: false,
+          isFailed: false,
+          progress: obj.progress ? { ...obj.progress } : undefined,
+          completedOnTurn: undefined,
+          failedOnTurn: undefined,
+        }));
+        setObjectiveStates(initialStates);
+      } else {
+        setActiveObjectiveIds([]);
+        setObjectiveStates([]);
+      }
+    } else {
+      setActiveObjectiveIds([]);
+      setObjectiveStates([]);
+    }
+    setNewlyCompletedObjectives([]);
+    setNewlyFailedObjectives([]);
+    setPlayerPiecesLost([]);
   }
 
   function click(x: number, y: number) {
@@ -7447,16 +7724,16 @@ export default function App() {
 
       // Check for King Crossing victory condition
       const victoryConditions = currentLevelConfig?.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"];
-      if (victoryConditions.includes("king_escaped") && moved.type === "K" && moved.color === W && to.y === currentBoardSize - 1) {
+      if (victoryConditions.includes("king_escaped") && isKingPiece(moved) && moved.color === W && to.y === currentBoardSize - 1) {
         sfx.winCheckmate();
         setB(B1);
         setWin(W);
-        handleLevelCompletion(W, B1);
+        handleLevelCompletion(W, B1, { deliverer: moved, condition: "king_escaped" });
         setPhrase("King Crossing!");
         setMoveHistory((hist) => {
           const newHistory = [...hist];
-          const lastMove = newHistory[newHistory.length - 1];
-          if (lastMove) lastMove.notation += " (Escaped!)";
+          const lastMoveEntry = newHistory[newHistory.length - 1];
+          if (lastMoveEntry) lastMoveEntry.notation += " (Escaped!)";
           return newHistory;
         });
         setPhase("playing");
@@ -7572,16 +7849,16 @@ export default function App() {
 
       // Check for King Crossing victory condition
       const victoryConditions = currentLevelConfig?.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"];
-      if (victoryConditions.includes("king_escaped") && mv.type === "K" && mv.color === W && to.y === currentBoardSize - 1) {
+      if (victoryConditions.includes("king_escaped") && isKingPiece(mv) && mv.color === W && to.y === currentBoardSize - 1) {
         sfx.winCheckmate();
         setB(B1);
         setWin(W);
-        handleLevelCompletion(W, B1);
+        handleLevelCompletion(W, B1, { deliverer: mv, condition: "king_escaped" });
         setPhrase("King Crossing!");
         setMoveHistory((hist) => {
           const newHistory = [...hist];
-          const lastMove = newHistory[newHistory.length - 1];
-          if (lastMove) lastMove.notation += " (Escaped!)";
+          const lastMoveEntry = newHistory[newHistory.length - 1];
+          if (lastMoveEntry) lastMoveEntry.notation += " (Escaped!)";
           return newHistory;
         });
         setFx(null);
@@ -7659,7 +7936,8 @@ export default function App() {
           setKilledEnemyPieces,
           setMarketPoints,
           setUnspentGold,
-          tg.type === "K" ? "beheaded" : undefined
+          tg.type === "K" ? "beheaded" : undefined,
+          { killerPiece: mv, killerPosition: from, terrain: Tstate }
         );
         // If defender was a King, check victory conditions
         if (tg.type === "K") {
@@ -7707,7 +7985,10 @@ export default function App() {
             }
             setB(B1);
             setWin(mv.color as Color);
-            handleLevelCompletion(mv.color as Color, B1);
+            handleLevelCompletion(mv.color as Color, B1, {
+              deliverer: mv,
+              condition: "king_beheaded",
+            });
             const endPhrase = "Regicide!";
             setPhrase(endPhrase);
             setMoveHistory((hist) => {
@@ -7764,7 +8045,7 @@ export default function App() {
           if (deadDefender?.type === "K" && deadDefender.color === B && bellOfNamesExists(obstacles, currentBoardSize)) {
             // Black king is protected by the Bell of Names - only attacker dies
             B1[from.y][from.x] = null;
-            onPieceDeath(B1, deadAttacker, from, turn); // 🎃 attacker's death
+            onPieceDeath(B1, deadAttacker, from, turn, handlePlayerPieceLost); // 🎃 attacker's death
             
             // Track killed attacker for ransom (defender's color is the killer)
             checkUnlockItem(
@@ -7776,7 +8057,8 @@ export default function App() {
               setKilledEnemyPieces,
               setMarketPoints,
               setUnspentGold,
-              deadAttacker?.type === "K" ? "beheaded" : undefined
+          deadAttacker?.type === "K" ? "beheaded" : undefined,
+          { killerPiece: deadDefender ?? null, killerPosition: to, terrain: Tstate }
             );
             
             // Check if the attacker that died is the white King - always a loss
@@ -7828,8 +8110,8 @@ export default function App() {
           
           B1[to.y][to.x] = null;
           B1[from.y][from.x] = null;
-          onPieceDeath(B1, deadDefender, to, turn); // 🎃 defender's death
-          onPieceDeath(B1, deadAttacker, from, turn); // 🎃 attacker's death
+          onPieceDeath(B1, deadDefender, to, turn, handlePlayerPieceLost); // 🎃 defender's death
+          onPieceDeath(B1, deadAttacker, from, turn, handlePlayerPieceLost); // 🎃 attacker's death
           // Check if we unlocked an item from defender
           checkUnlockItem(
             deadDefender,
@@ -7840,7 +8122,8 @@ export default function App() {
             setKilledEnemyPieces,
             setMarketPoints,
             setUnspentGold,
-            deadDefender?.type === "K" ? "beheaded" : undefined
+          deadDefender?.type === "K" ? "beheaded" : undefined,
+          { killerPiece: mv, killerPosition: from, terrain: Tstate }
           );
           
           // Check if we unlocked an item from attacker (when both die)
@@ -7880,7 +8163,10 @@ export default function App() {
               else sfx.winCheckmate();
               setB(B1);
               setWin(tg.color as Color);
-              handleLevelCompletion(tg.color as Color, B1);
+              handleLevelCompletion(tg.color as Color, B1, {
+                deliverer: tg.color === W ? tg : undefined,
+                condition: "king_dishonored",
+              });
               const endPhrase = isPlayerKing ? "King's soul is forfeit!" : "King dishonored!";
               setPhrase(endPhrase);
               setMoveHistory((hist) => {
@@ -7921,7 +8207,10 @@ export default function App() {
               else sfx.loseCheckmate();
               setB(B1);
               setWin(mv.color as Color);
-              handleLevelCompletion(mv.color as Color, B1);
+              handleLevelCompletion(mv.color as Color, B1, {
+                deliverer: mv,
+                condition: "king_beheaded",
+              });
               const endPhrase = "Regicide!";
               setPhrase(endPhrase);
               setMoveHistory((hist) => {
@@ -7979,7 +8268,7 @@ export default function App() {
           if (tg.type !== "K") {
             sfx.capture();
           }
-          onPieceDeath(B1, tg, to, turn); // 🎃 if defender had Curse
+          onPieceDeath(B1, tg, to, turn, handlePlayerPieceLost); // 🎃 if defender had Curse
           // Check if we unlocked an item
           checkUnlockItem(
             tg,
@@ -7990,7 +8279,8 @@ export default function App() {
             setKilledEnemyPieces,
             setMarketPoints,
             setUnspentGold,
-            tg.type === "K" ? "beheaded" : undefined
+          tg.type === "K" ? "beheaded" : undefined,
+          { killerPiece: mv, killerPosition: from, terrain: Tstate }
           );
 
           // Award kill to attacker (track for veteran status)
@@ -8062,7 +8352,10 @@ export default function App() {
               }
               setB(B1);
               setWin(moved.color as Color);
-              handleLevelCompletion(moved.color as Color, B1);
+              handleLevelCompletion(moved.color as Color, B1, {
+                deliverer: moved,
+                condition: "king_beheaded",
+              });
               const endPhrase = "Regicide!";
               setPhrase(endPhrase);
               setMoveHistory((hist) => {
@@ -8118,23 +8411,23 @@ export default function App() {
 
           // Check for King Crossing victory condition
           const victoryConditions = currentLevelConfig?.victoryConditions || ["king_beheaded", "king_captured", "king_dishonored"];
-          if (victoryConditions.includes("king_escaped") && moved.type === "K" && moved.color === W && to.y === currentBoardSize - 1) {
-            sfx.winCheckmate();
-            setB(B1);
-            setWin(W);
-            handleLevelCompletion(W, B1);
-            setPhrase("King Crossing!");
-            setMoveHistory((hist) => {
-              const newHistory = [...hist];
-              const lastMove = newHistory[newHistory.length - 1];
-              if (lastMove) lastMove.notation += " (Escaped!)";
-              return newHistory;
-            });
-            setFx(null);
-            setRerollState(null);
-            setPhase("playing");
-            return;
-          }
+      if (victoryConditions.includes("king_escaped") && isKingPiece(moved) && moved.color === W && to.y === currentBoardSize - 1) {
+        sfx.winCheckmate();
+        setB(B1);
+        setWin(W);
+        handleLevelCompletion(W, B1, { deliverer: moved, condition: "king_escaped" });
+        setPhrase("King Crossing!");
+        setMoveHistory((hist) => {
+          const newHistory = [...hist];
+          const lastMoveEntry = newHistory[newHistory.length - 1];
+          if (lastMoveEntry) lastMoveEntry.notation += " (Escaped!)";
+          return newHistory;
+        });
+        setFx(null);
+        setRerollState(null);
+        setPhase("playing");
+        return;
+      }
         }
 
         setLastMove({ from, to });
@@ -8158,7 +8451,7 @@ export default function App() {
         }
         const deadAttacker = B1[from.y][from.x];
         B1[from.y][from.x] = null;
-        onPieceDeath(B1, deadAttacker, from, turn); // 🎃 attacker's death
+        onPieceDeath(B1, deadAttacker, from, turn, handlePlayerPieceLost); // 🎃 attacker's death
         
         // Track killed attacker for ransom (defender's color is the killer)
         checkUnlockItem(
@@ -8170,7 +8463,8 @@ export default function App() {
           setKilledEnemyPieces,
           setMarketPoints,
           setUnspentGold,
-          deadAttacker?.type === "K" ? "beheaded" : undefined
+          deadAttacker?.type === "K" ? "beheaded" : undefined,
+          { killerPiece: tg ?? null, killerPosition: to, terrain: Tstate }
         );
 
         if (attackerState.equip === "skull") {
@@ -8230,7 +8524,7 @@ export default function App() {
           
           sfx.combatLose(); // Play sound for defender dying to attacker's skull
           B1[to.y][to.x] = null;
-          onPieceDeath(B1, deadDefender, to, turn); // 🎃 defender's death
+          onPieceDeath(B1, deadDefender, to, turn, handlePlayerPieceLost); // 🎃 defender's death
           // Check if we unlocked an item from defender
           checkUnlockItem(
             deadDefender,
@@ -8241,7 +8535,8 @@ export default function App() {
             setKilledEnemyPieces,
             setMarketPoints,
             setUnspentGold,
-            deadDefender?.type === "K" ? "beheaded" : undefined
+            deadDefender?.type === "K" ? "beheaded" : undefined,
+            { killerPiece: mv, killerPosition: from, terrain: Tstate }
           );
 
           // Defender died (to skull), award kill to dead attacker's kill count
@@ -8258,7 +8553,10 @@ export default function App() {
               }
               setB(B1);
               setWin(mv.color as Color); // Attacker's color wins
-              handleLevelCompletion(mv.color as Color, B1);
+              handleLevelCompletion(mv.color as Color, B1, {
+                deliverer: mv,
+                condition: "king_beheaded",
+              });
               setPhrase("Regicide!");
               setMoveHistory((hist) => {
                 const newHistory = [...hist];
@@ -8325,7 +8623,10 @@ export default function App() {
             }
             setB(B1);
             setWin(mv.color as Color); // Attacker's color wins
-            handleLevelCompletion(mv.color as Color, B1);
+            handleLevelCompletion(mv.color as Color, B1, {
+              deliverer: mv,
+              condition: "king_beheaded",
+            });
             setPhrase("King's soul is forfeit!");
             setMoveHistory((hist) => {
               const newHistory = [...hist];
@@ -8422,7 +8723,10 @@ export default function App() {
             } else {
               sfx.winCheckmate();
               setWin(W);
-              handleLevelCompletion(W, B1);
+          handleLevelCompletion(W, B1, {
+            deliverer: tg?.color === W ? tg : undefined,
+            condition: "king_dishonored",
+          });
             }
 
             setB(B1);
@@ -9260,7 +9564,13 @@ export default function App() {
     setMarketPoints(0);
     setUnspentGold(0);
     setKilledEnemyPieces([]);
+    setPlayerPiecesLost([]);
     setThisLevelUnlockedItems([]);
+    setObjectiveStates([]);
+    setActiveObjectiveIds([]);
+    setNewlyCompletedObjectives([]);
+    setNewlyFailedObjectives([]);
+    setLastVictoryInfo(null);
     setCampaign({
       level: 1,
       whiteRoster: [],
@@ -9301,6 +9611,11 @@ export default function App() {
     setKilledEnemyPieces([]);
     setThisLevelUnlockedItems([]);
     setDestroyedCourtiers(0);
+    setObjectiveStates([]);
+    setActiveObjectiveIds([]);
+    setNewlyCompletedObjectives([]);
+    setNewlyFailedObjectives([]);
+    setLastVictoryInfo(null);
     setMarketPoints(0);
     setShowVictoryDetails(false);
     setUnspentGold(levelStartSnapshot.gold);
@@ -9345,6 +9660,11 @@ export default function App() {
     setUnspentGold(0);
     setKilledEnemyPieces([]);
     setThisLevelUnlockedItems([]);
+    setObjectiveStates([]);
+    setActiveObjectiveIds([]);
+    setNewlyCompletedObjectives([]);
+    setNewlyFailedObjectives([]);
+    setLastVictoryInfo(null);
     setCampaign({
       level: 1,
       whiteRoster: [],
@@ -9372,7 +9692,7 @@ export default function App() {
     const endOfStoryCard: StoryCardType = {
       id: "end_of_story",
       bodyText: "The King's enemies are **scattered**, his dominion restored.",
-      image: "/demo_end_EohmerWins.png",
+      image: "/demo_end_EdranWins.png",
       leftChoice: {
         text: "Sounds too good to be true...!",
         events: [{ type: "next_card", cardId: "middle_card" }],
@@ -9479,9 +9799,19 @@ export default function App() {
       return sum;
     }, 0);
 
-    const totalGoldEarned = ransomGold + purseGold + kingGold;
+    // Calculate objective bonus gold (only for active objectives)
+    const activeObjectives = currentLevelConfig?.optionalObjectives?.filter(
+      obj => activeObjectiveIds.includes(obj.id)
+    ) || [];
+    const objectiveBonus = calculateObjectiveBonus(
+      activeObjectives,
+      objectiveStates,
+      campaign.difficulty
+    );
 
-    // Total gold to carry over = current unspent + ransom + king gold
+    const totalGoldEarned = ransomGold + purseGold + kingGold + objectiveBonus;
+
+    // Total gold to carry over = current unspent + ransom + king gold + objective bonus
     const totalGoldToCarry = marketPoints + totalGoldEarned;
 
     setUnspentGold(totalGoldToCarry); // Carry over all gold to next level
@@ -9489,6 +9819,12 @@ export default function App() {
     setWin(null); // Clear win state
     setKilledEnemyPieces([]); // Clear killed pieces for next level
     setThisLevelUnlockedItems([]); // Clear unlocked items for next level
+    setObjectiveStates([]); // Clear objectives for next level
+    setActiveObjectiveIds([]); // Clear active objectives
+    setNewlyCompletedObjectives([]); // Clear completed objectives
+    setNewlyFailedObjectives([]); // Clear failed objectives
+    setPlayerPiecesLost([]);
+    setLastVictoryInfo(null);
     
     // TRIGGER: Stop music when transitioning to next level's story cards
     musicManagerRef.current?.stopMusic();
@@ -9685,6 +10021,95 @@ export default function App() {
                     })}
                   </div>
                 </div>
+                
+                {/* Optional Objectives Section */}
+                {currentLevelConfig?.optionalObjectives && activeObjectiveIds.length > 0 && (
+                  <>
+                    {/* Divider */}
+                    <div className="h-px bg-gradient-to-r from-transparent via-amber-600/50 to-transparent mx-6"></div>
+                    
+                    <div className="px-6 py-4">
+                      <h3 className="text-amber-300 font-bold text-center mb-3 tracking-wider" style={{ fontFamily: 'serif' }}>
+                        Optional Objectives
+                      </h3>
+                      <div className="flex flex-col gap-2 text-sm text-white">
+                        {currentLevelConfig.optionalObjectives
+                          .filter(obj => activeObjectiveIds.includes(obj.id))
+                          .map((objective, idx) => {
+                          const objectiveState = objectiveStates.find(s => s.objectiveId === objective.id);
+                          const isCompleted = objectiveState?.isCompleted || false;
+                          const isFailed = objectiveState?.isFailed || false;
+                          
+                          // Format description with dynamic parameters and progress
+                          const displayDescription = formatObjectiveDescription(
+                            objective,
+                            objectiveState,
+                            { difficulty: campaign.difficulty }
+                          );
+                          
+                          // Get reward based on difficulty
+                          const reward = campaign.difficulty && objective.rewardByDifficulty?.[campaign.difficulty] !== undefined
+                            ? objective.rewardByDifficulty[campaign.difficulty]
+                            : objective.reward;
+                          
+                          const frameClasses = isCompleted
+                            ? "bg-blue-900/20 border-blue-500/40"
+                            : isFailed
+                            ? "bg-red-900/20 border-red-500/40"
+                            : "bg-black/20 border-amber-700/30";
+
+                          return (
+                            <div 
+                              key={idx} 
+                              className={`flex flex-col gap-1 rounded p-2 border transition-all duration-300 ${frameClasses}`}
+                              style={{
+                                animation: isCompleted
+                                  ? 'objective-complete 0.5s ease-out'
+                                  : isFailed
+                                  ? 'objective-failed 0.5s ease-out'
+                                  : 'none'
+                              }}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                <span 
+                                  className={`text-lg transition-all duration-300 ${
+                                    isCompleted
+                                      ? 'text-blue-400'
+                                      : isFailed
+                                      ? 'text-red-400'
+                                      : 'text-orange-500'
+                                  }`}
+                                >
+                                  {isCompleted ? '✓' : isFailed ? '✗' : '○'}
+                                </span>
+                                  <span
+                                    className={`font-semibold ${
+                                      isCompleted
+                                        ? 'text-blue-200'
+                                        : isFailed
+                                        ? 'text-red-200 line-through'
+                                        : 'text-amber-100'
+                                    }`}
+                                  >
+                                    {displayDescription}
+                                  </span>
+                                </div>
+                                <span
+                                  className={`text-xs font-semibold ${
+                                    isFailed ? 'text-red-200 line-through' : 'text-yellow-300'
+                                  }`}
+                                >
+                                  +{reward}g
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
                 
                 {/* Start Battle Button */}
                 {phase === "market" && currentLevelConfig?.marketEnabled !== false && (
@@ -9918,6 +10343,9 @@ export default function App() {
           handleRetryLevel={handleRetryLevel}
           winModalPosition={winModalPosition}
           currentLevelConfig={currentLevelConfig}
+          objectiveStates={objectiveStates}
+          activeObjectiveIds={activeObjectiveIds}
+          difficulty={campaign.difficulty}
         />
 
         {phase === "awaiting_reroll" && rerollState && rerollPopupPosition && !pausedForTutorial && (

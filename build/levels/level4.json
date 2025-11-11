@@ -23,7 +23,7 @@
   "namedWhitePieces": [
     {
       "type": "K",
-      "name": "Eohmer",
+      "name": "Edran",
       "speechLines": [
         "Cover yourself, you degenerate.",
         "The Eye got **blind** watching what you do, **Pintus**!",
@@ -149,5 +149,94 @@
   "victoryConditionDescriptions": {
     "king_captured": "Checkmate Pintus IX."
   },
-  "displayedVictoryConditions": ["king_captured"]
+  "displayedVictoryConditions": ["king_captured"],
+  "optionalObjectives": [
+    {
+      "id": "swift_capture",
+      "description": "Capture Pintus within {{maxTurns}} {{plural|maxTurns|turn|turns}}",
+      "condition": {
+        "type": "win_under_turns",
+        "params": {
+          "maxTurns": 15
+        },
+        "difficultyParams": {
+          "easy": {
+            "maxTurns": 13
+          },
+          "hard": {
+            "maxTurns": 9
+          }
+        }
+      },
+      "reward": 50,
+      "rewardByDifficulty": {
+        "easy": 40,
+        "hard": 40
+      }
+    },
+    {
+      "id": "perfect_assault",
+      "description": "{{ifZero|maxLosses|Win without losing any units|Win with no more than {{maxLosses}} {{plural|maxLosses|casualty|casualties}}}}",
+      "condition": {
+        "type": "max_casualties",
+        "params": {
+          "maxLosses": 0
+        },
+        "difficultyParams": {
+          "easy": {
+            "maxLosses": 2
+          },
+          "hard": {
+            "maxLosses": 0
+          }
+        }
+      },
+      "reward": 65,
+      "rewardByDifficulty": {
+        "easy": 69,
+        "hard": 69
+      }
+    },
+    {
+      "id": "death_by_snu_snu",
+      "description": "Death by Snu Snu: Checkmate Pintus with a Queen",
+      "condition": {
+        "type": "checkmate_with_piece",
+        "params": {
+          "pieceType": "Q"
+        }
+      },
+      "reward": 50,
+      "rewardByDifficulty": {
+        "easy": 40,
+        "hard": 65
+      }
+    },
+    {
+      "id": "stun_execution",
+      "description": "Kill {{count}} stunned enemies",
+      "condition": {
+        "type": "kill_count",
+        "params": {
+          "count": 2,
+          "victimStunned": true
+        },
+        "difficultyParams": {
+          "easy": {
+            "count": 2,
+            "victimStunned": true
+          },
+          "hard": {
+            "count": 3,
+            "victimStunned": true
+          }
+        }
+      },
+      "reward": 45,
+      "rewardByDifficulty": {
+        "easy": 35,
+        "hard": 55
+      }
+    }
+  ]
 }

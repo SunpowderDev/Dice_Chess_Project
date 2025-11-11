@@ -84,6 +84,11 @@ export type KingDefeatType = "beheaded" | "dishonored" | "checkmate";
 export type KilledPiece = {
   piece: Piece;
   defeatType?: KingDefeatType; // Only for Kings
+  killerType?: PieceType;
+  killerName?: string;
+  killerId?: string;
+  killerTerrain?: TerrainCell;
+  targetStunned?: boolean;
 };
 
 export type TutorialType =
@@ -109,6 +114,8 @@ export type CampaignState = {
   prayerDiceCost?: number; // custom prayer dice cost (if increased by story event)
   tutorialsSeen: TutorialType[]; // tutorials shown during campaign
   difficulty?: Difficulty; // game difficulty setting (easy = less enemy gold, hard = more enemy gold)
+  pendingObjectiveFlags?: string[]; // Objective flags to apply at the start of the next battle
+  pendingDifficultyReinit?: boolean; // Internal flag to trigger level re-initialization after difficulty change
 };
 
 // Story Card System Types
@@ -131,6 +138,7 @@ export type StoryEvent =
   | { type: "spawn_piece_at_position"; pieceType: PieceType; color: "w" | "b"; x: number; y: number; equip?: Equip }
   | { type: "set_difficulty"; difficulty: Difficulty }
   | { type: "show_difficulty_transition" }
+  | { type: "set_objective_flag"; flag: string }
   | { type: "start_battle" }
   | { type: "reset_to_title" };
 
@@ -161,5 +169,49 @@ export type StoryCard = {
   image?: string; // URL or path to image (can be in /public folder)
   leftChoice: StoryChoice;
   rightChoice: StoryChoice;
+};
+
+// Optional Objective System Types
+export type OptionalObjectiveConditionType =
+  | "no_piece_type_lost" // No pieces of a specific type lost (e.g., no Knights lost)
+  | "win_under_turns" // Win within a certain number of turns
+  | "king_at_position" // King must be at a specific position/rank
+  | "convert_pieces" // Convert X enemy pieces using Staff
+  | "kill_count" // Kill exactly/at least/at most X enemies
+  | "no_item_used" // Don't use a specific item during the level
+  | "max_casualties" // Don't lose more than X pieces total
+  | "dont_kill_courtiers" // Don't destroy more than X courtiers
+  | "keep_king_disguised" // Keep the king disguised for the entire level
+  | "checkmate_with_piece" // Deliver the final blow (checkmate) with a specific piece
+  | "custom"; // Custom condition function
+
+export type OptionalObjectiveCondition = {
+  type: OptionalObjectiveConditionType;
+  params?: Record<string, any>; // Flexible params for different condition types
+  difficultyParams?: Partial<Record<Difficulty, Record<string, any>>>; // Difficulty-specific overrides
+};
+
+export type OptionalObjective = {
+  id: string;
+  description: string;
+  condition: OptionalObjectiveCondition;
+  reward: number; // Base reward gold
+  rewardByDifficulty?: {
+    easy?: number;
+    hard?: number;
+  };
+  requiredFlags?: string[]; // Flags that must be active for this objective to appear
+  isCompleted?: boolean; // Runtime tracking
+  progress?: { current: number; target: number }; // Optional progress tracking
+};
+
+// Runtime state for objectives during gameplay
+export type ObjectiveState = {
+  objectiveId: string;
+  isCompleted: boolean;
+  isFailed: boolean;
+  progress?: { current: number; target: number };
+  completedOnTurn?: number;
+  failedOnTurn?: number;
 };
 

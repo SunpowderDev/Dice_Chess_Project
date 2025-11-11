@@ -31,25 +31,19 @@ export function MainMenu({ onEnter }: MainMenuProps) {
         {showChangelog && (
           <div className="bg-stone-950/70 rounded-2xl p-3 text-sm space-y-2">
             <div className="font-semibold text-base pt-2">
-              v0.5 - Story Cards & Roguelike Progression
+              v0.6 - Tutorial, Music, & Optional Objectives
             </div>
             <ul className="ml-5 list-disc space-y-1">
               <li>
-                <strong>Story Cards:</strong> Interactive story cards at the
-                start of each level with branching dialogue.
+                <strong>Tutorial Popups:</strong> New hint cards trigger when the player 
+                starts a new level. These cards provide helpful tips and guidance.
               </li>
               <li>
-                <strong>Roguelike Progression:</strong> Level-based campaign
-                system with resource management, gold carryover, and ransom
-                system.
+                <strong>Optional Objectives:</strong> Added a randomized and
+                level-based system to reward players for achieving optional goals.
               </li>
               <li>
-                <strong>Featured Characters:</strong> Custom preconfigured
-                pieces with names, equipment, golden name plates, and contextual
-                speech bubbles.
-              </li>
-              <li>
-                <strong>Text Animations and Sound Effects</strong>
+                <strong>Music:</strong> Each level now plays to its own tune.
               </li>
             </ul>
           </div>

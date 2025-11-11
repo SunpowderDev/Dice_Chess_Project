@@ -23,7 +23,7 @@
   "namedWhitePieces": [
     {
       "type": "K",
-      "name": "Eohmer",
+      "name": "Edran",
       "speechLines": [
         "**Corvis**, old friend...",
         "I trusted **you**!",
@@ -43,12 +43,12 @@
       "name": "Cpt Corvis",
       "equip": "bow",
       "speechLines": [
-        "It's not personal, Eohmer.",
+        "It's not personal, Edran.",
         "Be careful,**Quin**.",
         "Boy, stop **whining**.",
         "We both know how this **ends**.",
         "**Forgive** me, my King.",
-        "I've **seen** it, Eohmer.",
+        "I've **seen** it, Edran.",
         "It won't be **painful**.",
         "The crown is **cursed**!",
         "**Surrender** friend, and you will live."
@@ -78,7 +78,7 @@
         "color": "w",
         "name": "Narrator"
       },
-      "bodyText": "Flames past him, Eohmer finds himself trapped by the dark forests that kept his enemies at bay. There, his old friend Captain Corvis waits, the very hand that unbarred Highkeep for Morcant.",
+      "bodyText": "Flames past him, Edran finds himself trapped by the dark forests that kept his enemies at bay. There, his old friend Captain Corvis waits, the very hand that unbarred Highkeep for Morcant.",
       "image": "/level2_ForestHunt.png",
       "leftChoice": {
         "text": "What happened to you... old friend?",
@@ -101,7 +101,7 @@
         "equip": "bow",
         "name": "Cpt Corvis"
       },
-      "bodyText": "I've **seen** it Eohmer, the future that holds you King is doomed! You'll **curse** us all!",
+      "bodyText": "I've **seen** it Edran, the future that holds you King is doomed! You'll **curse** us all!",
       "image": "/level2_CptCorvis.png",
       "leftChoice": {
         "text": "Publicly expose the betrayer",
@@ -114,7 +114,7 @@
       "rightChoice": {
         "text": "Scout ahead and take the matter into your own hands.",
         "events": [
-          { "type": "equip_item_to_named_piece", "item": "scythe", "pieceName": "Eohmer", "pieceType": "K" },
+          { "type": "equip_item_to_named_piece", "item": "scythe", "pieceName": "Edran", "pieceType": "K" },
           { "type": "spawn_piece_at_position", "pieceType": "P", "color": "w", "x": 3, "y": 3, "equip": "torch" },
           { "type": "start_battle" }
         ],
@@ -153,5 +153,105 @@
   "victoryConditionDescriptions": {
     "king_beheaded": "Vanquish Cpt Corvis through combat or checkmate."
   },
-  "displayedVictoryConditions": ["king_beheaded"]
+  "displayedVictoryConditions": ["king_beheaded"],
+  "optionalObjectives": [
+    {
+      "id": "minimal_casualties",
+      "description": "{{ifZero|maxLosses|Win without losing any units|Win with no more than {{maxLosses}} {{plural|maxLosses|casualty|casualties}}}}",
+      "condition": {
+        "type": "max_casualties",
+        "params": {
+          "maxLosses": 3
+        },
+        "difficultyParams": {
+          "easy": {
+            "maxLosses": 3
+          },
+          "hard": {
+            "maxLosses": 2
+          }
+        }
+      },
+      "reward": 35,
+      "rewardByDifficulty": {
+        "easy": 40,
+        "hard": 35
+      }
+    },
+    {
+      "id": "forest_ambush",
+      "description": "Ambushed: Kill {{count}} enemies attacking from a Forest",
+      "condition": {
+        "type": "kill_count",
+        "params": {
+          "count": 3,
+          "killerTerrain": "forest"
+        },
+        "difficultyParams": {
+          "easy": {
+            "count": 3,
+            "killerTerrain": "forest"
+          },
+          "hard": {
+            "count": 5,
+            "killerTerrain": "forest"
+          }
+        }
+      },
+      "reward": 45,
+      "rewardByDifficulty": {
+        "easy": 30,
+        "hard": 30
+      }
+    },
+    {
+      "id": "king_eohmer_slays",
+      "description": "Kill {{count}} units with King Edran",
+      "condition": {
+        "type": "kill_count",
+        "params": {
+          "count": 3,
+          "killerPieceType": "K"
+        },
+        "difficultyParams": {
+          "easy": {
+            "count": 3,
+            "killerPieceType": "K"
+          },
+          "hard": {
+            "count": 4,
+            "killerPieceType": "K"
+          }
+        }
+      },
+      "reward": 55,
+      "rewardByDifficulty": {
+        "easy": 45,
+        "hard": 45
+      }
+    },
+    {
+      "id": "swift_justice",
+      "description": "Defeat Corvis within {{maxTurns}} {{plural|maxTurns|turn|turns}}",
+      "condition": {
+        "type": "win_under_turns",
+        "params": {
+          "maxTurns": 8
+        },
+        "difficultyParams": {
+          "easy": {
+            "maxTurns": 10
+          },
+          "hard": {
+            "maxTurns": 7
+          }
+        }
+      },
+      "reward": 60,
+      "rewardByDifficulty": {
+        "easy": 25,
+        "hard": 30
+      }
+    }
+  ]
 }

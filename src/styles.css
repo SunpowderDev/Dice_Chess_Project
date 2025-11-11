@@ -228,6 +228,58 @@ body {
   }
 }
 
+/* Optional Objectives animations */
+@keyframes objective-complete {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes checkmarkDraw {
+  0% {
+    opacity: 0;
+    transform: scale(0.5) rotate(-45deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2) rotate(0deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes objective-failed {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  25% {
+    transform: scale(0.95) translateX(-3px);
+  }
+  50% {
+    transform: scale(0.95) translateX(3px);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+  }
+  75% {
+    transform: scale(0.95) translateX(-3px);
+  }
+  100% {
+    transform: scale(1) translateX(0);
+    opacity: 1;
+  }
+}
+
 /* Obstacle chip styling - similar to pieces but with neutral brown base */
 .obstacle-chip {
   width: 66px;

@@ -1,6 +1,6 @@
 {
   "level": 1,
-  "name": "Chapter 1: Eohmer the Crownless",
+  "name": "Chapter 1: Edran the Crownless",
   "boardSize": 7,
   "startingGold": 0,
   "enemyPieceGold": 0,
@@ -32,14 +32,14 @@
     }
   },
   "botBehavior": "aggressive",
-  "whiteKingName": "Eohmer",
+  "whiteKingName": "Edran",
   "namedWhitePieces": [
     {
       "type": "N",
       "name": "Sir Galahad",
       "equip": "sword",
       "speechLines": [
-        "Protect the king!", "Betrayer!", "Your word is my **command**!", "**Damn** you knaves!", "Follow me!", "Make space!", "For **Eohmer**!", "**Chaaarge**"
+        "Protect the king!", "Betrayer!", "Your word is my **command**!", "**Damn** you knaves!", "Follow me!", "Make space!", "For **Edran**!", "**Chaaarge**"
       ]
     }
   ],
@@ -55,7 +55,7 @@
         "Gold speaks **louder** than oaths!",
         "Honor has its **price**!",
         "**Loyalty** buys nothing, Sir Galahad!",
-        "**Surrend**, Eohmer!",
+        "**Surrend**, Edran!",
         "Noble **scum**"
       ]
     }
@@ -68,7 +68,7 @@
         "color": "w",
         "name": "Narrator"
       },
-      "bodyText": "You don't need to know chess to play, but a bit of chess sense will help you master its tactics.\n\nWhat level of challenge suits you?",
+      "bodyText": "You don't need to know chess to play this game, but a bit of chess sense will help you master its tactics.\n\nWhat level of challenge suits you?",
       "image": "/level1_difficultySelection.png",
       "leftChoice": {
         "text": "A reasonable amount.",
@@ -182,8 +182,90 @@
   ],
   "marketEnabled": false,
   "fogRows": 0,
-  "questNarration": "Flee the burning keep and carry King Eohmer through the postern gate to living ground.",
+  "questNarration": "Flee the burning keep and carry King Edran through the postern gate to living ground.",
   "victoryConditionDescriptions": {
     "king_escaped": "Lead your King to the golden squares at the board's edge."
-  }
+  },
+  "optionalObjectives": [
+    {
+      "id": "win_fast",
+      "description": "Escape within {{maxTurns}} {{plural|maxTurns|turn|turns}}",
+      "condition": {
+        "type": "win_under_turns",
+        "difficultyParams": {
+          "easy": {
+            "maxTurns": 10
+          },
+          "hard": {
+            "maxTurns": 8
+          }
+        }
+      },
+      "reward": 30,
+      "rewardByDifficulty": {
+        "easy": 25,
+        "hard": 25
+      }
+    },
+    {
+      "id": "save_galahad",
+      "description": "Keep your Knights alive",
+      "condition": {
+        "type": "no_piece_type_lost",
+        "difficultyParams": {
+          "easy": {
+            "pieceType": "N"
+          },
+          "hard": {
+            "pieceType": "N"
+          }
+        }
+      },
+      "reward": 25,
+      "rewardByDifficulty": {
+        "easy": 30,
+        "hard": 25
+      }
+    },
+    {
+      "id": "save_peasants",
+      "description": "{{ifZero|maxCourtiers|Don't kill any Courtiers|Don't kill more than {{maxCourtiers}} Courtier{{pluralSuffix|maxCourtiers|s}}}}",
+      "condition": {
+        "type": "dont_kill_courtiers",
+        "difficultyParams": {
+          "easy": {
+            "maxCourtiers": 2
+          },
+          "hard": {
+            "maxCourtiers": 0
+          }
+        }
+      },
+      "reward": 20,
+      "rewardByDifficulty": {
+        "easy": 30,
+        "hard": 30
+      }
+    },
+    {
+      "id": "minimal_losses",
+      "description": "{{ifZero|maxLosses|Win without losing any units|Win with no more than {{maxLosses}} {{plural|maxLosses|casualty|casualties}}}}",
+      "condition": {
+        "type": "max_casualties",
+        "difficultyParams": {
+          "easy": {
+            "maxLosses": 1
+          },
+          "hard": {
+            "maxLosses": 0
+          }
+        }
+      },
+      "reward": 35,
+      "rewardByDifficulty": {
+        "easy": 25,
+        "hard": 25
+      }
+    }
+  ]
 }
