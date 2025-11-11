@@ -85,64 +85,186 @@ function getEffectiveConditionParams(
   return baseParams;
 }
 
+function splitTemplateSegments(rawContent: string): string[] {
+  const segments: string[] = [];
+  let current = "";
+  let depth = 0;
+
+  for (let index = 0; index < rawContent.length; index++) {
+    const char = rawContent[index];
+    const nextChar = rawContent[index + 1];
+
+    if (char === "{" && nextChar === "{") {
+      depth++;
+      current += "{{";
+      index++;
+      continue;
+    }
+
+    if (char === "}" && nextChar === "}") {
+      if (depth > 0) depth--;
+      current += "}}";
+      index++;
+      continue;
+    }
+
+    if (char === "|" && depth === 0) {
+      segments.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  segments.push(current.trim());
+  return segments;
+}
+
+function evaluateTemplateCommand(
+  rawContent: string,
+  params: Record<string, any>
+): { value: string; resolved: boolean } {
+  const segments = splitTemplateSegments(rawContent);
+  const [command, ...args] = segments;
+
+  if (!command) {
+    return { value: `{{${rawContent}}}`, resolved: false };
+  }
+
+  switch (command) {
+    case "plural": {
+      const [paramName, singular = "", plural = "", zero] = args;
+      const value = params[paramName];
+      if (typeof value !== "number") {
+        return { value: `{{${rawContent}}}`, resolved: false };
+      }
+      if (zero !== undefined && value === 0) {
+        return { value: zero, resolved: true };
+      }
+      return { value: value === 1 ? singular : plural, resolved: true };
+    }
+    case "pluralSuffix": {
+      const [paramName, suffix = "s", singularSuffix = ""] = args;
+      const value = params[paramName];
+      if (typeof value !== "number") {
+        return { value: `{{${rawContent}}}`, resolved: false };
+      }
+      return {
+        value: value === 1 ? singularSuffix : suffix,
+        resolved: true,
+      };
+    }
+    case "ifZero": {
+      const [paramName, zeroValue = "", elseValue = ""] = args;
+      const value = params[paramName];
+      if (typeof value !== "number") {
+        return { value: `{{${rawContent}}}`, resolved: false };
+      }
+      return {
+        value: value === 0 ? zeroValue : elseValue,
+        resolved: true,
+      };
+    }
+    case "ifOne": {
+      const [paramName, oneValue = "", elseValue = ""] = args;
+      const value = params[paramName];
+      if (typeof value !== "number") {
+        return { value: `{{${rawContent}}}`, resolved: false };
+      }
+      return {
+        value: value === 1 ? oneValue : elseValue,
+        resolved: true,
+      };
+    }
+    default: {
+      const value = params[command];
+      if (value === undefined || value === null) {
+        return { value: `{{${rawContent}}}`, resolved: false };
+      }
+      return { value: String(value), resolved: true };
+    }
+  }
+}
+
+function findNextTemplateToken(
+  input: string,
+  fromIndex = 0
+): { start: number; end: number; content: string } | null {
+  const startIndex = input.indexOf("{{", fromIndex);
+  if (startIndex === -1) return null;
+
+  let depth = 0;
+  let index = startIndex;
+
+  while (index < input.length - 1) {
+    const pair = input[index] + input[index + 1];
+
+    if (pair === "{{") {
+      depth++;
+      index += 2;
+      continue;
+    }
+
+    if (pair === "}}") {
+      depth--;
+      const endIndex = index + 2;
+      index += 2;
+      if (depth === 0) {
+        return {
+          start: startIndex,
+          end: endIndex,
+          content: input.slice(startIndex + 2, endIndex - 2),
+        };
+      }
+      continue;
+    }
+
+    index++;
+  }
+
+  return null;
+}
+
 function applyDescriptionTemplate(
   template: string,
   params: Record<string, any>
 ): string {
   let result = template;
 
-  for (let iteration = 0; iteration < 5; iteration++) {
+  for (let iteration = 0; iteration < 10; iteration++) {
     if (!result.includes("{{")) break;
 
-    const next = result.replace(/{{\s*([^}]+)\s*}}/g, (match, rawContent) => {
-      const segments = rawContent
-        .split("|")
-        .map((segment: string) => segment.trim())
-        .filter(Boolean);
+    let searchIndex = 0;
+    let resolvedAny = false;
 
-      if (segments.length === 0) return match;
+    while (searchIndex < result.length) {
+      const token = findNextTemplateToken(result, searchIndex);
+      if (!token) break;
 
-      const [command, ...args] = segments;
+      const rawContent = token.content.trim();
+      const originalToken = result.slice(token.start, token.end);
+      const { value, resolved } = evaluateTemplateCommand(rawContent, params);
 
-      switch (command) {
-        case "plural": {
-          const [paramName, singular = "", plural = "", zero] = args;
-          const value = params[paramName];
-          if (typeof value !== "number") return match;
-          if (zero !== undefined && value === 0) return zero;
-          return value === 1 ? singular : plural;
-        }
-        case "pluralSuffix": {
-          const [paramName, suffix = "s", singularSuffix = ""] = args;
-          const value = params[paramName];
-          if (typeof value !== "number") return match;
-          return value === 1 ? singularSuffix : suffix;
-        }
-        case "ifZero": {
-          const [paramName, zeroValue = "", elseValue = ""] = args;
-          const value = params[paramName];
-          if (typeof value !== "number") return match;
-          return value === 0 ? zeroValue : elseValue;
-        }
-        case "ifOne": {
-          const [paramName, oneValue = "", elseValue = ""] = args;
-          const value = params[paramName];
-          if (typeof value !== "number") return match;
-          return value === 1 ? oneValue : elseValue;
-        }
-        default: {
-          const value = params[command];
-          if (value === undefined || value === null) return match;
-          return String(value);
-        }
+      const beforeLength = token.start;
+      result =
+        result.slice(0, token.start) + value + result.slice(token.end);
+
+      if (resolved) {
+        resolvedAny = true;
       }
-    });
 
-    if (next === result) {
-      break;
+      if (!resolved && value === originalToken) {
+        // Move past this token to prevent re-processing it indefinitely
+        searchIndex = beforeLength + originalToken.length;
+      } else {
+        searchIndex = beforeLength + value.length;
+      }
     }
 
-    result = next;
+    if (!resolvedAny) {
+      break;
+    }
   }
 
   return result;

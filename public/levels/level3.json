@@ -76,16 +76,16 @@
         "color": "w",
         "name": "Narrator"
       },
-      "bodyText": "\"Morcant might not fear God, but he must fear Pope Pintus\" Edran thought. Pilgrim's Pass is the Pontiff's palace's umbilical: stone ribs over black water, but it is open for pilgrims, not crownless Kings…",
+      "bodyText": "Pilgrim's Pass is the Pontiff's palace's umbilical: stone ribs over black water. Morcant may not fear God's Eye, but he answers to Pope Pintus!",
       "image": "/level3_PilgrimsPass.png",
       "leftChoice": {
-        "text": "Vices are great leverages..",
+        "text": "Let's hope the rumors on Pintus have legs...",
         "events": [
           { "type": "next_card", "cardId": "level3-DameDelila" }
         ]
       },
       "rightChoice": {
-        "text": "Watch the pilgrims slip through the gates.",
+        "text": "Holy ground for pilgrims, not crownless Kings…",
         "events": [
           { "type": "next_card", "cardId": "level3-DameDelila" }
         ]
@@ -102,7 +102,7 @@
       "bodyText": "\"Drowned in velvet **wine** and **vice**, the Pontiff won't heed courtesies. My liege, permit House Deliss to be the **tip** of your quill!\"",
       "image": "/level3_DameDelila.png",
       "leftChoice": {
-        "text": "Some people knock; others enter.",
+        "text": "Vices are great leverages. Break in! Let the Eye see him.",
         "events": [
           { "type": "remove_prayer_die" },
           { "type": "increase_prayer_cost" },
@@ -176,26 +176,6 @@
     "king_escaped": "Lead your King to the golden squares at the board's edge."
   },
   "optionalObjectives": [
-    {
-      "id": "quick_escape",
-      "description": "Enter the Palace within {{maxTurns}} {{plural|maxTurns|turn|turns}}",
-      "condition": {
-        "type": "win_under_turns",
-        "difficultyParams": {
-          "easy": {
-            "maxTurns": 18
-          },
-          "hard": {
-            "maxTurns": 12
-          }
-        }
-      },
-      "reward": 45,
-      "rewardByDifficulty": {
-        "easy": 40,
-        "hard": 40
-      }
-    },
     {
       "id": "protect_pilgrims",
       "description": "Don't harm any pilgrim",

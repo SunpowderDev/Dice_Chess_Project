@@ -60,16 +60,16 @@
         "color": "w",
         "name": "Narrator"
       },
-      "bodyText": "Power is rarely persuaded, often escorted. The Pontiff must be taken whole: a living seal that unlocks gold and men. Kill him and you mint a martyr; capture him and you coin an army.",
+      "bodyText": "Power is rarely persuaded, often escorted. The Pontiff is a living seal: kill him, you mint a martyr; take him, you coin an army.",
       "image": "/level4_PalaceGrounds.png",
       "leftChoice": {
-        "text": "I brought two pairs of gloves: silk and iron.",
+        "text": "So the rumors walk after all...",
         "events": [
           { "type": "next_card", "cardId": "level4-Pintus" }
         ]
       },
       "rightChoice": {
-        "text": "We'll catch Pintus rigid with ritual.",
+        "text": "We'll catch Pintus rigid with ritual!",
         "events": [
           { "type": "next_card", "cardId": "level4-Pintus" }
         ]
@@ -85,7 +85,7 @@
       "bodyText": "\"By the **See** be excommunicated! 'Tis but **vulgar** banditry!\"",
       "image": "/level4_Pintus.png",
       "leftChoice": {
-        "text": "Partake in his vices",
+        "text": "Partake in his vices.",
         "events": [
           { "type": "give_free_unit", "pieceType": "Q" },
           { "type": "give_free_unit", "pieceType": "Q" },
@@ -95,9 +95,9 @@
         "overlayColor": "rgba(16, 185, 129, 0.8)"
       },
       "rightChoice": {
-        "text": "Censure and seize tithes",
+        "text": "Censure and seize tithes.",
         "events": [
-          { "type": "give_gold", "amount": 110 },
+          { "type": "give_gold", "amount": 75 },
           { "type": "start_battle" }
         ],
         "overlayColor": "rgba(234, 179, 8, 0.8)"

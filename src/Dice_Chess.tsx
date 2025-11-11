@@ -372,6 +372,31 @@ function placeRoster(B: Board, O: Obstacle, roster: Piece[], boardSize: number) 
     return 0; // Keep other pieces in original order
   });
 
+  // Try to place the King in the most central available square (defaulting to row 0)
+  const kingIndex = sortedRoster.findIndex((piece) => piece.type === "K");
+  if (kingIndex !== -1) {
+    const king = sortedRoster[kingIndex];
+    const center = (boardSize - 1) / 2;
+    const xCandidates = Array.from({ length: boardSize }, (_, x) => x).sort((a, b) => {
+      const diff = Math.abs(a - center) - Math.abs(b - center);
+      return diff !== 0 ? diff : a - b;
+    });
+    let placedKing = false;
+    for (const y of [0, 1, 2]) {
+      if (placedKing) break;
+      for (const x of xCandidates) {
+        const obstacleRow = O[y];
+        if (obstacleRow && obstacleRow[x] !== "none") continue;
+        if (!B[y]) B[y] = [];
+        if (B[y][x]) continue;
+        B[y][x] = { ...king };
+        sortedRoster.splice(kingIndex, 1);
+        placedKing = true;
+        break;
+      }
+    }
+  }
+
   // Place pieces in available slots, avoiding obstacles
   let pieceIndex = 0;
   for (let i = 0; i < slots.length && pieceIndex < sortedRoster.length; i++) {
@@ -5564,6 +5589,7 @@ function handleLevelCompletion(
       }
 
       setCampaign((prev) => ({
+        ...prev,
         level: prev.level, // Don't increment level yet - let victory screen show first
         whiteRoster: survivors,
         prayerDice: prev.prayerDice, // Keep current prayer dice count

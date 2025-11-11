@@ -78,10 +78,10 @@
         "color": "w",
         "name": "Narrator"
       },
-      "bodyText": "Flames past him, Edran finds himself trapped by the dark forests that kept his enemies at bay. There, his old friend Captain Corvis waits, the very hand that unbarred Highkeep for Morcant.",
+      "bodyText": "Flames chase Edran into the forest's dark. Beyond the black edge, Captain Corvis waits.",
       "image": "/level2_ForestHunt.png",
       "leftChoice": {
-        "text": "What happened to you... old friend?",
+        "text": "Why did you unbar Highkeep for Morcant... old friend?",
         "events": [
           { "type": "next_card", "cardId": "level2-Corvis" }
         ]
@@ -104,7 +104,7 @@
       "bodyText": "I've **seen** it Edran, the future that holds you King is doomed! You'll **curse** us all!",
       "image": "/level2_CptCorvis.png",
       "leftChoice": {
-        "text": "Publicly expose the betrayer",
+        "text": "Publicly expose the betrayer.",
         "events": [
           { "type": "assign_item_to_enemy", "item": "bow", "count": 3 },
           { "type": "give_free_unit", "pieceType": "R" },        
@@ -112,7 +112,7 @@
         ]
       },
       "rightChoice": {
-        "text": "Scout ahead and take the matter into your own hands.",
+        "text": "Scout ahead! I'll deal with him myself...",
         "events": [
           { "type": "equip_item_to_named_piece", "item": "scythe", "pieceName": "Edran", "pieceType": "K" },
           { "type": "spawn_piece_at_position", "pieceType": "P", "color": "w", "x": 3, "y": 3, "equip": "torch" },
@@ -240,6 +240,28 @@
       "rewardByDifficulty": {
         "easy": 25,
         "hard": 30
+      }
+    },
+    {
+      "id": "kill_count",
+      "description": "Kill at least {{count}} enemies",
+      "condition": {
+        "type": "kill_count",
+        "difficultyParams": {
+          "easy": {
+            "comparison": "atleast",
+            "count": 7
+          },
+          "hard": {
+            "comparison": "atleast",
+            "count": 10
+          }
+        }
+      },
+      "reward": 50,
+      "rewardByDifficulty": {
+        "easy": 50,
+        "hard": 50
       }
     }
   ]
