@@ -158,7 +158,7 @@ export function VictoryPopup({
       ? "bg-gradient-to-r from-amber-800/30 to-amber-900/30 border-b-2 border-amber-700/40"
       : "bg-gradient-to-r from-red-900/30 to-amber-900/30 border-b-2 border-red-700/40";
   const headerTitle =
-    win === W ? "⚔️ QUEST COMPLETED! ⚔️" : "☠️ QUEST FAILED ☠️";
+    win === W ? "⚔️ QUEST COMPLETED! ⚔️" : "☠️ Edran's Tale Ended ☠️";
 
   const questNarration = currentLevelConfig?.questNarration;
   const isQuestVictory =
@@ -250,7 +250,7 @@ export function VictoryPopup({
           <div className={`h-2 ${topBottomBarClass}`}></div>
           <div className={`px-6 py-4 ${headerGradientClass}`}>
             <h2
-              className="text-2xl font-bold text-center text-amber-200 tracking-wide"
+              className={`text-2xl font-bold text-center tracking-wide ${win === W ? 'text-amber-200' : 'text-red-500'}`}
               style={{ fontFamily: 'serif', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}
             >
               {headerTitle}
@@ -291,12 +291,6 @@ export function VictoryPopup({
                       })}
                     </div>
                   )}
-                  <h2
-                    className="text-2xl font-bold text-red-500"
-                    style={{ fontFamily: 'serif', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}
-                  >
-                    Edran's Tale Ended
-                  </h2>
                 </>
               )}
 
@@ -477,8 +471,8 @@ export function VictoryPopup({
                         )}
                         {destroyedCourtiers > 0 && (
                           <div className="flex items-center justify-between font-semibold">
-                            <span className="text-red-700">Peasants Casualties</span>
-                            <span className="text-red-700">-{casualtiesPenalty}g</span>
+                            <span className="text-red-900">Peasants Casualties</span>
+                            <span className="text-red-900">-{casualtiesPenalty}g</span>
                           </div>
                         )}
                       </div>

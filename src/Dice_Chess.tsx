@@ -3266,8 +3266,14 @@ function BoardComponent({
               const isCrystalBallSwap =
                 isMove &&
                 attacker?.equip === "crystal_ball" &&
-                p &&
-                p.color === attacker.color;
+                ((p && p.color === attacker.color) || targetObstacle === "courtier");
+              
+              // Check if this piece or Courtier is a valid Crystal Ball swap target
+              const isCrystalBallSwapTarget =
+                sel &&
+                attacker?.equip === "crystal_ball" &&
+                isMove &&
+                ((p && p.color === attacker.color) || targetObstacle === "courtier");
 
               const showPct =
                 !!sel &&
@@ -3514,7 +3520,18 @@ function BoardComponent({
                         pointerEvents: "none"
                       }}
                     >
-                      <span className={`obstacle-chip ${currentObstacle}`} id={`courtier-${x}-${y}`}>
+                      <span 
+                        className={`obstacle-chip ${currentObstacle}`} 
+                        id={`courtier-${x}-${y}`}
+                        style={
+                          isCrystalBallSwapTarget && targetObstacle === "courtier"
+                            ? {
+                                boxShadow: "0 0 32px 8px rgba(192, 132, 252, 0.7), 0 0 0 4px rgba(192, 132, 252, 0.35) inset",
+                                background: "radial-gradient(circle, rgba(192, 132, 252, 0.22) 0 55%, transparent 60%)"
+                              }
+                            : undefined
+                        }
+                      >
                         {getObstacleGlyph(currentObstacle)}
                       </span>
                     </span>
@@ -3588,6 +3605,13 @@ function BoardComponent({
                             ? "stunned-piece"
                             : ""
                         } ${p.shadowForTurns && p.shadowForTurns > 0 ? "shadow-piece" : ""}`}
+                        style={
+                          isCrystalBallSwapTarget && p && p.color === attacker?.color
+                            ? {
+                                boxShadow: "0 8px 18px rgba(0, 0, 0, 0.35), inset 0 2px 0 rgba(255, 255, 255, 0.25), 0 0 32px 8px rgba(192, 132, 252, 0.7), 0 0 0 4px rgba(192, 132, 252, 0.35) inset"
+                              }
+                            : undefined
+                        }
                       >
                         {getPieceSymbol(p)}
                       </span>

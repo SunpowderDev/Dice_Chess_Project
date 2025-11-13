@@ -25,6 +25,7 @@
       "guaranteedPieces": {
         "black": [
           { "type": "P" },
+          { "type": "P" },
           { "type": "N" },
           { "type": "P" }
         ]
@@ -49,14 +50,14 @@
       "name": "Ivo The Wall",
       "equip": "shield",
       "speechLines": [
-        "Your reign is **forfeit**!",
+        "I shan't let you pass, **sire**!",
         "**Cut** the loud ones!",
-        "Morcant pays **better**!",
-        "Gold speaks **louder** than oaths!",
+        "Morcant made me **see** you!",
+        "Gold sings **louder** than praise!",
         "Honor has its **price**!",
         "**Loyalty** buys nothing, Sir Galahad!",
         "**Surrend**, Edran!",
-        "Noble **scum**"
+        "**Bar** the way!"
       ]
     }
   ],
