@@ -162,7 +162,7 @@ export async function loadLevelConfig(level: number): Promise<LevelConfig> {
   // }
 
   try {
-    const response = await fetch(`/levels/level${level}.json?t=${Date.now()}`, {
+    const response = await fetch(`${process.env.PUBLIC_URL}/levels/level${level}.json?t=${Date.now()}`, {
       cache: "no-cache" // Ensure fresh data during development
     });
 
