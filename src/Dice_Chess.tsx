@@ -3304,16 +3304,17 @@ function BoardComponent({
                 pct = winPercent(board, T, obstacles, a, d, sel!, { x, y }, boardSize);
               }
 
+              // Calculate support count for attacks (both pieces and obstacles)
               let sup = 0;
-              if (isMove && attacker) {
-                // Calculate support for attacking enemy pieces OR obstacles
-                if ((targetPiece && targetPiece.color !== attacker.color) || isObstacleAttack) {
+              if (isMove && attacker && sel) {
+                const isEnemyPieceAttack = targetPiece && targetPiece.color !== attacker.color;
+                if (isEnemyPieceAttack || isObstacleAttack) {
                   sup = supportCount(
                     board,
                     T,
                     obstacles,
                     attacker,
-                    sel!,
+                    sel,
                     { x, y },
                     boardSize
                   );
@@ -3322,12 +3323,14 @@ function BoardComponent({
 
               const isAttack = willCap || isObstacleAttack;
               const currentPct = isObstacleAttack ? obstaclePct : pct;
+              
+              // Determine ring color: Blue if supported, Orange if <50% without support, Green otherwise
               const ringClass =
                 sup > 0
-                  ? "sup"
+                  ? "sup"  // Blue: Has support
                   : currentPct != null && currentPct < 50
-                  ? "warn"
-                  : "cap";
+                  ? "warn"  // Orange: Low odds without support
+                  : "cap";  // Green: Good odds without support
 
               const hoveredAttackTarget =
                 hover &&
