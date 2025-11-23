@@ -55,6 +55,8 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode, enab
   const [isAnimating, setIsAnimating] = useState(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const animationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
 
   const ensureAudioContext = () => {
     if (!audioCtxRef.current) {
@@ -177,6 +179,49 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode, enab
     setDisplayedText(fullText);
     setIsAnimating(false);
   };
+
+  // Handle image loading - reset and load new image when card changes
+  useEffect(() => {
+    if (!card.image) {
+      setImageLoaded(false);
+      setImageSrc(null);
+      return;
+    }
+
+    // Reset loading state when card changes
+    setImageLoaded(false);
+    
+    // Calculate the full image path
+    const imagePath = card.image;
+    let fullPath: string;
+    
+    // If already a full URL or data URI, use as-is
+    if (imagePath.startsWith('http') || imagePath.startsWith('data:')) {
+      fullPath = imagePath;
+    } else {
+      // If already starts with PUBLIC_URL, use as-is (avoid double prefixing)
+      const publicUrl = process.env.PUBLIC_URL || '';
+      if (publicUrl && imagePath.startsWith(publicUrl)) {
+        fullPath = imagePath;
+      } else {
+        // Otherwise, prepend PUBLIC_URL with proper slash handling
+        fullPath = `${publicUrl}${imagePath.startsWith('/') ? imagePath : `/${imagePath}`}`;
+      }
+    }
+
+    setImageSrc(fullPath);
+
+    // Preload the image and set loaded state when ready
+    const img = new Image();
+    img.onload = () => {
+      setImageLoaded(true);
+    };
+    img.onerror = () => {
+      // Even if image fails to load, show it anyway (might be a network issue)
+      setImageLoaded(true);
+    };
+    img.src = fullPath;
+  }, [card.image, card.id]);
 
   // Animate text letter by letter
   useEffect(() => {
@@ -449,28 +494,21 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode, enab
                 }}
               >
                 {card.image ? (
-                  <img
-                    key={`${card.id}-${card.image}`}
-                    src={(() => {
-                      const imagePath = card.image;
-                      // If already a full URL or data URI, use as-is
-                      if (imagePath.startsWith('http') || imagePath.startsWith('data:')) {
-                        return imagePath;
-                      }
-                      // If already starts with PUBLIC_URL, use as-is (avoid double prefixing)
-                      const publicUrl = process.env.PUBLIC_URL || '';
-                      if (publicUrl && imagePath.startsWith(publicUrl)) {
-                        return imagePath;
-                      }
-                      // Otherwise, prepend PUBLIC_URL with proper slash handling
-                      return `${publicUrl}${imagePath.startsWith('/') ? imagePath : `/${imagePath}`}`;
-                    })()}
-                    alt="Story scene"
-                    className="w-full h-full object-cover rounded-lg"
-                    draggable="false"
-                    onDragStart={(e) => e.preventDefault()}
-                    style={{ userSelect: 'none', pointerEvents: 'none' }}
-                  />
+                  imageSrc && imageLoaded ? (
+                    <img
+                      key={`${card.id}-${card.image}`}
+                      src={imageSrc}
+                      alt="Story scene"
+                      className="w-full h-full object-cover rounded-lg"
+                      draggable="false"
+                      onDragStart={(e) => e.preventDefault()}
+                      style={{ userSelect: 'none', pointerEvents: 'none' }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 rounded-lg flex items-center justify-center text-gray-500">
+                      <div className="animate-pulse">Loading...</div>
+                    </div>
+                  )
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 rounded-lg flex items-center justify-center text-gray-500">
                     [Image]

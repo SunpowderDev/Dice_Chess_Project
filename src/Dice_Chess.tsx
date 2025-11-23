@@ -14,7 +14,7 @@ import {
   type VictoryCondition,
 } from "./levelConfig";
 import StoryCard from "./StoryCard";
-import { preloadStoryCardImages } from "./imagePreloader";
+import { preloadStoryCardImages, preloadAllStoryCardImages } from "./imagePreloader";
 import { MainMenu } from "./MainMenu";
 import { MusicManager, type MusicManagerHandle } from "./MusicManager";
 import type {
@@ -4306,6 +4306,14 @@ export default function App() {
     if (showIntro) {
       localStorage.removeItem("dicechess_campaign_v1");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
+
+  // Preload all story card images when app first loads
+  useEffect(() => {
+    preloadAllStoryCardImages().catch((err) => {
+      console.warn("Failed to preload some story card images:", err);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only once on mount
   const [lastMove, setLastMove] = useState<{

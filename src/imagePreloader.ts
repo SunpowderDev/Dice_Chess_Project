@@ -62,3 +62,55 @@ export function preloadStoryCardImages(storyCards: Array<{ image?: string }>): P
   return preloadImages(imagePaths);
 }
 
+/**
+ * Preloads all story card images from all levels (1-5)
+ * This should be called when the app first loads
+ * @returns Promise that resolves when all images are loaded
+ */
+export async function preloadAllStoryCardImages(): Promise<void> {
+  const MAX_LEVEL = 5;
+  const imagePaths: string[] = [];
+  const publicUrl = process.env.PUBLIC_URL || '';
+
+  // Load all level configs and collect image paths
+  const loadPromises: Promise<void>[] = [];
+  
+  for (let level = 1; level <= MAX_LEVEL; level++) {
+    const loadPromise = fetch(`${publicUrl}/levels/level${level}.json`)
+      .then(response => {
+        if (!response.ok) return;
+        return response.json();
+      })
+      .then((config: { storyCards?: Array<{ image?: string }> }) => {
+        if (config?.storyCards) {
+          config.storyCards.forEach(card => {
+            if (card.image) {
+              imagePaths.push(card.image);
+            }
+          });
+        }
+      })
+      .catch(() => {
+        // Silently fail for levels that don't exist
+      });
+    
+    loadPromises.push(loadPromise);
+  }
+
+  // Also add end-of-story images (these are used in the end-of-story cards)
+  imagePaths.push(
+    `/demo_end_EdranWins.png`,
+    `/demo_end_horror.png`,
+    `/demo_end_sunpowder.png`
+  );
+
+  // Wait for all configs to load, then preload all images
+  await Promise.all(loadPromises);
+  
+  // Remove duplicates
+  const uniquePaths = Array.from(new Set(imagePaths));
+  
+  // Preload all images
+  return preloadImages(uniquePaths);
+}
+
