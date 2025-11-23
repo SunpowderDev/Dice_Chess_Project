@@ -20,7 +20,13 @@ export function preloadImage(imagePath: string): Promise<void> {
 
     // Construct full path with PUBLIC_URL
     const publicUrl = process.env.PUBLIC_URL || '';
-    const fullPath = `${publicUrl}${imagePath.startsWith('/') ? imagePath : `/${imagePath}`}`;
+    // Check if path already includes PUBLIC_URL to avoid double-prefixing
+    let fullPath: string;
+    if (publicUrl && imagePath.startsWith(publicUrl)) {
+      fullPath = imagePath;
+    } else {
+      fullPath = `${publicUrl}${imagePath.startsWith('/') ? imagePath : `/${imagePath}`}`;
+    }
 
     const img = new Image();
     img.onload = () => resolve();
@@ -98,6 +104,7 @@ export async function preloadAllStoryCardImages(): Promise<void> {
   }
 
   // Also add end-of-story images (these are used in the end-of-story cards)
+  // Note: preloadImage will add PUBLIC_URL automatically
   imagePaths.push(
     `/demo_end_EdranWins.png`,
     `/demo_end_horror.png`,

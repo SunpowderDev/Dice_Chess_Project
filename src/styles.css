@@ -304,6 +304,14 @@ body {
   color: #6b4423; /* Brown color for courtier glyph (black pawn symbol) */
 }
 
+.obstacle-chip.bell {
+  /* Allow emoji rendering for bell - use system emoji font instead of symbol fonts */
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", "Segoe UI Symbol", system-ui, sans-serif;
+  /* Ensure emoji renders at proper size */
+  font-size: 60px;
+  line-height: 1;
+}
+
 .ind {
   position: absolute;
   inset: 0;
@@ -558,6 +566,7 @@ body {
 
 .supporting-piece .chip {
   filter: drop-shadow(0 0 18px #3b82f6);
+  -webkit-filter: drop-shadow(0 0 18px #3b82f6); /* Safari/WebKit support */
 }
 .tile {
   position: relative;
