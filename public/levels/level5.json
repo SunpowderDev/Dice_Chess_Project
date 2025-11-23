@@ -137,7 +137,7 @@
   "availableItems": {
     "blackRandomization": ["shield", "sword", "bow", "skull", "staff", "scythe", "lance"],
     "whiteRandomization": [],
-    "whitePurchase": ["shield", "sword", "bow", "torch", "banner", "disguise", "crystal_ball", "lance", "staff", "scythe", "curse", "skull"]
+    "whitePurchase": []
   },
   "randomizationPieces": {
     "black": ["P", "B", "N", "R", "Q"],

@@ -450,7 +450,20 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode, enab
               >
                 {card.image ? (
                   <img
-                    src={card.image.startsWith('http') || card.image.startsWith('data:') ? card.image : `${process.env.PUBLIC_URL}${card.image}`}
+                    src={(() => {
+                      const imagePath = card.image;
+                      // If already a full URL or data URI, use as-is
+                      if (imagePath.startsWith('http') || imagePath.startsWith('data:')) {
+                        return imagePath;
+                      }
+                      // If already starts with PUBLIC_URL, use as-is (avoid double prefixing)
+                      const publicUrl = process.env.PUBLIC_URL || '';
+                      if (publicUrl && imagePath.startsWith(publicUrl)) {
+                        return imagePath;
+                      }
+                      // Otherwise, prepend PUBLIC_URL with proper slash handling
+                      return `${publicUrl}${imagePath.startsWith('/') ? imagePath : `/${imagePath}`}`;
+                    })()}
                     alt="Story scene"
                     className="w-full h-full object-cover rounded-lg"
                     draggable="false"
