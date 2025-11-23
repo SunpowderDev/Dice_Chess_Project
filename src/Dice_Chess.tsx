@@ -3616,6 +3616,10 @@ function BoardComponent({
                             ? {
                                 boxShadow: "0 8px 18px rgba(0, 0, 0, 0.35), inset 0 2px 0 rgba(255, 255, 255, 0.25), 0 0 32px 8px rgba(192, 132, 252, 0.7), 0 0 0 4px rgba(192, 132, 252, 0.35) inset"
                               }
+                            : isSel
+                            ? {
+                                boxShadow: "0 0 0 4px rgba(34, 197, 94, 0.8), 0 0 20px 4px rgba(34, 197, 94, 0.6), 0 8px 18px rgba(0, 0, 0, 0.35), inset 0 2px 0 rgba(255, 255, 255, 0.25)"
+                              }
                             : undefined
                         }
                       >
