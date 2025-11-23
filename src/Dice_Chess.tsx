@@ -3323,10 +3323,10 @@ function BoardComponent({
               const isAttack = willCap || isObstacleAttack;
               const currentPct = isObstacleAttack ? obstaclePct : pct;
               const ringClass =
-                currentPct != null && currentPct < 50
-                  ? "warn"
-                  : sup > 0
+                sup > 0
                   ? "sup"
+                  : currentPct != null && currentPct < 50
+                  ? "warn"
                   : "cap";
 
               const hoveredAttackTarget =
@@ -3471,9 +3471,7 @@ function BoardComponent({
                     }
                   }}
                   onClick={() => click(x, y)}
-                  className={`tile ${light ? "tL" : "tD"} ${
-                    isSel ? "ring-4 ring-white/60" : ""
-                  } ${isEscapeRow ? "escape-row" : ""}`}
+                  className={`tile ${light ? "tL" : "tD"} ${isEscapeRow ? "escape-row" : ""}`}
                 >
                   {(isLastMoveFrom || isLastMoveTo) &&
                     V[y]?.[x] && ( // Safe navigation

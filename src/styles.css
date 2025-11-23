@@ -352,10 +352,10 @@ body {
 }
 .sup {
   box-shadow: 0 0 32px 8px rgba(59, 130, 246, 0.7),
-    0 0 0 4px rgba(59, 130, 246, 0.35) inset;
+    0 0 0 4px rgba(59, 130, 246, 0.8) inset;
   background: radial-gradient(
     circle,
-    rgba(59, 130, 246, 0.24) 0 55%,
+    rgba(59, 130, 246, 0.22) 0 55%,
     transparent 60%
   );
 }
