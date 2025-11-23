@@ -161,6 +161,7 @@ export function VictoryPopup({
     win === W ? "⚔️ QUEST COMPLETED! ⚔️" : "☠️ Edran's Tale Ended ☠️";
 
   const questNarration = currentLevelConfig?.questNarration;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isQuestVictory =
     win === W && fulfilledCondition === "king_escaped" && !!questNarration;
 

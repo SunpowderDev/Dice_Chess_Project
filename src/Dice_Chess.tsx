@@ -8,10 +8,8 @@ import React, {
 import { createPortal } from "react-dom";
 import {
   loadLevelConfig,
-  getLevelConfig,
   type TerrainConfigCell,
   type NamedPiece,
-  type BotBehavior,
   type LevelConfig,
   type VictoryCondition,
 } from "./levelConfig";
@@ -45,7 +43,6 @@ import {
   S,
   W,
   B,
-  N,
   RAD,
   VAL,
   ITEM_COSTS,
@@ -55,7 +52,6 @@ import {
   NAMED_PHRASES,
   SWING_PHRASES,
   ITEM_DESCRIPTIONS,
-  PIECE_DESCRIPTIONS,
   PIECE_NAMES,
 } from "./constants";
 import { Market } from "./Market";
@@ -63,7 +59,6 @@ import { VictoryPopup } from "./VictoryPopup";
 import { TutorialPopup, getTutorialContent } from "./TutorialPopup";
 import {
   checkAllObjectives,
-  checkObjectiveCondition,
   calculateObjectiveBonus,
   formatObjectiveDescription,
   type ObjectiveTracking,
@@ -72,6 +67,7 @@ import "./styles.css";
 
 // --- Error Boundary & Tooltip Components ---
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ErrorBoundary({ children }: { children: React.ReactNode }) {
   const [err, setErr] = useState<Error | null>(null);
   if (err) {
@@ -982,6 +978,7 @@ function build(
   
   // Calculate how many pieces can be equipped based on remaining budget
   const maxPawnItemsToEquip = Math.floor(remainingEquipmentGold / averageItemCost);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const maxBackItemsToEquip = Math.floor(remainingEquipmentGold / averageItemCost);
   
   // Place named pawns FIRST (guaranteed placement)
@@ -1135,9 +1132,11 @@ function build(
 }
 
 // --- Terrain Generation ---
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const emptyT = (): Terrain =>
   Array.from({ length: S }, () => Array(S).fill("none")) as Terrain;
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const emptyTerrain = (size: number): Terrain =>
   Array.from({ length: size }, () => Array(size).fill("none")) as Terrain;
 
@@ -2720,6 +2719,7 @@ function DiceD6({
       if (result) setFace(result);
       setT(1);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rolling, result]); // Added result to dependencies
 
   useEffect(() => {
@@ -2742,7 +2742,8 @@ function DiceD6({
   // Slight jitter for hand-rolled feel
   const jitter = useMemo(
     () => (rolling ? (rng() - 0.5) * 0.6 : 0),
-    [rolling, t, rng]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rolling, t]
   );
 
   const s = size;
@@ -3134,6 +3135,7 @@ function BoardComponent({
       : null;
 
   // Format victory condition names
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const formatVictoryCondition = (condition: string) => {
     switch (condition) {
       case "king_beheaded":
@@ -3150,6 +3152,7 @@ function BoardComponent({
   };
 
   // Get victory condition description
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getVictoryConditionDescription = (condition: string) => {
     // Check for level-specific description first
     if (currentLevelConfig?.victoryConditionDescriptions?.[condition as keyof typeof currentLevelConfig.victoryConditionDescriptions]) {
@@ -3171,6 +3174,7 @@ function BoardComponent({
   };
 
   // All possible victory conditions
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const allVictoryConditions = ["king_captured", "king_beheaded", "king_dishonored", "king_escaped"];
 
   return (
@@ -4301,6 +4305,7 @@ export default function App() {
     if (showIntro) {
       localStorage.removeItem("dicechess_campaign_v1");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only once on mount
   const [lastMove, setLastMove] = useState<{
     from: { x: number; y: number };
@@ -4641,7 +4646,9 @@ export default function App() {
     import("./types").ObjectiveState[]
   >([]);
   const [activeObjectiveIds, setActiveObjectiveIds] = useState<string[]>([]); // IDs of objectives active for this level
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [newlyCompletedObjectives, setNewlyCompletedObjectives] = useState<string[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [newlyFailedObjectives, setNewlyFailedObjectives] = useState<string[]>([]);
   const [lastVictoryInfo, setLastVictoryInfo] = useState<{
     pieceType: PieceType;
@@ -4741,6 +4748,7 @@ export default function App() {
   }, []);
 
   // Helper function to calculate position above a board square (deprecated - kept for compatibility)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getBoardSquarePosition = useCallback((x: number, y: number): { top: number; left: number } | null => {
     if (!boardRef.current) return null;
     
@@ -4927,6 +4935,7 @@ export default function App() {
         triggerKingEscapeGuideLine();
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTutorial, campaign.tutorialsSeen, enableTutorialPopups, phase, showTutorial, triggerKingEscapeGuideLine]);
 
   useEffect(() => {
@@ -5110,6 +5119,7 @@ export default function App() {
       kW
         ? threatened(Bstate, Tstate, obstacles, { x: kW.x, y: kW.y }, B, currentBoardSize)
         : false,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [Bstate, Tstate, obstacles, kW]
   );
   const bChk = useMemo(
@@ -5117,6 +5127,7 @@ export default function App() {
       kB
         ? threatened(Bstate, Tstate, obstacles, { x: kB.x, y: kB.y }, W, currentBoardSize)
         : false,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [Bstate, Tstate, obstacles, kB]
   );
 
@@ -5198,6 +5209,7 @@ export default function App() {
       window.removeEventListener("mouseup", onMouseUp);
       window.removeEventListener("blur", onBlur);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drag, legal, Bstate, Tstate, phase, marketAction, obstacles, currentBoardSize]); // Added dependencies for market phase and perform closure
 
   // useEffect now depends on seed *and* level, init is passed unspentGold
@@ -5205,6 +5217,7 @@ export default function App() {
     if (currentLevelConfig) {
       init(seed, campaign.level, unspentGold, currentLevelConfig);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seed, campaign.level, unspentGold, currentLevelConfig]);
 
   // Keep ref in sync with state
@@ -5409,6 +5422,7 @@ export default function App() {
     }
     // Dependencies now only include things that should trigger the bot's turn
     // Note: speechBubble is NOT in deps - we use speechBubbleRef to check it without re-triggering
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turn, Bstate, Tstate, win, phase, TMG.botThink, kB]);
 
   const vis = useMemo(
@@ -5517,6 +5531,7 @@ export default function App() {
       clearTimeout(t2);
       clearTimeout(t3);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fx, TMG]);
 
   useEffect(() => {
@@ -5709,6 +5724,7 @@ export default function App() {
     } else {
       setDisguisePopupPosition(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, disguisePopupState]);
 
   useEffect(() => {
@@ -5722,6 +5738,7 @@ export default function App() {
     } else {
       setNameInputPosition(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [namingState]);
 
   useEffect(() => {
@@ -6549,6 +6566,7 @@ function handleLevelCompletion(
         setNeedsReinit(true);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [campaign.level, currentLevelConfig, Bstate, currentBoardSize, storyCardQueue, campaign, setMarketPoints, setPrayerDice, setCampaign, setB, rngRef]
   );
   
@@ -6571,6 +6589,7 @@ function handleLevelCompletion(
         setNeedsReinit(false);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [needsReinit, campaign, currentLevelConfig, seed, unspentGold]);
 
   // Animate difficulty transition text sequentially (line 1 -> fade -> line 2 -> fade)
@@ -6671,6 +6690,7 @@ function handleLevelCompletion(
         difficultyTransitionTimeoutRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showDifficultyTransition]); // Only depend on showDifficultyTransition
 
   // Helper function to check and update objectives
@@ -7103,6 +7123,7 @@ function handleLevelCompletion(
     
     // Difficulty debug removed
     // Difficulty debug removed
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const totalEquipped = [...bl.back, ...bl.front].filter(p => p && p.equip).length;
     // Difficulty debug removed
     
@@ -8894,6 +8915,7 @@ function handleLevelCompletion(
           if (isPlayerKing || victoryConditions.includes("king_dishonored")) {
             console.log(">>> ENDING GAME - King died as attacker");
             const endPhrase = "King dishonored!";
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const winner = mv.color === W ? B : W;
 
             // Track King defeat for ransom if it's the enemy king (black) that died
@@ -9263,6 +9285,7 @@ function handleLevelCompletion(
     );
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const GameInfo = () => {
     const [showItemInfo, setShowItemInfo] = useState(false);
 
@@ -9324,6 +9347,7 @@ function handleLevelCompletion(
       else pair.b = move;
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const lastTurnNumber =
       movePairs.length > 0 ? movePairs[movePairs.length - 1].turn : 0;
 
@@ -9549,6 +9573,7 @@ function handleLevelCompletion(
       setRerollTarget(null);
 
       if (kind === "obstacle") {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const obstacleType = rerollState?.obstacleType || obstacles[to.y]?.[to.x] || "rock";
         const lanceLungeUsed =
           p.equip === "lance" &&

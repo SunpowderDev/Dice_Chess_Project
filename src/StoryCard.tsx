@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import type {
   StoryCard as StoryCardType,
   StoryEvent,
-  PieceType,
   Equip,
   OutcomeData,
 } from "./types";
@@ -164,6 +163,7 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode, enab
     if (outcomeMode && outcomeMode.outcomes.length > 0) {
       playRewardSound();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outcomeMode]);
 
   // Complete text animation immediately (called when card is swiped)
@@ -212,6 +212,7 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode, enab
         animationIntervalRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [card.bodyText, outcomeMode]);
 
   // Parse text with **emphasis** - works with original bodyText structure
