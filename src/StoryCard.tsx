@@ -450,7 +450,7 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode, enab
               >
                 {card.image ? (
                   <img
-                    src={card.image}
+                    src={card.image.startsWith('http') || card.image.startsWith('data:') ? card.image : `${process.env.PUBLIC_URL}${card.image}`}
                     alt="Story scene"
                     className="w-full h-full object-cover rounded-lg"
                     draggable="false"

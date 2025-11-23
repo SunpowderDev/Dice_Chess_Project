@@ -9926,7 +9926,7 @@ function handleLevelCompletion(
     const endOfStoryCard: StoryCardType = {
       id: "end_of_story",
       bodyText: "The King's enemies are **scattered**, his dominion restored.",
-      image: "/demo_end_EdranWins.png",
+      image: `${process.env.PUBLIC_URL}/demo_end_EdranWins.png`,
       leftChoice: {
         text: "Sounds too good to be true...!",
         events: [{ type: "next_card", cardId: "middle_card" }],
@@ -9942,7 +9942,7 @@ function handleLevelCompletion(
     const middleCard: StoryCardType = {
       id: "middle_card",
       bodyText: "But with the Bell of Names destroyed... deep within the vaults beneath the castle, **something** stirs... calling out.. **Eoohhmeerr**.",
-      image: "/demo_end_horror.png",
+      image: `${process.env.PUBLIC_URL}/demo_end_horror.png`,
       leftChoice: {
         text: "...maybe Morcant was onto something.",
         events: [{ type: "next_card", cardId: "thanks_for_playing" }],
@@ -9958,7 +9958,7 @@ function handleLevelCompletion(
     const thanksForPlayingCard: StoryCardType = {
       id: "thanks_for_playing",
       bodyText: "Thank **you** for playing this demo!",
-      image: "/demo_end_sunpowder.png",
+      image: `${process.env.PUBLIC_URL}/demo_end_sunpowder.png`,
       leftChoice: {
         text: "It was mid",
         events: [{ type: "reset_to_title" }],
@@ -10608,7 +10608,7 @@ function handleLevelCompletion(
               onClick={(e) => e.stopPropagation()}
             >
               <div className="w-full overflow-hidden">
-                <img src="/popup_PrayerDice.png" alt="Prayer Die" className="w-full h-auto object-contain block" />
+                <img src={`${process.env.PUBLIC_URL}/popup_PrayerDice.png`} alt="Prayer Die" className="w-full h-auto object-contain block" />
               </div>
               <div className="p-6">
                 <h3 className="text-xl font-bold mb-3 text-amber-200" style={{ fontFamily: 'Georgia, serif', textShadow: '2px 2px 4px rgba(0,0,0,0.8)' }}>

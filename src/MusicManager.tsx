@@ -15,13 +15,13 @@ export interface MusicManagerHandle {
 
 // Music file paths
 const MUSIC_FILES = {
-  mainMenu: '/music/Main_Menu_ShadowedCrown.mp3',
-  level1: ['/music/level1_BetrayalatHighkeep.mp3'],
-  level2: ['/music/level2_TheDarkHunt.mp3', '/music/level2_TheDarkHunt_2.mp3'],
-  level3: ['/music/level3_PilgrimsPass.mp3', '/music/level3_PilgrimsPass_B.mp3'],
-  level4: ['/music/level4_PontiffPintus.mp3'],
+  mainMenu: `${process.env.PUBLIC_URL}/music/Main_Menu_ShadowedCrown.mp3`,
+  level1: [`${process.env.PUBLIC_URL}/music/level1_BetrayalatHighkeep.mp3`],
+  level2: [`${process.env.PUBLIC_URL}/music/level2_TheDarkHunt.mp3`, `${process.env.PUBLIC_URL}/music/level2_TheDarkHunt_2.mp3`],
+  level3: [`${process.env.PUBLIC_URL}/music/level3_PilgrimsPass.mp3`, `${process.env.PUBLIC_URL}/music/level3_PilgrimsPass_B.mp3`],
+  level4: [`${process.env.PUBLIC_URL}/music/level4_PontiffPintus.mp3`],
   level5: [], // Placeholder - user will add files later
-  endGame: '/music/End_Game_FallenThrone.mp3',
+  endGame: `${process.env.PUBLIC_URL}/music/End_Game_FallenThrone.mp3`,
 };
 
 export const MusicManager = forwardRef<MusicManagerHandle, MusicManagerProps>(

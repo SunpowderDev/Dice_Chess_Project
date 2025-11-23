@@ -25,17 +25,17 @@ export const TUTORIAL_CONTENT: Record<TutorialType, {
   single_combat: {
     title: "Single Combat",
     body: "Both units roll 1d6. Attacker wins ties.",
-    imageBanner: "/tutorial_imgs/tutorial_SingleCombat.png",
+    imageBanner: `${process.env.PUBLIC_URL}/tutorial_imgs/tutorial_SingleCombat.png`,
   },
   supporting_units: {
     title: "Supporting Units",
     body: "Add +1 to attack rolls for each other friendly Unit attacking the same square.",
-    imageBanner: "/tutorial_imgs/tutorial_SupportingUnits.png",
+    imageBanner: `${process.env.PUBLIC_URL}/tutorial_imgs/tutorial_SupportingUnits.png`,
   },
   king_advantage: {
     title: "King Advantage",
     body: "King always attacks with Advantage (roll 2d6, keep highest).",
-    imageBanner: "/tutorial_imgs/tutorial_KingAdvantage.png",
+    imageBanner: `${process.env.PUBLIC_URL}/tutorial_imgs/tutorial_KingAdvantage.png`,
   },
   king_escape_hint: {
     title: "To win this scenario, lead your King to the golden squares at the board's edge.",
@@ -45,32 +45,32 @@ export const TUTORIAL_CONTENT: Record<TutorialType, {
   stunned_units: {
     title: "Stunned Units",
     body: "Stunned Units always roll 1.",
-    imageBanner: "/tutorial_imgs/tutorial_StunnedUnits.png",
+    imageBanner: `${process.env.PUBLIC_URL}/tutorial_imgs/tutorial_StunnedUnits.png`,
   },
   exhausted_units: {
     title: "Exhausted Units",
     body: "After a Unit performs the same move 3 times, they are Stunned for one turn in exhaustion.",
-    imageBanner: "/tutorial_imgs/tutorial_ExhaustedUnits.png",
+    imageBanner: `${process.env.PUBLIC_URL}/tutorial_imgs/tutorial_ExhaustedUnits.png`,
   },
   veterans: {
     title: "🎖️ Veterans",
     body: "Units that win 5 single combats become Veterans. They always roll with Advantage (both attacking and defending).",
-    imageBanner: "/tutorial_imgs/tutorial_Veterans.png",
+    imageBanner: `${process.env.PUBLIC_URL}/tutorial_imgs/tutorial_Veterans.png`,
   },
   market_buy_pawn: {
     title: "Market",
     body: "Your King needs an army. Hire Men-at-Arms and outfit them for war.",
-    imageBanner: "/tutorial_imgs/tutorial_Market.png",
+    imageBanner: `${process.env.PUBLIC_URL}/tutorial_imgs/tutorial_Market.png`,
   },
   market_view_battlefield: {
     title: "👁️ View Battlefield",
     body: "Some battlefields are covered in a dense fog. To avoid ambushes, equip some units with 🔥 Torches to scout ahead and dispel the dark.",
-    imageBanner: "/tutorial_imgs/tutorial_ViewBattlefield.png",
+    imageBanner: `${process.env.PUBLIC_URL}/tutorial_imgs/tutorial_ViewBattlefield.png`,
   },
   prayer_dice: {
     title: "🙏 Pray to the Eye",
     body: "When a combat fails, you can use a Prayer Die to reroll a dice. This gives you a second chance to turn the tide of battle.",
-    imageBanner: "/tutorial_imgs/tutorial_PrayerDice.png",
+    imageBanner: `${process.env.PUBLIC_URL}/tutorial_imgs/tutorial_PrayerDice.png`,
   },
 };
 
