@@ -3306,8 +3306,8 @@ function BoardComponent({
 
               let sup = 0;
               if (isMove && attacker) {
-                if (targetPiece && targetPiece.color !== attacker.color) {
-                  // Check targetPiece exists before checking color
+                // Calculate support for attacking enemy pieces OR obstacles
+                if ((targetPiece && targetPiece.color !== attacker.color) || isObstacleAttack) {
                   sup = supportCount(
                     board,
                     T,
