@@ -306,10 +306,16 @@ body {
 
 .obstacle-chip.bell {
   /* Allow emoji rendering for bell - use system emoji font instead of symbol fonts */
-  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", "Segoe UI Symbol", system-ui, sans-serif;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", "EmojiOne Mozilla", "Twemoji Mozilla", "Segoe UI Symbol", system-ui, sans-serif !important;
   /* Ensure emoji renders at proper size */
   font-size: 60px;
   line-height: 1;
+  /* Remove color override to allow colored emoji to display - emojis ignore color property */
+  color: initial;
+  /* Use font-variant-emoji to force emoji rendering */
+  font-variant-emoji: emoji;
+  /* Disable text rendering optimizations that might affect emoji */
+  text-rendering: auto;
 }
 
 .ind {
@@ -564,9 +570,28 @@ body {
   cursor: help;
 }
 
+/* Blue outline for supporting pieces - similar to selected piece but blue */
 .supporting-piece .chip {
-  filter: drop-shadow(0 0 18px #3b82f6);
-  -webkit-filter: drop-shadow(0 0 18px #3b82f6); /* Safari/WebKit support */
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.8),
+    0 0 20px 4px rgba(59, 130, 246, 0.6),
+    0 8px 18px rgba(0, 0, 0, 0.35),
+    inset 0 2px 0 rgba(255, 255, 255, 0.25);
+  animation: pulse-supporting 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-supporting {
+  0%, 100% {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.8),
+      0 0 20px 4px rgba(59, 130, 246, 0.6),
+      0 8px 18px rgba(0, 0, 0, 0.35),
+      inset 0 2px 0 rgba(255, 255, 255, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 1),
+      0 0 30px 8px rgba(59, 130, 246, 0.8),
+      0 8px 18px rgba(0, 0, 0, 0.35),
+      inset 0 2px 0 rgba(255, 255, 255, 0.25);
+  }
 }
 .tile {
   position: relative;
