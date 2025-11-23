@@ -450,6 +450,7 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode, enab
               >
                 {card.image ? (
                   <img
+                    key={`${card.id}-${card.image}`}
                     src={(() => {
                       const imagePath = card.image;
                       // If already a full URL or data URI, use as-is

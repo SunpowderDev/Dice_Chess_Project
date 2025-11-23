@@ -14,6 +14,7 @@ import {
   type VictoryCondition,
 } from "./levelConfig";
 import StoryCard from "./StoryCard";
+import { preloadStoryCardImages } from "./imagePreloader";
 import { MainMenu } from "./MainMenu";
 import { MusicManager, type MusicManagerHandle } from "./MusicManager";
 import type {
@@ -4621,6 +4622,12 @@ export default function App() {
   useEffect(() => {
     loadLevelConfig(campaign.level).then((config) => {
       setCurrentLevelConfig(config);
+      // Preload all story card images for this level
+      if (config.storyCards && config.storyCards.length > 0) {
+        preloadStoryCardImages(config.storyCards).catch((err) => {
+          console.warn("Failed to preload some story card images:", err);
+        });
+      }
     });
   }, [campaign.level]);
 
@@ -7157,7 +7164,14 @@ function handleLevelCompletion(
     // Story cards will be shown after intro via handleIntroComplete
     if (!preserveStoryState) {
       setCurrentStoryCard(null);
-      setStoryCardQueue(levelConfig.storyCards || []);
+      const storyCards = levelConfig.storyCards || [];
+      setStoryCardQueue(storyCards);
+      // Preload all story card images (in case they weren't preloaded earlier)
+      if (storyCards.length > 0) {
+        preloadStoryCardImages(storyCards).catch((err) => {
+          console.warn("Failed to preload some story card images:", err);
+        });
+      }
     }
     // Default phase: market or playing (skip market if disabled)
     const marketEnabled = levelConfig.marketEnabled !== false;
@@ -9856,6 +9870,12 @@ function handleLevelCompletion(
 
     loadLevelConfig(levelStartSnapshot.level).then((config) => {
       setCurrentLevelConfig(config);
+      // Preload all story card images for this level
+      if (config.storyCards && config.storyCards.length > 0) {
+        preloadStoryCardImages(config.storyCards).catch((err) => {
+          console.warn("Failed to preload some story card images:", err);
+        });
+      }
       setCampaign({
         level: levelStartSnapshot.level,
         whiteRoster: [...levelStartSnapshot.whiteRoster],
@@ -9977,7 +9997,12 @@ function handleLevelCompletion(
     setThisLevelUnlockedItems([]);
     
     // Queue the story cards
-    setStoryCardQueue([endOfStoryCard, middleCard, thanksForPlayingCard]);
+    const endCards = [endOfStoryCard, middleCard, thanksForPlayingCard];
+    setStoryCardQueue(endCards);
+    // Preload images for end-of-story cards
+    preloadStoryCardImages(endCards).catch((err) => {
+      console.warn("Failed to preload some end-of-story card images:", err);
+    });
     // Show the first card immediately
     setCurrentStoryCard(endOfStoryCard);
     
