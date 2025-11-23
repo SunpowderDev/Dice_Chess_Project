@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/static/css/main.292da910.css",
-    "main.js": "/static/js/main.0768d34f.js",
-    "index.html": "/index.html",
-    "main.292da910.css.map": "/static/css/main.292da910.css.map",
-    "main.0768d34f.js.map": "/static/js/main.0768d34f.js.map"
+    "main.css": "/Dice_Chess_Project/static/css/main.35e23267.css",
+    "main.js": "/Dice_Chess_Project/static/js/main.0cdd8c89.js",
+    "index.html": "/Dice_Chess_Project/index.html",
+    "main.35e23267.css.map": "/Dice_Chess_Project/static/css/main.35e23267.css.map",
+    "main.0cdd8c89.js.map": "/Dice_Chess_Project/static/js/main.0cdd8c89.js.map"
   },
   "entrypoints": [
-    "static/css/main.292da910.css",
-    "static/js/main.0768d34f.js"
+    "static/css/main.35e23267.css",
+    "static/js/main.0cdd8c89.js"
   ]
 }

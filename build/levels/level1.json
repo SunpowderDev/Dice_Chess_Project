@@ -25,6 +25,7 @@
       "guaranteedPieces": {
         "black": [
           { "type": "P" },
+          { "type": "P" },
           { "type": "N" },
           { "type": "P" }
         ]
@@ -49,14 +50,14 @@
       "name": "Ivo The Wall",
       "equip": "shield",
       "speechLines": [
-        "Your reign is **forfeit**!",
+        "I shan't let you pass, **sire**!",
         "**Cut** the loud ones!",
-        "Morcant pays **better**!",
-        "Gold speaks **louder** than oaths!",
+        "Morcant made me **see** you!",
+        "Gold sings **louder** than praise!",
         "Honor has its **price**!",
         "**Loyalty** buys nothing, Sir Galahad!",
         "**Surrend**, Edran!",
-        "Noble **scum**"
+        "**Bar** the way!"
       ]
     }
   ],
@@ -68,7 +69,7 @@
         "color": "w",
         "name": "Narrator"
       },
-      "bodyText": "You don't need to know chess to play this game, but a bit of chess sense will help you master its tactics.\n\nWhat level of challenge suits you?",
+      "bodyText": "You don't need to know chess to play this game, but some chess sense will help you master its tactics.\n\nWhat level of challenge suits you?",
       "image": "/level1_difficultySelection.png",
       "leftChoice": {
         "text": "A reasonable amount.",
@@ -94,10 +95,10 @@
         "color": "w",
         "name": "Narrator"
       },
-      "bodyText": "Your castle burns from within. On Coronation Night, Prelate Morcant's coup has turned prayer into password; men once loyal to you die to keys he forged from their trust.",
+      "bodyText": "The chapel burns from within. On Coronation Night, Prelate Morcant's coup has turned prayer into password; men once loyal to you bleed for the keys he forged from their faith.",
       "image": "/level1_ChapelBurning.png",
       "leftChoice": {
-        "text": "You look at the courtiers screaming.. dazed..",
+        "text": "Your crown in his hands... a shadow against the firelight.",
         "events": [
           { "type": "next_card", "cardId": "level1-Galahad" }
         ]
@@ -117,7 +118,7 @@
         "equip": "sword",
         "name": "Sir Galahad"
       },
-      "bodyText": "My Liege, you shan't fall here, lest the crown become rumor by dawn. Your word is my **command**!",
+      "bodyText": "My Liege, you shan't fall here, lest the crown become rumor by dawn. Give the **word**!",
       "image": "/level1_SirGalahad.png",
       "leftChoice": {
         "text": "Save the royal regalia!",
@@ -128,7 +129,7 @@
         ]
       },
       "rightChoice": {
-        "text": "Flight to the postern gate! God alone will be our judge!",
+        "text": "Flight to the postern gate! The Eye alone will judge us!",
         "events": [
           { "type": "give_prayer_die" },
           { "type": "start_battle" }
@@ -192,15 +193,12 @@
       "description": "Escape within {{maxTurns}} {{plural|maxTurns|turn|turns}}",
       "condition": {
         "type": "win_under_turns",
-        "params": {
-          "maxTurns": 8
-        },
         "difficultyParams": {
           "easy": {
-            "maxTurns": 10
+            "maxTurns": 12
           },
           "hard": {
-            "maxTurns": 8
+            "maxTurns": 9
           }
         }
       },
@@ -215,9 +213,6 @@
       "description": "Keep your Knights alive",
       "condition": {
         "type": "no_piece_type_lost",
-        "params": {
-          "pieceType": "N"
-        },
         "difficultyParams": {
           "easy": {
             "pieceType": "N"
@@ -238,9 +233,6 @@
       "description": "{{ifZero|maxCourtiers|Don't kill any Courtiers|Don't kill more than {{maxCourtiers}} Courtier{{pluralSuffix|maxCourtiers|s}}}}",
       "condition": {
         "type": "dont_kill_courtiers",
-        "params": {
-          "maxCourtiers": 2
-        },
         "difficultyParams": {
           "easy": {
             "maxCourtiers": 2
@@ -261,9 +253,6 @@
       "description": "{{ifZero|maxLosses|Win without losing any units|Win with no more than {{maxLosses}} {{plural|maxLosses|casualty|casualties}}}}",
       "condition": {
         "type": "max_casualties",
-        "params": {
-          "maxLosses": 1
-        },
         "difficultyParams": {
           "easy": {
             "maxLosses": 1
@@ -275,8 +264,8 @@
       },
       "reward": 35,
       "rewardByDifficulty": {
-        "easy": 25,
-        "hard": 25
+        "easy": 40,
+        "hard": 40
       }
     }
   ]

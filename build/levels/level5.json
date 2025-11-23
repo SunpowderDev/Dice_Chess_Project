@@ -81,17 +81,17 @@
         "color": "b",
         "name": "Pintus IX"
       },
-      "bodyText": "\"I know why Morcant sacked your castle—the Bell of Names in your crypt. His name now stains it, a sacrilege that armors him against death. Break the bell and the man returns; leave it whole and you fight a **shadow** that will not fall.\"",
+      "bodyText": "\"I know why Morcant sacked your castle—the Bell of Names in your crypt. His name now **stains** it, a sacrilege that armors him against death.\"",
       "image": "/level5_BellofNames.png",
       "leftChoice": {
-        "text": "His soul is forfeit.",
+        "text": "Breake a sacred relic...",
         "events": [
           { "type": "next_card", "cardId": "level5-Morcant" }
         ],
         "overlayColor": "rgba(101, 67, 33, 0.85)"
       },
       "rightChoice": {
-        "text": "Speak louder, usurper!",
+        "text": "...or fight a **shadow** that won't fall!",
         "events": [
           { "type": "next_card", "cardId": "level5-Morcant" }
         ],
@@ -111,7 +111,6 @@
         "text": "Ambush an Ebon Staff-Mage",
         "events": [
           { "type": "unlock_item", "item": "staff" },
-          { "type": "give_gold", "amount": 50 },
           { "type": "start_battle" }
         ],
         "overlayColor": "rgba(249, 115, 22, 0.8)"
@@ -178,9 +177,6 @@
       "description": "Defeat Morcant within {{maxTurns}} {{plural|maxTurns|turn|turns}}",
       "condition": {
         "type": "win_under_turns",
-        "params": {
-          "maxTurns": 18
-        },
         "difficultyParams": {
           "easy": {
             "maxTurns": 20
@@ -201,9 +197,6 @@
       "description": "{{ifZero|maxLosses|Win without losing any units|Win with no more than {{maxLosses}} {{plural|maxLosses|casualty|casualties}}}}",
       "condition": {
         "type": "max_casualties",
-        "params": {
-          "maxLosses": 3
-        },
         "difficultyParams": {
           "easy": {
             "maxLosses": 4
@@ -219,5 +212,27 @@
         "hard": 65
       }
     },
+    {
+      "id": "kill_count",
+      "description": "Kill at least {{count}} enemies",
+      "condition": {
+        "type": "kill_count",
+        "difficultyParams": {
+          "easy": {
+            "comparison": "atleast",
+            "count": 10
+          },
+          "hard": {
+            "comparison": "atleast",
+            "count": 14
+          }
+        }
+      },
+      "reward": 70,
+      "rewardByDifficulty": {
+        "easy": 100,
+        "hard": 100
+      }
+    }
   ]
 }
