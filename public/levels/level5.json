@@ -40,7 +40,6 @@
       "type": "K",
       "name": "Morcant",
       "speechLines": [
-        "I am the name that will not fall.",
         "**Kneel**, Edran, for I am your **new god**!",
         "My name rings **true**!",
         "History forgets yours, **Crownless**.",
@@ -73,13 +72,13 @@
       "bodyText": "Winter draws near and the light thins, but you are ready. The field darkens with black magi; the air hums like a struck chalice. You fear nothing.",
       "image": "/level5_Battlefield.png",
       "leftChoice": {
-        "text": "What are those dark staves?",
+        "text": "Beware the dark staves!",
         "events": [
           { "type": "next_card", "cardId": "level5-Pintus" }
         ]
       },
       "rightChoice": {
-        "text": "What is that golden glint?",
+        "text": "Is that... A dragon?",
         "events": [
           { "type": "next_card", "cardId": "level5-Pintus" }
         ]

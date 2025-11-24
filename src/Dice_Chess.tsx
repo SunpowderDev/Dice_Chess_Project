@@ -251,6 +251,13 @@ const sfx = {
     setTimeout(() => this._play(784, 0.4, 0.2, "triangle"), 240);
     setTimeout(() => this._play(1046, 0.5, 0.3, "triangle"), 360);
   },
+  teleport() {
+    this._play(200, 0.3, 0.1, "sine");
+    setTimeout(() => this._play(400, 0.3, 0.1, "sine"), 50);
+    setTimeout(() => this._play(800, 0.3, 0.1, "sine"), 100);
+    setTimeout(() => this._play(1200, 0.3, 0.15, "sine"), 150);
+    setTimeout(() => this._play(1600, 0.25, 0.2, "sine"), 200);
+  },
 };
 
 // --- RNG Helpers ---
@@ -1970,6 +1977,66 @@ function bellOfNamesExists(obstacles: Obstacle, boardSize: number): boolean {
     }
   }
   return false;
+}
+
+// Helper function to find a safe teleportation location for Morcant (away from white pieces)
+function findSafeTeleportLocation(
+  b: Board,
+  T: Terrain,
+  O: Obstacle,
+  kingColor: Color,
+  enemyColor: Color,
+  boardSize: number,
+  r: () => number
+): { x: number; y: number } | null {
+  // Build list of all empty squares that are not threatened and not obstacles
+  const safeCandidates: { x: number; y: number; distance: number }[] = [];
+  
+  for (let y = 0; y < boardSize; y++) {
+    for (let x = 0; x < boardSize; x++) {
+      // Skip if occupied by a piece or obstacle
+      if (b[y]?.[x] || O[y]?.[x] !== "none") continue;
+      
+      // Skip if threatened by enemy
+      if (threatened(b, T, O, { x, y }, enemyColor, boardSize)) continue;
+      
+      // Calculate minimum distance to any enemy piece
+      let minDistanceToEnemy = boardSize * 2;
+      for (let ey = 0; ey < boardSize; ey++) {
+        for (let ex = 0; ex < boardSize; ex++) {
+          const ep = b[ey]?.[ex];
+          if (ep && ep.color === enemyColor) {
+            const dist = manhattan({ x, y }, { x: ex, y: ey });
+            minDistanceToEnemy = Math.min(minDistanceToEnemy, dist);
+          }
+        }
+      }
+      
+      safeCandidates.push({ x, y, distance: minDistanceToEnemy });
+    }
+  }
+  
+  if (safeCandidates.length === 0) {
+    // No completely safe squares, find any empty square not occupied
+    const anyEmptySquares: { x: number; y: number }[] = [];
+    for (let y = 0; y < boardSize; y++) {
+      for (let x = 0; x < boardSize; x++) {
+        if (!b[y]?.[x] && O[y]?.[x] === "none") {
+          anyEmptySquares.push({ x, y });
+        }
+      }
+    }
+    
+    if (anyEmptySquares.length === 0) return null;
+    return anyEmptySquares[Math.floor(r() * anyEmptySquares.length)];
+  }
+  
+  // Sort by distance (furthest from enemies first), then randomize within top candidates
+  safeCandidates.sort((a, b) => b.distance - a.distance);
+  
+  // Pick from top 3 candidates (or fewer if not available)
+  const topCandidates = safeCandidates.slice(0, Math.min(3, safeCandidates.length));
+  return topCandidates[Math.floor(r() * topCandidates.length)];
 }
 
 function resolveObstacle(
@@ -5460,8 +5527,69 @@ export default function App() {
             }
             
             if (!hasEscapeSquare) {
-              // No escape squares available - this is truly checkmate
+              // No escape squares available - this would be checkmate
               console.log(">>> TAKING PATH: Black in check with no moves - checkmate");
+              
+              // Check if Bell of Names protects Morcant (black king)
+              if (kB && kB.p.name === "Morcant" && bellOfNamesExists(obstacles, currentBoardSize)) {
+                console.log(">>> Bell of Names protects Morcant - attempting teleportation");
+                
+                // Find a safe teleportation location
+                const teleportLocation = findSafeTeleportLocation(
+                  Bstate,
+                  Tstate,
+                  obstacles,
+                  B,
+                  W,
+                  currentBoardSize,
+                  rngRef.current
+                );
+                
+                if (teleportLocation) {
+                  console.log(`>>> Teleporting Morcant from (${kB.x}, ${kB.y}) to (${teleportLocation.x}, ${teleportLocation.y})`);
+                  
+                  // Teleport Morcant to the new location
+                  const newBoard = cloneB(Bstate);
+                  newBoard[teleportLocation.y][teleportLocation.x] = newBoard[kB.y][kB.x];
+                  newBoard[kB.y][kB.x] = null;
+                  
+                  // Play teleport sound effect
+                  sfx.teleport();
+                  
+                  // Set the teleport animation (reuse lastMove for visual effect)
+                  setLastMove({ from: { x: kB.x, y: kB.y }, to: teleportLocation });
+                  
+                  // Show dramatic message
+                  setPhrase("The Bell of Names shields Morcant! He vanishes and reappears elsewhere!");
+                  setSpeechBubble({
+                    text: "**You cannot kill a god!**",
+                    id: Date.now(),
+                    targetId: kB.p.id
+                  });
+                  
+                  // Update the board
+                  setB(newBoard);
+                  
+                  // Add notation about the teleportation
+                  setMoveHistory((hist) => {
+                    const newHistory = [...hist];
+                    const lastMoveEntry = newHistory[newHistory.length - 1];
+                    if (lastMoveEntry) {
+                      lastMoveEntry.notation += " (Bell teleports Morcant!)";
+                    }
+                    return newHistory;
+                  });
+                  
+                  // Continue the game - switch to white's turn
+                  console.log("Setting turn back to WHITE after Morcant's teleportation");
+                  setTurn(W);
+                  return;
+                } else {
+                  console.log(">>> No safe teleportation location found - proceeding with checkmate");
+                }
+              }
+              
+              // Normal checkmate (no Bell protection or teleport failed)
               sfx.winCheckmate();
               setWin(W); // Player wins if bot has no moves and is in check
               const deliveringPiece =
