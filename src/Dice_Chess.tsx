@@ -9788,14 +9788,28 @@ function handleLevelCompletion(
   } | null>(null);
 
   useEffect(() => {
-    if (showMarketConfirm && startBattleBtnRef.current) {
-      const buttonRect = startBattleBtnRef.current.getBoundingClientRect();
-      // Calculate center of the button
-      const top = buttonRect.top + buttonRect.height / 2;
-      const left = buttonRect.left + buttonRect.width / 2;
-      setModalPosition({ top, left });
-    } else {
-      setModalPosition(null);
+    const updateModalPosition = () => {
+      if (showMarketConfirm && startBattleBtnRef.current) {
+        const buttonRect = startBattleBtnRef.current.getBoundingClientRect();
+        // Calculate center of the button
+        const top = buttonRect.top + buttonRect.height / 2;
+        const left = buttonRect.left + buttonRect.width / 2;
+        setModalPosition({ top, left });
+      } else {
+        setModalPosition(null);
+      }
+    };
+
+    updateModalPosition();
+
+    // Update position on scroll and resize to keep popup aligned with button
+    if (showMarketConfirm) {
+      window.addEventListener('scroll', updateModalPosition, true);
+      window.addEventListener('resize', updateModalPosition);
+      return () => {
+        window.removeEventListener('scroll', updateModalPosition, true);
+        window.removeEventListener('resize', updateModalPosition);
+      };
     }
   }, [showMarketConfirm, phase]); // Re-calculate if showMarketConfirm or phase changes
 

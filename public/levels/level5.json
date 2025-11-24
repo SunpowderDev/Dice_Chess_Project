@@ -94,7 +94,7 @@
       "bodyText": "\"I know why Morcant sacked your castle—the Bell of Names in your crypt. His name now **stains** it, a sacrilege that armors him against death.\"",
       "image": "/level5_BellofNames.png",
       "leftChoice": {
-        "text": "Breake a sacred relic...",
+        "text": "Break a sacred relic...",
         "events": [
           { "type": "next_card", "cardId": "level5-Morcant" }
         ],
