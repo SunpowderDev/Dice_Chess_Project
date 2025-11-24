@@ -55,7 +55,6 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode, enab
   const [isAnimating, setIsAnimating] = useState(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const animationIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const [imageLoaded, setImageLoaded] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
 
   const ensureAudioContext = () => {
@@ -180,16 +179,12 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode, enab
     setIsAnimating(false);
   };
 
-  // Handle image loading - reset and load new image when card changes
+  // Calculate image path when card changes
   useEffect(() => {
     if (!card.image) {
-      setImageLoaded(false);
       setImageSrc(null);
       return;
     }
-
-    // Reset loading state when card changes
-    setImageLoaded(false);
     
     // Calculate the full image path
     const imagePath = card.image;
@@ -210,17 +205,7 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode, enab
     }
 
     setImageSrc(fullPath);
-
-    // Preload the image and set loaded state when ready
-    const img = new Image();
-    img.onload = () => {
-      setImageLoaded(true);
-    };
-    img.onerror = () => {
-      // Even if image fails to load, show it anyway (might be a network issue)
-      setImageLoaded(true);
-    };
-    img.src = fullPath;
+    // Note: Images are preloaded at app startup, so they should be in cache already
   }, [card.image, card.id]);
 
   // Animate text letter by letter
@@ -493,22 +478,16 @@ const StoryCard: React.FC<StoryCardProps> = ({ card, onChoice, outcomeMode, enab
                   cursor: isDragging ? "grabbing" : "grab",
                 }}
               >
-                {card.image ? (
-                  imageSrc && imageLoaded ? (
-                    <img
-                      key={`${card.id}-${card.image}`}
-                      src={imageSrc}
-                      alt="Story scene"
-                      className="w-full h-full object-cover rounded-lg"
-                      draggable="false"
-                      onDragStart={(e) => e.preventDefault()}
-                      style={{ userSelect: 'none', pointerEvents: 'none' }}
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 rounded-lg flex items-center justify-center text-gray-500">
-                      <div className="animate-pulse">Loading...</div>
-                    </div>
-                  )
+                {card.image && imageSrc ? (
+                  <img
+                    key={`${card.id}-${card.image}`}
+                    src={imageSrc}
+                    alt="Story scene"
+                    className="w-full h-full object-cover rounded-lg"
+                    draggable="false"
+                    onDragStart={(e) => e.preventDefault()}
+                    style={{ userSelect: 'none', pointerEvents: 'none' }}
+                  />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 rounded-lg flex items-center justify-center text-gray-500">
                     [Image]
