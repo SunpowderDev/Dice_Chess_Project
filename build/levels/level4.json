@@ -150,7 +150,7 @@
     "king_captured": "Checkmate Pintus IX."
   },
   "displayedVictoryConditions": ["king_captured"],
-  "optionalObjectives": [
+ "optionalObjectives": [
     {
       "id": "swift_capture",
       "description": "Capture Pintus within {{maxTurns}} {{plural|maxTurns|turn|turns}}",
@@ -188,7 +188,7 @@
       "reward": 65,
       "rewardByDifficulty": {
         "easy": 69,
-        "hard": 69
+        "hard": 40
       }
     },
     {
@@ -207,8 +207,8 @@
       },
       "reward": 50,
       "rewardByDifficulty": {
-        "easy": 40,
-        "hard": 65
+        "easy": 25,
+        "hard": 25
       }
     },
     {
@@ -229,8 +229,8 @@
       },
       "reward": 45,
       "rewardByDifficulty": {
-        "easy": 35,
-        "hard": 55
+        "easy": 25,
+        "hard": 25
       }
     }
   ]

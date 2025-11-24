@@ -260,8 +260,8 @@
       },
       "reward": 50,
       "rewardByDifficulty": {
-        "easy": 50,
-        "hard": 50
+        "easy": 40,
+        "hard": 40
       }
     }
   ]
