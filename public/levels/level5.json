@@ -49,6 +49,17 @@
         "My **shadow** is eternal!",
         "**Sacrilege** is my armor!"
       ]
+    },
+    {
+      "type": "D",
+      "name": "Dracolich",
+      "equip": "skull",
+      "speechLines": [
+        "**Eteeernaaal",
+        "**Bone** and **shadow**",
+        "**Soouuls**",
+        "**Deeecaaay**"
+      ]
     }
   ],
   "storyCards": [

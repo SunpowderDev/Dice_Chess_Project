@@ -1,4 +1,4 @@
-export type PieceType = "K" | "Q" | "R" | "B" | "N" | "P";
+export type PieceType = "K" | "Q" | "R" | "B" | "N" | "P" | "D";
 export type Color = "w" | "b";
 export type PieceColor = Color | "n";
 

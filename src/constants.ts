@@ -4,7 +4,7 @@ export const B = "b" as const;
 export const N = "n" as const; // Neutral color for rocks
 export const RAD = 2;
 
-export const VAL = { Q: 80, R: 50, B: 30, N: 35, P: 10 } as const;
+export const VAL = { Q: 80, R: 50, B: 30, N: 35, P: 10, D: 95 } as const;
 
 export const PIECE_COSTS = {
   Q: 80,
@@ -13,6 +13,7 @@ export const PIECE_COSTS = {
   N: 35,
   P: 10,
   K: 0, // King cannot be purchased
+  D: 95, // Dragon - powerful black-only piece
 } as const;
 
 export const ITEM_COSTS = {
@@ -64,6 +65,7 @@ export const GL = {
   B: { w: "\u2657", b: "\u265D" }, // ♗♝
   N: { w: "\u2658", b: "\u265E" }, // ♘♞
   P: { w: "\u2659", b: "\u265F" }, // ♙♟ (black pawn glyph)
+  D: { w: "🐉", b: "🐉" }, // 🐉 Dragon (black-only piece)
   ROCK: { n: "🪨" },
   COURTIER: { n: "\u265F" }, // Courtier NPC (uses black pawn glyph, colored brown)
   COLUMN: { n: "🏛️" }, // Indestructible column
@@ -272,6 +274,7 @@ export const PIECE_DESCRIPTIONS = {
   B: "♗ Bishop: Moves any number of squares diagonally.",
   N: '♘ Knight: Moves in an "L" shape: two squares in a cardinal direction, then one square perpendicular.',
   P: "♙ Pawn: Moves one square forward. Captures one square diagonally forward.",
+  D: "🐉 Dragon: Moves like a Queen or Knight combined. Black-only unit.",
 };
 
 export const PIECE_NAMES = {
@@ -281,5 +284,6 @@ export const PIECE_NAMES = {
   B: "Bishop",
   N: "Knight",
   P: "Pawn",
+  D: "Dragon",
 } as const;
 

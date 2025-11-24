@@ -946,18 +946,88 @@ function build(
     back.push(...overflowPawns);
   }
   
-  const idx = Array.from({ length: boardSize }, (_, i) => i).sort(
-    () => r() - 0.5
-  );
-  back.forEach((p, i) => {
-    br[idx[i]] = p;
-  });
+  // For black (enemy), prioritize clustering pieces around the King for protection
+  const kingPiece = back.find(p => p && p.type === "K");
+  const nonKingPieces = back.filter(p => p && p.type !== "K");
+  
+  if (kingPiece && color === "b") {
+    // Check for obstacles blocking positions
+    const blockedPositions = new Set<number>();
+    if (board && backRankRow !== undefined && obstacles) {
+      for (let x = 0; x < boardSize; x++) {
+        const hasObstacle = obstacles[backRankRow]?.[x] && obstacles[backRankRow][x] !== "none";
+        const hasPiece = board[backRankRow]?.[x] !== null && board[backRankRow]?.[x] !== undefined;
+        if (hasObstacle || hasPiece) {
+          blockedPositions.add(x);
+        }
+      }
+    }
+    
+    // Get valid positions and place King randomly first
+    const validPositions = Array.from({ length: boardSize }, (_, i) => i)
+      .filter(x => !blockedPositions.has(x));
+    
+    const shuffledValidPositions = [...validPositions].sort(() => r() - 0.5);
+    const kingPosition = shuffledValidPositions[0];
+    br[kingPosition] = kingPiece;
+    
+    // Now place other pieces prioritizing positions adjacent to the King
+    const remainingPositions = shuffledValidPositions.slice(1);
+    
+    // Sort remaining positions by distance to King (closer positions first)
+    const positionsByProximity = remainingPositions.map(x => ({
+      position: x,
+      distance: Math.abs(x - kingPosition)
+    })).sort((a, b) => {
+      // Primary sort: by distance (closer to King = higher priority)
+      if (a.distance !== b.distance) {
+        return a.distance - b.distance;
+      }
+      // Secondary sort: random for positions at same distance
+      return r() - 0.5;
+    });
+    
+    // Place pieces in order of proximity to King
+    nonKingPieces.forEach((p, i) => {
+      if (i < positionsByProximity.length) {
+        br[positionsByProximity[i].position] = p;
+      }
+    });
+  } else {
+    // Original behavior for white (player) or when no King present
+    const idx = Array.from({ length: boardSize }, (_, i) => i).sort(
+      () => r() - 0.5
+    );
+    back.forEach((p, i) => {
+      br[idx[i]] = p;
+    });
+  }
 
   // Step 6: Create front rank with named pawns FIRST (priority), then generated pawns
   const fr = Array(boardSize).fill(null) as (Piece | null)[];
-  const slots = Array.from({ length: boardSize }, (_, i) => i).sort(
-    () => r() - 0.5
-  );
+  
+  // For black (enemy), prioritize placing pawns in front of King for protection
+  let slots: number[];
+  if (color === "b" && kingPiece) {
+    // Find where the King was placed in back rank
+    const kingPosition = br.findIndex(p => p && p.type === "K");
+    
+    if (kingPosition !== -1) {
+      // Create slots array with King's column prioritized
+      const otherSlots = Array.from({ length: boardSize }, (_, i) => i)
+        .filter(i => i !== kingPosition)
+        .sort(() => r() - 0.5);
+      
+      // Place King's column first, then other slots randomly
+      slots = [kingPosition, ...otherSlots];
+    } else {
+      // Fallback to random if King position not found
+      slots = Array.from({ length: boardSize }, (_, i) => i).sort(() => r() - 0.5);
+    }
+  } else {
+    // Original random behavior for white (player)
+    slots = Array.from({ length: boardSize }, (_, i) => i).sort(() => r() - 0.5);
+  }
 
   // Calculate equipment budget - use equipmentGold if provided, otherwise use a default allocation
   const equipmentBudget = equipmentGold ?? (isPlayer ? 20 : 40); // Default: 20 for player, 40 for enemy
@@ -1527,6 +1597,37 @@ function moves(
           if ((t && t.color !== col) || (diagObstacle !== "none")) out.push({ x: cx, y: cy });
         }
       }
+      break;
+    case "D":
+      // Dragon: Moves like Queen + Knight combined
+      // Queen moves (sliding in all directions)
+      slide(1, 0);
+      slide(-1, 0);
+      slide(0, 1);
+      slide(0, -1);
+      slide(1, 1);
+      slide(-1, -1);
+      slide(1, -1);
+      slide(-1, 1);
+      // Knight moves (L-shaped jumps)
+      [
+        [1, 2],
+        [2, 1],
+        [-1, 2],
+        [-2, 1],
+        [1, -2],
+        [2, -1],
+        [-1, -2],
+        [-2, -1],
+      ].forEach(([dx, dy]) => {
+        const nx = x + dx,
+          ny = y + dy;
+        if (!inBounds(nx, ny, boardSize)) return;
+        const t = b[ny]?.[nx]; // Safe navigation
+        const obstacle = O[ny]?.[nx]; // Check for obstacles
+        // Can move to empty squares or attack enemies/obstacles
+        if (obstacle !== "none" || !t || t.color !== col) out.push({ x: nx, y: ny });
+      });
       break;
   }
   // Lance: one-time 2-square forward attack, cannot jump.
