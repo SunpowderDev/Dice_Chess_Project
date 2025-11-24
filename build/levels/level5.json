@@ -91,7 +91,7 @@
         "overlayColor": "rgba(101, 67, 33, 0.85)"
       },
       "rightChoice": {
-        "text": "...or fight a **shadow** that won't fall!",
+        "text": "...or fight a shadow that won't fall!",
         "events": [
           { "type": "next_card", "cardId": "level5-Morcant" }
         ],
@@ -135,9 +135,9 @@
     }
   ],
   "availableItems": {
-    "blackRandomization": ["shield", "sword", "bow", "skull", "staff", "scythe", "lance"],
+    "blackRandomization": ["shield", "bow", "skull", "staff", "scythe", "lance"],
     "whiteRandomization": [],
-    "whitePurchase": ["shield", "sword", "bow", "torch", "banner", "disguise", "crystal_ball", "lance", "staff", "scythe", "curse", "skull"]
+    "whitePurchase": []
   },
   "randomizationPieces": {
     "black": ["P", "B", "N", "R", "Q"],

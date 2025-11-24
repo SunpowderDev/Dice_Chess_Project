@@ -339,34 +339,34 @@ body {
   width: 74px;
   height: 74px;
   border-radius: 9999px;
-  box-shadow: 0 0 0 0px rgba(0, 0, 0, 0.3) inset;
+  box-shadow: none;
 }
-.cap {
+.ring.cap {
   box-shadow: 0 0 32px 8px rgba(34, 197, 94, 0.7),
-    0 0 0 4px rgba(34, 197, 94, 0.35) inset;
+    0 0 0 4px rgba(34, 197, 94, 0.35) inset !important;
   background: radial-gradient(
     circle,
     rgba(34, 197, 94, 0.22) 0 55%,
     transparent 60%
-  );
+  ) !important;
 }
-.sup {
+.ring.sup {
   box-shadow: 0 0 32px 8px rgba(59, 130, 246, 0.7),
-    0 0 0 4px rgba(59, 130, 246, 0.8) inset;
+    0 0 0 4px rgba(59, 130, 246, 0.8) inset !important;
   background: radial-gradient(
     circle,
     rgba(59, 130, 246, 0.22) 0 55%,
     transparent 60%
-  );
+  ) !important;
 }
-.warn {
+.ring.warn {
   box-shadow: 0 0 32px 8px rgba(249, 115, 22, 0.7),
-    0 0 0 4px rgba(249, 115, 22, 0.35) inset;
+    0 0 0 4px rgba(249, 115, 22, 0.35) inset !important;
   background: radial-gradient(
     circle,
     rgba(249, 115, 22, 0.22) 0 55%,
     transparent 60%
-  );
+  ) !important;
 }
 
 .supB {

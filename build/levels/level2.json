@@ -4,7 +4,7 @@
   "boardSize": 7,
   "startingGold": 100,
   "enemyPieceGold": 180,
-  "enemyEquipmentGold": 80,
+  "enemyEquipmentGold": 100,
   "enemyPawnBudget": 0.3,
   "playerPieceGold": 50,
   "playerEquipmentGold": 0,
