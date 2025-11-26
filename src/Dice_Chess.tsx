@@ -10122,7 +10122,6 @@ function handleLevelCompletion(
     setLastVictoryInfo(null);
     setMarketPoints(0);
     setShowVictoryDetails(false);
-    setUnspentGold(levelStartSnapshot.gold);
 
     loadLevelConfig(levelStartSnapshot.level).then((config) => {
       setCurrentLevelConfig(config);
@@ -10132,6 +10131,7 @@ function handleLevelCompletion(
           console.warn("Failed to preload some story card images:", err);
         });
       }
+      // Set campaign state and unspent gold together to ensure they update in sync
       setCampaign({
         level: levelStartSnapshot.level,
         whiteRoster: [...levelStartSnapshot.whiteRoster],
@@ -10142,6 +10142,7 @@ function handleLevelCompletion(
         tutorialsSeen: [...levelStartSnapshot.tutorialsSeen],
         difficulty: levelStartSnapshot.difficulty,
       });
+      setUnspentGold(levelStartSnapshot.gold);
       setSeed(new Date().toISOString() + "-retry");
     });
   };
